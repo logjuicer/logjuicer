@@ -23,8 +23,8 @@ failed log that doesn't fit the model. The model is constructed as follow:
 * Then vector are used in a nearest neighbor approximator called Locality Sensitive
   Hashing Forest (using **LSHForest**).
 
-In short, logreduce relies heavy line stripping with a bag-of-words technique and
-it uses the distance to known sentence to detect outliers.
+In short, logreduce relies heavily on line stripping with a bag-of-words
+technique and it uses the distance to known sentence to detect outliers.
 
 For example this input:
 

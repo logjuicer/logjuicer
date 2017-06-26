@@ -57,9 +57,6 @@ def usage():
     if not args.baseline and not args.load:
         print("baseline or load needs to be used")
         exit(1)
-    if not args.target and not args.save:
-        print("target or save needs to be used")
-        exit(1)
     return args
 
 
@@ -110,6 +107,10 @@ def main():
         clf.save(args.save)
         if not args.target:
             exit(0)
+
+    if not args.target:
+        log.error("No target found/specified")
+        exit(1)
 
     for idx in range(len(args.target)):
         # Decode jenkins target
