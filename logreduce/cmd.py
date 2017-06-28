@@ -17,13 +17,13 @@ import json
 import logging
 import pprint
 import os
+import time
 import yaml
-
-import numpy as np
 
 from logreduce.bagofwords import BagOfWords
 from logreduce.jenkins import Jenkins
 from logreduce.utils import Tokenizer
+from logreduce.html_output import render_html
 
 
 def usage():
@@ -33,7 +33,7 @@ def usage():
                    help="Print tokenization process")
 
     p.add_argument("--output-format", default="text",
-                   choices=["text", "json", "yaml", "pprint"])
+                   choices=["text", "json", "yaml", "pprint", "html"])
 
     p.add_argument("--save", metavar="FILE", help="Save the model")
     p.add_argument("--load", metavar="FILE", help="Load a previous model")
@@ -76,6 +76,7 @@ def setup_logging(debug=False, debug_token=False):
 
 
 def main():
+    start_time = time.time()
     args = usage()
     log = setup_logging(args.debug, args.debug_token)
     jenkins = Jenkins(args.jenkins_url, args.fetch_artifacts)
@@ -132,10 +133,12 @@ def main():
         output['files'][filename] = {
             'source_files': source_files,
             'chunks': [],
-            'scores': []
+            'scores': [],
+            'line_pos': [],
         }
         current_chunk = []
         current_score = []
+        current_pos = []
         last_pos = None
         log.debug("%s: compared with %s" % (filename, " ".join(source_files)))
 
@@ -143,9 +146,11 @@ def main():
             if last_pos and pos - last_pos != 1:
                 # New chunk
                 output['files'][filename]["chunks"].append("\n".join(current_chunk))
-                output['files'][filename]["scores"].append(float(np.mean(current_score)))
+                output['files'][filename]["scores"].append(list(map(float, current_score)))
+                output['files'][filename]["line_pos"].append(current_pos)
                 current_chunk = []
                 current_score = []
+                current_pos = []
                 if last_pos and args.output_format == "text":
                     print()
 
@@ -157,6 +162,7 @@ def main():
                 line = line.replace(r'\t', '\t')
                 current_score.append(distance)
                 current_chunk.append(line)
+                current_pos.append(pos)
                 if args.output_format == "text":
                     print("%1.3f | %s:%04d:\t%s" % (distance,
                                                     filename,
@@ -166,20 +172,27 @@ def main():
             last_pos = pos
         if current_chunk:
             output['files'][filename]["chunks"].append("\n".join(current_chunk))
-            output['files'][filename]["scores"].append(float(np.mean(current_score)))
+            output['files'][filename]["scores"].append(list(map(float, current_score)))
+            output['files'][filename]["line_pos"].append(current_pos)
     output["training_lines_count"] = clf.training_lines_count
     output["testing_lines_count"] = clf.testing_lines_count
     output["outlier_lines_count"] = clf.outlier_lines_count
+    output["reduction"] = 100 - (output["outlier_lines_count"] / output["testing_lines_count"]) * 100
+    output["total_time"] = time.time() - start_time
+    output["baseline"] = args.baseline
+    output["target"] = args.target
 
     if args.output_format == "pprint":
         pprint.pprint(output)
     elif args.output_format == "json":
         print(json.dumps(output))
+    elif args.output_format == "html":
+        print(render_html(output))
     elif args.output_format == "yaml":
         print(yaml.safe_dump(output, default_flow_style=False))
     elif args.output_format == "text":
         log.info("%02.2f%% reduction (from %d lines to %d)" % (
-            100 - (output["outlier_lines_count"] / output["testing_lines_count"]) * 100,
+            output["reduction"],
             output["testing_lines_count"],
             output["outlier_lines_count"]
         ))

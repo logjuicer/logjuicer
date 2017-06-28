@@ -256,7 +256,6 @@ Roadmap/todo
 * Add travis/github support to target a pull request directly
 * Support automatic log analysis and reporting when a job failed,
   e.g. through jenkins publisher or zuul post jobs.
-* Add html output
 * Add tarball traversal in utils.files_iterator
 * Improve tokenization tests
 * Discard files that are 100% anomalous
