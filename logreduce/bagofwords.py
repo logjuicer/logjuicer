@@ -30,9 +30,11 @@ class BagOfWords:
         self.max_distance = float(max_distance)
         self.use_idf = use_idf
         self.debug_token = bool(debug_token)
+        self.training_lines_count = 0
 
     def get(self, bagname):
         return self.bags.setdefault(bagname, (
+            [], # source files
             CountVectorizer(analyzer='word', lowercase=False),
             TfidfTransformer(use_idf=self.use_idf),
             LSHForest(random_state=42),  # , n_neighbors=1, n_candidates=1,
@@ -52,7 +54,6 @@ class BagOfWords:
     def train(self, path):
         """Train the model"""
         start_time = time.time()
-        lines_count = 0
 
         # Group similar files for the same model
         to_train = {}
@@ -78,13 +79,14 @@ class BagOfWords:
                         # We need at least two words
                         train_data.append(line)
                     idx += 1
-                lines_count += idx
+                self.training_lines_count += idx
             if not train_data:
                 continue
 
             try:
                 # Transform and fit the model data
-                count_vect, tfidf_transformer, lshf = self.get(bag_name)
+                files, count_vect, tfidf_transformer, lshf = self.get(bag_name)
+                files.append(fileobj.name)
                 train_count = count_vect.fit_transform(train_data)
                 train_tfidf = tfidf_transformer.fit_transform(train_count)
                 lshf.fit(train_tfidf)
@@ -97,14 +99,16 @@ class BagOfWords:
                                                                    train_data))
                 del self.bags[bag_name]
         self.log.debug("Training took %.03f seconds to ingest %d lines" % (
-            time.time() - start_time, lines_count))
+            time.time() - start_time, self.training_lines_count))
+        return self.training_lines_count
 
 
 #    @profile
     def test(self, path, merge_distance, context_length):
         """Return outliers"""
         start_time = time.time()
-        lines_count = 0
+        self.testing_lines_count = 0
+        self.outlier_lines_count = 0
 
         for filename, fileobj in files_iterator(path):
             # Get model name based on filename
@@ -132,13 +136,13 @@ class BagOfWords:
                     test_data.append(line)
                     test_data_pos.append(idx)
                 idx += 1
-            lines_count += idx
+            self.testing_lines_count += idx
             if not test_data:
                 self.log.warning("%s: not valid lines" % filename)
                 continue
 
             # Transform and compute distance from the model
-            count_vect, tfidf_transformer, lshf = self.bags[bag_name]
+            files, count_vect, tfidf_transformer, lshf = self.bags[bag_name]
             test_count = count_vect.transform(test_data)
             test_tfidf = tfidf_transformer.transform(test_count)
             distances, _ = lshf.kneighbors(test_tfidf, n_neighbors=1)
@@ -157,12 +161,13 @@ class BagOfWords:
                         last_outlier = max(line_pos - 1 - context_length, -1)
                     for prev_pos in range(last_outlier + 1, line_pos):
                         outliers.append((prev_pos, 0, data[prev_pos]))
+                        self.outlier_lines_count += 1
                     last_outlier = line_pos
 
                     outliers.append((line_pos, distances[idx], data[line_pos]))
                 idx += 1
 
             # Yield result
-            yield (filename, outliers)
+            yield (filename, files, outliers)
         self.log.debug("Testing took %.03f seconds to test %d lines" % (
-            time.time() - start_time, lines_count))
+            time.time() - start_time, self.testing_lines_count))

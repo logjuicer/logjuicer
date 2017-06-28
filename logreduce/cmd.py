@@ -122,22 +122,25 @@ def main():
                 job_nr = jenkins.get_last_failed_nr(job_name)
             args.target[idx] = jenkins.get_logs(job_name, job_nr)
 
-    output = {}
-    for filename, outliers in clf.test(args.target, args.merge_distance,
-                                       args.context_length):
-        output[filename] = {
+    output = {'files': {}}
+    for filename, source_files, outliers in clf.test(args.target,
+                                                     args.merge_distance,
+                                                     args.context_length):
+        output['files'][filename] = {
+            'source_files': source_files,
             'chunks': [],
             'scores': []
         }
         current_chunk = []
         current_score = []
         last_pos = None
+        log.debug("%s: compared with %s" % (filename, " ".join(source_files)))
 
         for pos, distance, outlier in outliers:
             if last_pos and pos - last_pos != 1:
                 # New chunk
-                output[filename]["chunks"].append("\n".join(current_chunk))
-                output[filename]["scores"].append(float(np.mean(current_score)))
+                output['files'][filename]["chunks"].append("\n".join(current_chunk))
+                output['files'][filename]["scores"].append(float(np.mean(current_score)))
                 current_chunk = []
                 current_score = []
                 if last_pos and args.output_format == "text":
@@ -159,8 +162,11 @@ def main():
 
             last_pos = pos
         if current_chunk:
-            output[filename]["chunks"].append("\n".join(current_chunk))
-            output[filename]["scores"].append(float(np.mean(current_score)))
+            output['files'][filename]["chunks"].append("\n".join(current_chunk))
+            output['files'][filename]["scores"].append(float(np.mean(current_score)))
+    output["training_lines_count"] = clf.training_lines_count
+    output["testing_lines_count"] = clf.testing_lines_count
+    output["outlier_lines_count"] = clf.outlier_lines_count
 
     if args.output_format == "pprint":
         pprint.pprint(output)
@@ -168,7 +174,13 @@ def main():
         print(json.dumps(output))
     elif args.output_format == "yaml":
         print(yaml.safe_dump(output, default_flow_style=False))
-    elif args.output_format != "text":
+    elif args.output_format == "text":
+        log.info("%02.2f%% reduction (from %d lines to %d)" % (
+            100 - (output["outlier_lines_count"] / output["testing_lines_count"]) * 100,
+            output["testing_lines_count"],
+            output["outlier_lines_count"]
+        ))
+    else:
         raise RuntimeError("%s: unknown output-format" % args.output_format)
 
 
