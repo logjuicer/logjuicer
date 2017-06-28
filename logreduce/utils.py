@@ -49,7 +49,7 @@ BLACKLIST_EXTENSIONS = (
 DAYS="sunday|monday|tuesday|wednesday|thursday|friday|saturday"
 MONTHS="january|february|march|april|may|june|july|august|september|october|" \
        "november|december"
-RANDOM_PREFIXES=r'tmp|br|tap|req-|ns-|ansible_|0x|a[0-9]+='
+RANDOM_PREFIXES=r'tmp|br|tap|req-|ns-|ansible_|dib_build\.|0x|a[0-9]+='
 MIXED_ALPHA_DIGITS_WORDS=r'[a-z0-9+]*[0-9][a-z0-9\/+]*'
 
 DEBUG_TOKEN=False
