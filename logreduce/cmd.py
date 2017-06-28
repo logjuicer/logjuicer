@@ -48,8 +48,10 @@ def usage():
 
     p.add_argument("--merge-distance", default=5, type=int,
                    help="Distance between chunks to merge in a continuous one")
-    p.add_argument("--context-length", default=3, type=int,
+    p.add_argument("--before-context", default=3, type=int,
                    help="Amount of lines to include before the anomaly")
+    p.add_argument("--after-context", default=1, type=int,
+                   help="Amount of lines to include after the anomaly")
 
     p.add_argument("--baseline", metavar="LOG", help="A success log")
     p.add_argument("target", nargs='*', help="The log to reduce")
@@ -125,7 +127,8 @@ def main():
     output = {'files': {}}
     for filename, source_files, outliers in clf.test(args.target,
                                                      args.merge_distance,
-                                                     args.context_length):
+                                                     args.before_context,
+                                                     args.after_context):
         output['files'][filename] = {
             'source_files': source_files,
             'chunks': [],

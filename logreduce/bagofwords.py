@@ -104,7 +104,7 @@ class BagOfWords:
 
 
 #    @profile
-    def test(self, path, merge_distance, context_length):
+    def test(self, path, merge_distance, before_context, after_context):
         """Return outliers"""
         start_time = time.time()
         self.testing_lines_count = 0
@@ -150,21 +150,26 @@ class BagOfWords:
             # Store (line_pos, distance, line) in outliers
             outliers = []
             last_outlier = 0
+            remaining_after_context = 0
             idx = 0
             while idx < len(test_data):
+                line_pos = test_data_pos[idx]
                 if distances[idx] >= self.max_distance:
-                    line_pos = test_data_pos[idx]
 
                     # Add context
                     if line_pos - last_outlier >= merge_distance:
                         # Add previous line when too far apart
-                        last_outlier = max(line_pos - 1 - context_length, -1)
+                        last_outlier = max(line_pos - 1 - before_context, -1)
                     for prev_pos in range(last_outlier + 1, line_pos):
                         outliers.append((prev_pos, 0, data[prev_pos]))
                         self.outlier_lines_count += 1
                     last_outlier = line_pos
 
                     outliers.append((line_pos, distances[idx], data[line_pos]))
+                    remaining_after_context = after_context
+                elif remaining_after_context > 0:
+                    outliers.append((line_pos, distances[idx], data[line_pos]))
+                    remaining_after_context -= 1
                 idx += 1
 
             # Yield result
