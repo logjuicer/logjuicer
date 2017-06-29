@@ -143,10 +143,11 @@ def main():
         log.debug("%s: compared with %s" % (filename, " ".join(source_files)))
 
         for pos, distance, outlier in outliers:
+            distance = abs(float(distance))
             if last_pos and pos - last_pos != 1:
                 # New chunk
                 output['files'][filename]["chunks"].append("\n".join(current_chunk))
-                output['files'][filename]["scores"].append(list(map(float, current_score)))
+                output['files'][filename]["scores"].append(current_score)
                 output['files'][filename]["line_pos"].append(current_pos)
                 current_chunk = []
                 current_score = []
@@ -172,7 +173,7 @@ def main():
             last_pos = pos
         if current_chunk:
             output['files'][filename]["chunks"].append("\n".join(current_chunk))
-            output['files'][filename]["scores"].append(list(map(float, current_score)))
+            output['files'][filename]["scores"].append(current_score)
             output['files'][filename]["line_pos"].append(current_pos)
     output["training_lines_count"] = clf.training_lines_count
     output["testing_lines_count"] = clf.testing_lines_count

@@ -62,12 +62,15 @@ class Tokenizer:
                              r'|%s' % RANDOM_PREFIXES +
                              r'|%s' % MIXED_ALPHA_DIGITS_WORDS +
                              r')[^\s\/]*', re.I)
+    comments = re.compile(r'[\s]*# .*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
 
     @staticmethod
     def process(line):
         """Extract interesing part"""
         strip = line
+        # Remove comments
+        strip = Tokenizer.comments.subn(" ", strip)[0]
         # Remove known random word
         strip = Tokenizer.randword_re.subn(" ", strip)[0]
         # Only keep characters

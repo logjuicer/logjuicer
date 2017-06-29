@@ -171,6 +171,7 @@ class BagOfWords:
                 elif remaining_after_context > 0:
                     outliers.append((line_pos, distances[idx], data[line_pos]))
                     remaining_after_context -= 1
+                    last_outlier = line_pos
                 idx += 1
 
             # Yield result
