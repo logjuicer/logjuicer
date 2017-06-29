@@ -54,7 +54,7 @@ class Jenkins:
         if artifact_url.startswith("http") and "artifact" in artifact_url:
             cmd = [
                 "lftp", "-c", "mirror", "-c",
-                "-X", "*.html", "-X", "*.rpm",
+                "-X", "index.html", "-X", "*.rpm",
                 "-x", "ara", "-x", "ara-report",
                 artifact_url, "%s/" % dpath
             ]

@@ -86,7 +86,8 @@ class BagOfWords:
             try:
                 # Transform and fit the model data
                 files, count_vect, tfidf_transformer, lshf = self.get(bag_name)
-                files.append(fileobj.name)
+                for fileobj in fileobjs:
+                    files.append(fileobj.name)
                 train_count = count_vect.fit_transform(train_data)
                 train_tfidf = tfidf_transformer.fit_transform(train_count)
                 lshf.fit(train_tfidf)

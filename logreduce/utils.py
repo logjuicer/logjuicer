@@ -86,10 +86,15 @@ class Tokenizer:
         shortfilename = os.path.join(
             os.path.basename(os.path.dirname(filename)),
             os.path.basename(filename).split('.')[0])
+        shortfilename = Tokenizer.randword_re.subn("", shortfilename)[0]
         # Detect jenkins jobs in path
         # For example: jenkins/jobs/config-update/42/log -> config-update/log
         if "/jobs/" in filename:
             job_name = filename.split('/jobs/')[-1].split('/')[0]
+            shortfilename = os.path.join(job_name, shortfilename)
+        # Detect results in path
+        if "/results/" in filename:
+            job_name = filename.split('results/')[-1].split('/')[0]
             shortfilename = os.path.join(job_name, shortfilename)
         # Append relevant extensions
         for ext in (".conf", ".audit", ".txt", ".yaml", ".orig", ".log",
