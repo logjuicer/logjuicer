@@ -100,13 +100,12 @@ Full usage:
 
 .. code-block:: console
 
-  $ logreduce --help
-  usage: logreduce [-h] [--debug] [--debug-token]
-                   [--output-format {text,json,yaml,pprint}] [--save FILE]
-                   [--load FILE] [--jenkins-url JENKINS_URL]
-                   [--max-distance MAX_DISTANCE]
-                   [--merge-distance MERGE_DISTANCE]
-                   [--context-length CONTEXT_LENGTH] [--baseline LOG]
+  $ usage: logreduce [-h] [--debug] [--debug-token]
+                   [--output-format {text,json,yaml,pprint,html}] [--save FILE]
+                   [--load FILE] [--jenkins-url JENKINS_URL] [--fetch-artifacts]
+                   [--threshold THRESHOLD] [--merge-distance MERGE_DISTANCE]
+                   [--before-context BEFORE_CONTEXT]
+                   [--after-context AFTER_CONTEXT] [--baseline LOG]
                    [target [target ...]]
 
   positional arguments:
@@ -116,18 +115,21 @@ Full usage:
     -h, --help            show this help message and exit
     --debug               Print debug
     --debug-token         Print tokenization process
-    --output-format {text,json,yaml,pprint}
+    --output-format {text,json,yaml,pprint,html}
     --save FILE           Save the model
     --load FILE           Load a previous model
     --jenkins-url JENKINS_URL
                           Target a custom Jenkins service
-    --max-distance MAX_DISTANCE
+    --fetch-artifacts     Fetch zuul-swift-upload artifacts (needs lftp)
+    --threshold THRESHOLD
                           Outlier distance threshold, set to 0.0 to display all
-                          log, 1.0 to only display obvious anomalies
+                          log, 1.0 to only display clear anomalies
     --merge-distance MERGE_DISTANCE
                           Distance between chunks to merge in a continuous one
-    --context-length CONTEXT_LENGTH
+    --before-context BEFORE_CONTEXT
                           Amount of lines to include before the anomaly
+    --after-context AFTER_CONTEXT
+                          Amount of lines to include after the anomaly
     --baseline LOG        A success log
 
 
