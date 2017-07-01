@@ -22,7 +22,6 @@ import yaml
 
 from logreduce.bagofwords import BagOfWords
 from logreduce.jenkins import Jenkins
-from logreduce.utils import Tokenizer
 from logreduce.html_output import render_html
 
 
@@ -42,9 +41,9 @@ def usage():
     p.add_argument("--fetch-artifacts", action="store_true",
                    help="Fetch zuul-swift-upload artifacts (needs lftp)")
 
-    p.add_argument("--max-distance", default=0.2, type=float,
+    p.add_argument("--threshold", default=0.2, type=float,
                    help="Outlier distance threshold, set to 0.0 to display "
-                        "all log, 1.0 to only display obvious anomalies")
+                        "all log, 1.0 to only display clear anomalies")
 
     p.add_argument("--merge-distance", default=5, type=int,
                    help="Distance between chunks to merge in a continuous one")
@@ -83,7 +82,7 @@ def main():
     if args.load:
         clf = BagOfWords.load(args.load)
     else:
-        clf = BagOfWords(args.max_distance, args.debug_token)
+        clf = BagOfWords(args.threshold, args.debug_token)
 
     if args.baseline:
         # Auto-target .fail file if baseline is a .good file
@@ -157,9 +156,6 @@ def main():
 
             # Clean ansible one-liner outputs
             for line in outlier[:-1].split(r'\n'):
-                # Clear lines without content
-                if len(Tokenizer.process(line)) < 5:
-                    continue
                 line = line.replace(r'\t', '\t')
                 current_score.append(distance)
                 current_chunk.append(line)

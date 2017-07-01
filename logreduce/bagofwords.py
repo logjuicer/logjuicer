@@ -11,6 +11,7 @@
 # under the License.
 
 import logging
+import os
 import time
 
 from sklearn.externals import joblib
@@ -22,23 +23,28 @@ from logreduce.utils import files_iterator
 from logreduce.utils import Tokenizer
 
 
+# Parameters
+RANDOM_STATE=int(os.environ.get("LR_RANDOM_STATE", 42))
+USE_IDF=bool(int(os.environ.get("LR_USE_IDF", 1)))
+N_ESTIMATORS=int(os.environ.get("LR_N_ESTIMATORS", 23))
+
+
 class BagOfWords:
     log = logging.getLogger("BagOfWords")
 
-    def __init__(self, max_distance, debug_token, use_idf=True):
+    def __init__(self, threshold, debug_token):
         self.bags = {}
-        self.max_distance = float(max_distance)
-        self.use_idf = use_idf
+        self.threshold = float(threshold)
         self.debug_token = bool(debug_token)
         self.training_lines_count = 0
 
     def get(self, bagname):
         return self.bags.setdefault(bagname, (
             [], # source files
-            CountVectorizer(analyzer='word', lowercase=False),
-            TfidfTransformer(use_idf=self.use_idf),
-            LSHForest(random_state=42),  # , n_neighbors=1, n_candidates=1,
-            # radius=self.max_distance)
+            CountVectorizer(analyzer='word', lowercase=False, tokenizer=None,
+                            preprocessor=None, stop_words=None),
+            TfidfTransformer(use_idf=USE_IDF),
+            LSHForest(random_state=RANDOM_STATE, n_estimators=N_ESTIMATORS),
         ))
 
     def save(self, fileobj):
@@ -99,8 +105,10 @@ class BagOfWords:
                 self.log.exception("%s: couldn't train with %s" % (bag_name,
                                                                    train_data))
                 del self.bags[bag_name]
-        self.log.debug("Training took %.03f seconds to ingest %d lines" % (
-            time.time() - start_time, self.training_lines_count))
+        end_time = time.time()
+        train_speed = self.training_lines_count / (end_time - start_time)
+        self.log.debug("Training took %.03f seconds to ingest %d lines (%.03f kl/s)" % (
+            end_time - start_time, self.training_lines_count, train_speed / 1000))
         return self.training_lines_count
 
 
@@ -124,12 +132,12 @@ class BagOfWords:
             except:
                 self.log.exception("%s: couldn't read" % fileobj.name)
                 continue
-            idx = 0
 
             # Store file line number in test_data_pos
             test_data_pos = []
             # Tokenize and store all lines in test_data
             test_data = []
+            idx = 0
             while idx < len(data):
                 line = Tokenizer.process(data[idx][:-1])
                 if ' ' in line:
@@ -148,33 +156,43 @@ class BagOfWords:
             test_tfidf = tfidf_transformer.transform(test_count)
             distances, _ = lshf.kneighbors(test_tfidf, n_neighbors=1)
 
+            def get_line_info(line_pos):
+                try:
+                    distance = distances[test_data_pos.index(line_pos)]
+                except ValueError:
+                    # Line wasn't in test data
+                    distance = 0.0
+                return (line_pos, distance, data[line_pos])
+
             # Store (line_pos, distance, line) in outliers
             outliers = []
             last_outlier = 0
             remaining_after_context = 0
-            idx = 0
-            while idx < len(test_data):
-                line_pos = test_data_pos[idx]
-                if distances[idx] >= self.max_distance:
-
-                    # Add context
+            line_pos = 0
+            while line_pos < len(data):
+                line_pos, distance, line = get_line_info(line_pos)
+                if distance >= self.threshold:
                     if line_pos - last_outlier >= merge_distance:
-                        # Add previous line when too far apart
+                        # When last outlier is too far, set last_outlier to before_context
                         last_outlier = max(line_pos - 1 - before_context, -1)
+                    # Add previous context
                     for prev_pos in range(last_outlier + 1, line_pos):
-                        outliers.append((prev_pos, 0, data[prev_pos]))
-                        self.outlier_lines_count += 1
+                        outliers.append(get_line_info(prev_pos))
                     last_outlier = line_pos
 
-                    outliers.append((line_pos, distances[idx], data[line_pos]))
+                    outliers.append((line_pos, distance, line))
+                    self.outlier_lines_count += 1
                     remaining_after_context = after_context
                 elif remaining_after_context > 0:
-                    outliers.append((line_pos, distances[idx], data[line_pos]))
+                    outliers.append((line_pos, distance, line))
                     remaining_after_context -= 1
                     last_outlier = line_pos
-                idx += 1
+                line_pos += 1
 
             # Yield result
             yield (filename, files, outliers)
-        self.log.debug("Testing took %.03f seconds to test %d lines" % (
-            time.time() - start_time, self.testing_lines_count))
+
+        end_time = time.time()
+        test_speed = self.testing_lines_count / (end_time - start_time)
+        self.log.debug("Testing took %.03f seconds to test %d lines (%.03f kl/s)" % (
+            end_time - start_time, self.testing_lines_count, test_speed / 1000))

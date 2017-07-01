@@ -100,13 +100,12 @@ Full usage:
 
 .. code-block:: console
 
-  $ logreduce --help
-  usage: logreduce [-h] [--debug] [--debug-token]
-                   [--output-format {text,json,yaml,pprint}] [--save FILE]
-                   [--load FILE] [--jenkins-url JENKINS_URL]
-                   [--max-distance MAX_DISTANCE]
-                   [--merge-distance MERGE_DISTANCE]
-                   [--context-length CONTEXT_LENGTH] [--baseline LOG]
+  $ usage: logreduce [-h] [--debug] [--debug-token]
+                   [--output-format {text,json,yaml,pprint,html}] [--save FILE]
+                   [--load FILE] [--jenkins-url JENKINS_URL] [--fetch-artifacts]
+                   [--threshold THRESHOLD] [--merge-distance MERGE_DISTANCE]
+                   [--before-context BEFORE_CONTEXT]
+                   [--after-context AFTER_CONTEXT] [--baseline LOG]
                    [target [target ...]]
 
   positional arguments:
@@ -116,18 +115,21 @@ Full usage:
     -h, --help            show this help message and exit
     --debug               Print debug
     --debug-token         Print tokenization process
-    --output-format {text,json,yaml,pprint}
+    --output-format {text,json,yaml,pprint,html}
     --save FILE           Save the model
     --load FILE           Load a previous model
     --jenkins-url JENKINS_URL
                           Target a custom Jenkins service
-    --max-distance MAX_DISTANCE
+    --fetch-artifacts     Fetch zuul-swift-upload artifacts (needs lftp)
+    --threshold THRESHOLD
                           Outlier distance threshold, set to 0.0 to display all
-                          log, 1.0 to only display obvious anomalies
+                          log, 1.0 to only display clear anomalies
     --merge-distance MERGE_DISTANCE
                           Distance between chunks to merge in a continuous one
-    --context-length CONTEXT_LENGTH
+    --before-context BEFORE_CONTEXT
                           Amount of lines to include before the anomaly
+    --after-context AFTER_CONTEXT
+                          Amount of lines to include after the anomaly
     --baseline LOG        A success log
 
 
@@ -139,11 +141,11 @@ Examples
 
 * Look for anomalies in a flaky jenkins jobs. The DLRN-rpmbuild is used by
   different projects, thus the output varies even between successful jobs.
-  In this case we can uses the **--max-distance** parameter to reduces false-positive:
+  In this case we can uses the **--threshold** parameter to reduces false-positive:
 
 .. code-block:: console
 
-  $ logreduce --baseline jenkins:DLRN-rpmbuild --max-distance 0.4 --jenkins-url https://review.rdoproject.org/jenkins
+  $ logreduce --baseline jenkins:DLRN-rpmbuild --threshold 0.4 --jenkins-url https://review.rdoproject.org/jenkins
   [...]
   0.425 | DLRN-rpmbuild/12483/console:7530: 2017-06-24 13:36:02,886 INFO:dlrn-build:DEBUG: IOError: [Errno 2] No such file or directory: u'/builddir/build/BUILD/python-openstackclient-3.11.1.dev52/man/.doctrees/man/openstack.doctree'
   0.731 | DLRN-rpmbuild/12483/console:7535: 2017-06-24 13:36:02,950 INFO:dlrn-build:DEBUG: error: Bad exit status from /var/tmp/rpm-tmp.rhaVaW (%install)
@@ -156,7 +158,7 @@ Examples
 
   $ logreduce  --baseline jenkins:gate-weirdo-dlrn-master-puppet-scenario001:804 \
                           jenkins:gate-weirdo-dlrn-master-puppet-scenario001:805 \
-               --max-distance 0.7 --jenkins-url https://review.rdoproject.org/jenkins
+               --threshold 0.7 --jenkins-url https://review.rdoproject.org/jenkins
   [...]
   0.935 | scenario001/805/console:1460: AssertionError: From test "assert no delete metrics have the gabbilive policy" :
   0.813 | scenario001/805/console:1479:   "message": "The request you have made requires authentication.",
@@ -166,7 +168,7 @@ Examples
 
   $ logreduce  --baseline jenkins:gate-weirdo-dlrn-master-puppet-scenario001:804 \
                           jenkins:gate-weirdo-dlrn-master-puppet-scenario001:805 \
-               --max-distance 0.7 --jenkins-url https://review.rdoproject.org/jenkins \
+               --threshold 0.7 --jenkins-url https://review.rdoproject.org/jenkins \
 	       --fetch-artifacts
   [...]
   0.736 | scenario001/805/artifacts/artifacts/weirdo-project/logs/aodh/evaluator.txt.gz:0205:      2017-06-20 09:34:56.710 32167 ERROR aodh.evaluator.threshold EndpointNotFound: public endpoint for metering service in RegionOne region not found
@@ -217,7 +219,7 @@ Each tests case is composed of:
 
 .. code-block:: yaml
 
-  max-distance: float # set the distance threshold for the test
+  threshold: float # set the distance threshold for the test
   anomalies:
     - optional: bool  # to define minor anomalies not considered false positive
       lines: |        # the expected lines to be highlighted
