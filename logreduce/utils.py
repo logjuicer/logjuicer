@@ -101,6 +101,9 @@ class Tokenizer:
         if "/results/" in filename:
             job_name = filename.split('results/')[-1].split('/')[0]
             shortfilename = os.path.join(job_name, shortfilename)
+        if shortfilename == '':
+            # Reduction was too agressive, just keep the filename in this case
+            shortfilename = os.path.basename(filename).split('.')[0]
         # Append relevant extensions
         for ext in (".conf", ".audit", ".txt", ".yaml", ".orig", ".log",
                     ".xml"):
