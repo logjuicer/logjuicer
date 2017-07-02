@@ -122,7 +122,8 @@ def main():
                 job_name, job_nr = job_name.split(':')
             else:
                 job_nr = jenkins.get_last_failed_nr(job_name)
-            args.target[idx] = jenkins.get_logs(job_name, job_nr)
+            del args.target[idx]
+            args.target.extend(jenkins.get_logs(job_name, job_nr))
 
     output = {'files': {}}
     for filename, source_files, outliers in clf.test(args.target,

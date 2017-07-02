@@ -13,7 +13,7 @@
 import json
 import logging
 import os
-import subprocess
+import time
 
 from logreduce.utils import download
 from logreduce.utils import CACHE
@@ -28,7 +28,7 @@ class Jenkins:
 
     def _job_info(self, job_name):
         fpath = "%s/%s/json" % (CACHE, job_name)
-        if not os.path.exists(fpath):
+        if not os.path.exists(fpath) or (time.time() - os.stat(fpath).m_time) > 21600:
             download("%s/job/%s/api/json" % (self.url, job_name), fpath)
         return json.load(open(fpath))
 
@@ -40,25 +40,11 @@ class Jenkins:
 
     def get_logs(self, job_name, job_nr):
         url = "%s/job/%s/%s/consoleText" % (self.url, job_name, job_nr)
-        fpath = "%s/%s/%s/console" % (CACHE, job_name, job_nr)
-        self.log.info("Using %s (cached in %s)" % (url, fpath))
-        if not os.path.exists(fpath):
-            download(url, fpath)
-        if not self.artifacts:
-            return fpath
-        # Check for artifacts
-        dpath = "%s/%s/%s/artifacts" % (CACHE, job_name, job_nr)
-        if os.path.isdir(dpath) and os.listdir(dpath):
-            return os.path.dirname(dpath)
-        artifact_url = open(fpath).readlines()[-2][:-1]
-        if artifact_url.startswith("http") and "artifact" in artifact_url:
-            cmd = [
-                "lftp", "-c", "mirror", "-c",
-                "-X", "index.html", "-X", "*.rpm",
-                "-x", "ara", "-x", "ara-report",
-                artifact_url, "%s/" % dpath
-            ]
-            self.log.debug("Download artifacts using %s" % cmd)
-            subprocess.Popen(cmd).wait()
-            return os.path.dirname(dpath)
-        return fpath
+        logs = [url]
+        if self.artifacts:
+            # Check for artifacts
+            local_path = download(url)
+            artifacts_url = open(local_path).readlines()[-2][:-1]
+            if artifacts_url.startswith("http") and "artifact" in artifacts_url:
+                logs.append(artifacts_url)
+        return logs

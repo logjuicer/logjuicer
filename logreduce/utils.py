@@ -13,6 +13,8 @@
 import gzip
 import os
 import re
+import subprocess
+import sys
 import urllib.request
 
 CACHE = "/tmp/logs-cache"
@@ -108,21 +110,37 @@ class Tokenizer:
         return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
 
 
-def download(url, path):
-    """Download console logs to a file"""
-    try:
-        if not os.path.isdir(os.path.dirname(path)):
-            os.makedirs(os.path.dirname(path), 0o755)
-        with urllib.request.urlopen(url) as response:
-            with open(path, "w") as of:
-                of.write(response.read().decode('utf-8'))
-    except:
-        print("ERROR - Couldn't download %s to %s" % (url, path))
-        raise
+def download(url):
+    """Download helper"""
+    local_path = "%s/%s" % (CACHE, url.replace(
+        'https://', '').replace('http://', ''))
+    if url[-1] == "/":
+        if not os.path.isdir(local_path) or not os.listdir(local_path):
+            cmd = [
+                "lftp", "-c", "mirror", "-c",
+                "-X", "index.html", "-X", "*.rpm",
+                "-x", "ara", "-x", "ara-report",
+                url, local_path
+            ]
+            print("Running %s" % " ".join(cmd), file=sys.stderr)
+            if subprocess.Popen(cmd).wait():
+                raise RuntimeError("%s: Couldn't mirror" % url)
+    else:
+        if not os.path.isfile(local_path) or os.stat(local_path).st_size == 0:
+            if not os.path.isdir(os.path.dirname(local_path)):
+                os.makedirs(os.path.dirname(local_path), 0o755)
+            try:
+                with urllib.request.urlopen(url) as response:
+                    with open(local_path, "w") as of:
+                        of.write(response.read().decode('utf-8'))
+            except:
+                print("ERROR - Couldn't download %s to %s" % (url, local_path))
+                raise
+    return local_path
 
 
 def files_iterator(paths):
-    """Yield (path, file object)"""
+    """Yield (path, original uri, file object)"""
     def open_file(p):
         if p.endswith(".gz"):
             return gzip.open(p, mode='rt')
@@ -130,9 +148,17 @@ def files_iterator(paths):
 
     if not isinstance(paths, list):
         paths = [paths]
+    last_url = None
     for path in paths:
         if os.path.isfile(path):
-            yield (path, open_file(path))
+            yield (path, path, open_file(path))
+        elif path.startswith("http://") or path.startswith("https://"):
+            local_path = download(path)
+            if path[-1] == "/":
+                last_url = path
+                paths.append(local_path)
+            else:
+                yield (local_path, path, open_file(local_path))
         elif os.path.isdir(path):
             for dname, _, fnames in os.walk(path):
                 for fname in fnames:
@@ -145,6 +171,16 @@ def files_iterator(paths):
                     fpath = os.path.join(dname, fname)
                     if "/.git/" in fpath:
                         continue
-                    yield (fpath, open_file(fpath))
+                    if last_url:
+                        if last_url[-1] == "/":
+                            # Remove local directory tree
+                            rel_path = fpath[len(local_path):]
+                            path_orig = "%s%s" % (last_url, rel_path)
+                        else:
+                            path_orig = last_url
+                    else:
+                        path_orig = fpath
+                    yield (fpath, path_orig, open_file(fpath))
+            last_url = None
         else:
             raise RuntimeError("%s: unknown uri" % path)
