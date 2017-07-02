@@ -13,6 +13,7 @@
 import logging
 import os
 import time
+import warnings
 
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer
@@ -94,9 +95,12 @@ class BagOfWords:
                 files, count_vect, tfidf_transformer, lshf = self.get(bag_name)
                 for fileobj in fileobjs:
                     files.append(fileobj.name)
-                train_count = count_vect.fit_transform(train_data)
-                train_tfidf = tfidf_transformer.fit_transform(train_count)
-                lshf.fit(train_tfidf)
+
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    train_count = count_vect.fit_transform(train_data)
+                    train_tfidf = tfidf_transformer.fit_transform(train_count)
+                    lshf.fit(train_tfidf)
             except ValueError:
                 self.log.warning("%s: couldn't train with %s" % (bag_name,
                                                                  train_data))
@@ -152,9 +156,11 @@ class BagOfWords:
 
             # Transform and compute distance from the model
             files, count_vect, tfidf_transformer, lshf = self.bags[bag_name]
-            test_count = count_vect.transform(test_data)
-            test_tfidf = tfidf_transformer.transform(test_count)
-            distances, _ = lshf.kneighbors(test_tfidf, n_neighbors=1)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                test_count = count_vect.transform(test_data)
+                test_tfidf = tfidf_transformer.transform(test_count)
+                distances, _ = lshf.kneighbors(test_tfidf, n_neighbors=1)
 
             def get_line_info(line_pos):
                 try:
