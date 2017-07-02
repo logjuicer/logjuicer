@@ -64,7 +64,7 @@ class BagOfWords:
 
         # Group similar files for the same model
         to_train = {}
-        for filename, fileobj in files_iterator(path):
+        for filename, _, fileobj in files_iterator(path):
             bag_name = Tokenizer.filename2modelname(filename)
             to_train.setdefault(bag_name, []).append(fileobj)
 
@@ -123,11 +123,11 @@ class BagOfWords:
         self.testing_lines_count = 0
         self.outlier_lines_count = 0
 
-        for filename, fileobj in files_iterator(path):
+        for filename, filename_orig, fileobj in files_iterator(path):
             # Get model name based on filename
             bag_name = Tokenizer.filename2modelname(filename)
             if bag_name not in self.bags:
-                self.log.debug("Skipping unknown file %s" % filename)
+                self.log.debug("Skipping unknown file %s (%s)" % (filename, bag_name))
                 continue
             self.log.debug("%s: Testing %s" % (bag_name, filename))
 
@@ -196,7 +196,7 @@ class BagOfWords:
                 line_pos += 1
 
             # Yield result
-            yield (filename, files, outliers)
+            yield (filename_orig, files, outliers)
 
         end_time = time.time()
         test_speed = self.testing_lines_count / (end_time - start_time)
