@@ -113,7 +113,7 @@ class Tokenizer:
         return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
 
 
-def download(url):
+def download(url, expiry=None):
     """Download helper"""
     local_path = "%s/%s" % (CACHE, url.replace(
         'https://', '').replace('http://', ''))
@@ -129,7 +129,7 @@ def download(url):
             if subprocess.Popen(cmd).wait():
                 raise RuntimeError("%s: Couldn't mirror" % url)
     else:
-        if not os.path.isfile(local_path) or os.stat(local_path).st_size == 0:
+        if not os.path.isfile(local_path) or os.stat(local_path).st_size == 0 or (expiry and (time.time() - os.stat(fpath).st_mtime) > expiry):
             if not os.path.isdir(os.path.dirname(local_path)):
                 os.makedirs(os.path.dirname(local_path), 0o755)
             try:

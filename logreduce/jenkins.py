@@ -27,9 +27,7 @@ class Jenkins:
         self.artifacts = artifacts
 
     def _job_info(self, job_name):
-        fpath = "%s/%s/json" % (CACHE, job_name)
-        if not os.path.exists(fpath) or (time.time() - os.stat(fpath).m_time) > 21600:
-            download("%s/job/%s/api/json" % (self.url, job_name), fpath)
+        fpath = download("%s/job/%s/api/json" % (self.url, job_name), expiry=21600)
         return json.load(open(fpath))
 
     def get_last_success_nr(self, job_name):
