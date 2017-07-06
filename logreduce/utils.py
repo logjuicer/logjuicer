@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 
 CACHE = "/tmp/logs-cache"
@@ -129,7 +130,9 @@ def download(url, expiry=None):
             if subprocess.Popen(cmd).wait():
                 raise RuntimeError("%s: Couldn't mirror" % url)
     else:
-        if not os.path.isfile(local_path) or os.stat(local_path).st_size == 0 or (expiry and (time.time() - os.stat(fpath).st_mtime) > expiry):
+        if not os.path.isfile(local_path) or \
+           os.stat(local_path).st_size == 0 or \
+           (expiry and (time.time() - os.stat(local_path).st_mtime) > expiry):
             if not os.path.isdir(os.path.dirname(local_path)):
                 os.makedirs(os.path.dirname(local_path), 0o755)
             try:

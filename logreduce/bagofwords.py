@@ -124,11 +124,15 @@ class BagOfWords:
         self.outlier_lines_count = 0
 
         for filename, filename_orig, fileobj in files_iterator(path):
-            # Get model name based on filename
-            bag_name = Tokenizer.filename2modelname(filename)
-            if bag_name not in self.bags:
-                self.log.debug("Skipping unknown file %s (%s)" % (filename, bag_name))
-                continue
+            if len(self.bags) > 1:
+                # Get model name based on filename
+                bag_name = Tokenizer.filename2modelname(filename)
+                if bag_name not in self.bags:
+                    self.log.debug("Skipping unknown file %s (%s)" % (filename, bag_name))
+                    continue
+            else:
+                # Only one file was trained, use it's model
+                bag_name = list(self.bags.keys())[0]
             self.log.debug("%s: Testing %s" % (bag_name, filename))
 
             try:

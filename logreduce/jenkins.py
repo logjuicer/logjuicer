@@ -12,11 +12,8 @@
 
 import json
 import logging
-import os
-import time
 
 from logreduce.utils import download
-from logreduce.utils import CACHE
 
 
 class Jenkins:
@@ -27,7 +24,8 @@ class Jenkins:
         self.artifacts = artifacts
 
     def _job_info(self, job_name):
-        fpath = download("%s/job/%s/api/json" % (self.url, job_name), expiry=21600)
+        fpath = download("%s/job/%s/api/json" % (self.url, job_name),
+                         expiry=21600)
         return json.load(open(fpath))
 
     def get_last_success_nr(self, job_name):
