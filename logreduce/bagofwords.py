@@ -21,6 +21,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.neighbors import LSHForest
 
 from logreduce.utils import files_iterator
+from logreduce.utils import open_file
 from logreduce.utils import Tokenizer
 
 
@@ -65,18 +66,19 @@ class BagOfWords:
         to_train = {}
         for filename, _, fileobj in files_iterator(path):
             bag_name = Tokenizer.filename2modelname(filename)
-            to_train.setdefault(bag_name, []).append(fileobj)
+            to_train.setdefault(bag_name, []).append(filename)
+            fileobj.close()
 
         # Train each model
-        for bag_name, fileobjs in to_train.items():
+        for bag_name, filenames in to_train.items():
             # Tokenize and store all lines in train_data
             train_data = []
-            for fileobj in fileobjs:
-                self.log.debug("%s: Loading %s" % (bag_name, fileobj.name))
+            for filename in filenames:
+                self.log.debug("%s: Loading %s" % (bag_name, filename))
                 try:
-                    data = fileobj.readlines()
+                    data = open_file(filename).readlines()
                 except:
-                    self.log.exception("%s: couldn't read" % fileobj.name)
+                    self.log.exception("%s: couldn't read" % filename)
                     continue
                 idx = 0
                 while idx < len(data):
@@ -92,8 +94,8 @@ class BagOfWords:
             try:
                 # Transform and fit the model data
                 files, count_vect, tfidf_transformer, lshf = self.get(bag_name)
-                for fileobj in fileobjs:
-                    files.append(fileobj.name)
+                for filename in filenames:
+                    files.append(filename)
 
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")

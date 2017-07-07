@@ -164,15 +164,16 @@ def download(url, expiry=None):
     return local_path
 
 
+def open_file(p):
+    if p.endswith(".gz"):
+        # check if really gzip, logs.openstack.org return decompressed files
+        if open(p, 'rb').read(2) == b'\x1f\x8b':
+            return gzip.open(p, mode='rt')
+    return open(p)
+
+
 def files_iterator(paths):
     """Yield (path, original uri, file object)"""
-    def open_file(p):
-        if p.endswith(".gz"):
-            # check if really gzip, logs.openstack.org return decompressed files
-            if open(p, 'rb').read(2) == b'\x1f\x8b':
-                return gzip.open(p, mode='rt')
-        return open(p)
-
     if not isinstance(paths, list):
         paths = [paths]
     else:
