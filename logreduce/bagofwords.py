@@ -33,10 +33,9 @@ N_ESTIMATORS=int(os.environ.get("LR_N_ESTIMATORS", 23))
 class BagOfWords:
     log = logging.getLogger("BagOfWords")
 
-    def __init__(self, threshold, debug_token):
+    def __init__(self, threshold):
         self.bags = {}
         self.threshold = float(threshold)
-        self.debug_token = bool(debug_token)
         self.training_lines_count = 0
 
     def get(self, bagname):

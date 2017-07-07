@@ -100,7 +100,8 @@ Full usage:
 
 .. code-block:: console
 
-  $ usage: logreduce [-h] [--debug] [--debug-token]
+  $ usage: logreduce [-h] [--debug] [--debug-token] [--update-cache]
+                   [--ignore-file IGNORE_FILE [IGNORE_FILE ...]]
                    [--output-format {text,json,yaml,pprint,html}] [--save FILE]
                    [--load FILE] [--jenkins-url JENKINS_URL] [--fetch-artifacts]
                    [--threshold THRESHOLD] [--merge-distance MERGE_DISTANCE]
@@ -109,12 +110,14 @@ Full usage:
                    [target [target ...]]
 
   positional arguments:
-    target                The log to reduce
+    target                Failed logs
 
   optional arguments:
     -h, --help            show this help message and exit
     --debug               Print debug
     --debug-token         Print tokenization process
+    --update-cache        Force re-download
+    --ignore-file IGNORE_FILE [IGNORE_FILE ...]
     --output-format {text,json,yaml,pprint,html}
     --save FILE           Save the model
     --load FILE           Load a previous model
@@ -130,7 +133,7 @@ Full usage:
                           Amount of lines to include before the anomaly
     --after-context AFTER_CONTEXT
                           Amount of lines to include after the anomaly
-    --baseline LOG        A success log
+    --baseline LOG        Success logs
 
 
 See bellow for some examples

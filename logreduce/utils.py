@@ -14,9 +14,12 @@ import gzip
 import os
 import re
 import subprocess
-import sys
 import time
 import urllib.request
+import logging
+
+
+log = logging.getLogger("logreduce.utils")
 
 CACHE = "/tmp/logs-cache"
 
@@ -47,6 +50,10 @@ BLACKLIST_EXTENSIONS = (
     ".pyc",
     ".pyo",
 )
+IGNORE_FILES = [
+    "*.rpm",
+    "index.html",
+]
 
 
 DAYS="sunday|monday|tuesday|wednesday|thursday|friday|saturday"
@@ -56,6 +63,7 @@ RANDOM_PREFIXES=r'tmp|br|tap|req-|ns-|ansible_|dib_build\.|0x|a[0-9]+='
 MIXED_ALPHA_DIGITS_WORDS=r'[a-z0-9+]*[0-9][a-z0-9\/+]*'
 
 DEBUG_TOKEN=False
+UPDATE_CACHE=False
 
 
 class Tokenizer:
@@ -118,27 +126,38 @@ def download(url, expiry=None):
     """Download helper"""
     local_path = "%s/%s" % (CACHE, url.replace(
         'https://', '').replace('http://', ''))
+    if not os.path.isdir(os.path.dirname(local_path.rstrip('/'))):
+        os.makedirs(os.path.dirname(local_path.rstrip('/')), 0o755)
     if url[-1] == "/":
-        if not os.path.isdir(local_path) or not os.listdir(local_path):
-            cmd = [
-                "lftp", "-c", "mirror", "-c",
+        if not os.path.isdir(local_path) or not os.listdir(local_path) or UPDATE_CACHE:
+            cmd = ["lftp", "-c", "mirror", "-c"]
+            for ign in IGNORE_FILES:
+                cmd.extend(["-X", ign])
+            cmd.extend([
                 "-X", "index.html", "-X", "*.rpm",
-                "-x", "ara", "-x", "ara-report",
+                "-x", "ara", "-x", "ara-report", "-x", "_zuul_ansible",
                 url, local_path
-            ]
-            print("Running %s" % " ".join(cmd), file=sys.stderr)
+            ])
+            log.debug("Running %s" % " ".join(cmd))
             if subprocess.Popen(cmd).wait():
                 raise RuntimeError("%s: Couldn't mirror" % url)
     else:
         if not os.path.isfile(local_path) or \
            os.stat(local_path).st_size == 0 or \
-           (expiry and (time.time() - os.stat(local_path).st_mtime) > expiry):
+           (expiry and (time.time() - os.stat(local_path).st_mtime) > expiry) or \
+           UPDATE_CACHE:
             if not os.path.isdir(os.path.dirname(local_path)):
                 os.makedirs(os.path.dirname(local_path), 0o755)
             try:
                 with urllib.request.urlopen(url) as response:
-                    with open(local_path, "w") as of:
-                        of.write(response.read().decode('utf-8'))
+                    data = response.read().decode('utf-8')
+                # Make sure it wasn't an index of page
+                if "<title>index of" in data[:1024].lower():
+                    log.info("%s is an index of, mirroring with lftp" % url)
+                    return download("%s/" % url)
+                with open(local_path, "w") as of:
+                    of.write(data)
+
             except:
                 print("ERROR - Couldn't download %s to %s" % (url, local_path))
                 raise
@@ -149,11 +168,16 @@ def files_iterator(paths):
     """Yield (path, original uri, file object)"""
     def open_file(p):
         if p.endswith(".gz"):
-            return gzip.open(p, mode='rt')
+            # check if really gzip, logs.openstack.org return decompressed files
+            if open(p, 'rb').read(2) == b'\x1f\x8b':
+                return gzip.open(p, mode='rt')
         return open(p)
 
     if not isinstance(paths, list):
         paths = [paths]
+    else:
+        # Copy path list
+        paths = list(paths)
     last_url = None
     for path in paths:
         if os.path.isfile(path):
@@ -168,6 +192,8 @@ def files_iterator(paths):
         elif os.path.isdir(path):
             for dname, _, fnames in os.walk(path):
                 for fname in fnames:
+                    if [True for ign in IGNORE_FILES if fname == ign]:
+                        continue
                     if [True for skip in BLACKLIST if fname.startswith(skip)]:
                         continue
                     if [True for skip in BLACKLIST_EXTENSIONS if
