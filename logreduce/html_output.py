@@ -11,38 +11,61 @@
 # under the License.
 
 import html
+import sys
 
 
 def render_html(output):
-    dom = ["<html><head><title>Logreduce of %s</title></head><body>" % output["target"]]
+    dom = ["<html><head>"
+           "<title>Logreduce of %s</title>"
+           "<link rel='stylesheet' href='bootstrap.min.css'>"
+           "<script src='bootstrap.min.js'></script>"
+           "</head><body><h2>Logreduce</h2>" % " ".join(output["target"])]
     # Results info
-    dom.append("<ul><li>Target: %s</li>" % output["target"] +
-               "<li>Baseline: %s</li>" % output["baseline"] +
+    dom.append("<ul><li>Command: %s</li>" % " ".join(sys.argv) +
+               "<li>Target: %s</li>" % " ".join(output["target"]) +
+               "<li>Baseline: %s</li>" % " ".join(output["baseline"]) +
                "<li>Run time: %.2f seconds</li>" % output["total_time"] +
-               "<li>%02.2f%% reduction (from %d lines to %d)</li>" % (output["reduction"], output["testing_lines_count"], output["outlier_lines_count"]) +
+               "<li>%02.2f%% reduction (from %d lines to %d)</li>" % (
+                   output["reduction"],
+                   output["testing_lines_count"],
+                   output["outlier_lines_count"]) +
                "</ul>")
     # Results table of content
-    dom.append("<table><thead><tr><th>Filename</th><th>Compared too</th><th>Number</th></tr></thead>")
-    for filename, data in output["files"].items():
+    dom.append("<table class='table table-condensed'>"
+               "<thead><tr>"
+               "<th>Count</th><th>Filename</th><th>Compared too</th>"
+               "</tr></thead><tbody>")
+    for filename, data in output["files_sorted"]:
         if not data["chunks"]:
             continue
-        dom.append("  <tr><td><a href='#%s'>%s</a></td><td>%s</td><td>%d</td></tr>" % (
-            filename.replace('/', '_'), filename, " ".join(data["source_files"]), len(data["scores"])
-        ))
-    dom.append("</table>")
+        dom.append("  <tr>"
+                   "<td>%d</td>" % len(data["scores"]) +
+                   "<td><a href='#%s'>%s</a></td>" % (
+                       filename.replace('/', '_'), filename) +
+                   "<td>%s</td>" % " ".join(data["source_files"]) +
+                   "</tr>")
+    dom.append("</tbody></table>")
 
-    for filename, data in output["files"].items():
+    for filename, data in output["files_sorted"]:
         if not data["chunks"]:
             continue
-        dom.append("<span id='%s'><h3>%s</h3>" % (filename.replace('/', '_'), filename))
+        dom.append(
+            "<div class='panel panel-default' id='%s'>" % (
+                filename.replace('/', '_')) +
+            "<div class='panel-heading'>%s</div>" % (filename) +
+            "<div class='panel-body'>")
         for idx in range(len(data["chunks"])):
             lines = data["chunks"][idx].split('\n')
             for line_pos in range(len(lines)):
                 line_score = data["scores"][idx][line_pos]
-                dom.append("<font color='#%02x0000'>%1.3f | %04d: %s</font><br />" % (
-                    int(255 * line_score), line_score, data["line_pos"][idx][line_pos], html.escape(lines[line_pos])))
-            dom.append("<hr />")
-        dom.append("</span>")
+                dom.append(
+                    "<font color='#%02x0000'>%1.3f | %04d: %s</font><br />" % (
+                        int(255 * line_score),
+                        line_score,
+                        data["line_pos"][idx][line_pos],
+                        html.escape(lines[line_pos])))
+            dom.append("<hr style='margin-top: 0px; margin-bottom: 10px;' />")
+        dom.append("</div></div>")
 
     dom.append("</body></html>")
     return "\n".join(dom)

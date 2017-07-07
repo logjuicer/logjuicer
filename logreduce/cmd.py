@@ -147,6 +147,7 @@ def main():
             'chunks': [],
             'scores': [],
             'line_pos': [],
+            'lines_count': 0,
         }
         current_chunk = []
         current_score = []
@@ -161,6 +162,7 @@ def main():
                 output['files'][filename]["chunks"].append("\n".join(current_chunk))
                 output['files'][filename]["scores"].append(current_score)
                 output['files'][filename]["line_pos"].append(current_pos)
+                output['files'][filename]["lines_count"] += len(current_chunk)
                 current_chunk = []
                 current_score = []
                 current_pos = []
@@ -184,6 +186,10 @@ def main():
             output['files'][filename]["chunks"].append("\n".join(current_chunk))
             output['files'][filename]["scores"].append(current_score)
             output['files'][filename]["line_pos"].append(current_pos)
+            output['files'][filename]["lines_count"] += len(current_chunk)
+    output["files_sorted"] = sorted(output['files'].items(),
+                                    key=lambda x: x[1]['lines_count'],
+                                    reverse=True)
     output["training_lines_count"] = clf.training_lines_count
     output["testing_lines_count"] = clf.testing_lines_count
     output["outlier_lines_count"] = clf.outlier_lines_count

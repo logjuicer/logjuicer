@@ -63,6 +63,12 @@ Install
 
   pip install --user logreduce
 
+* Fetch bootstrap for nicer html output
+
+.. code-block:: console
+
+  curl -O https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css
+  curl -O https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js
 
 Usage
 -----

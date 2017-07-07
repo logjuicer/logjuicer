@@ -112,6 +112,8 @@ class BagOfWords:
         train_speed = self.training_lines_count / (end_time - start_time)
         self.log.debug("Training took %.03f seconds to ingest %d lines (%.03f kl/s)" % (
             end_time - start_time, self.training_lines_count, train_speed / 1000))
+        if not self.training_lines_count:
+            raise RuntimeError("No train lines found")
         return self.training_lines_count
 
 
@@ -205,3 +207,5 @@ class BagOfWords:
         test_speed = self.testing_lines_count / (end_time - start_time)
         self.log.debug("Testing took %.03f seconds to test %d lines (%.03f kl/s)" % (
             end_time - start_time, self.testing_lines_count, test_speed / 1000))
+        if not self.testing_lines_count:
+            raise RuntimeError("No test lines found")
