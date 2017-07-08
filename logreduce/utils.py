@@ -49,6 +49,11 @@ BLACKLIST_EXTENSIONS = (
     ".tgz",
     ".pyc",
     ".pyo",
+    ".so",
+    ".key",
+    "_key",
+    ".crt",
+    ".pem",
 )
 IGNORE_FILES = [
     "*.rpm",
@@ -59,7 +64,8 @@ IGNORE_FILES = [
 DAYS="sunday|monday|tuesday|wednesday|thursday|friday|saturday"
 MONTHS="january|february|march|april|may|june|july|august|september|october|" \
        "november|december"
-RANDOM_PREFIXES=r'tmp|br|tap|req-|ns-|ansible_|dib_build\.|0x|a[0-9]+='
+RANDOM_PREFIXES=r'tmp|br|tap|req-|ns-|0x|a[0-9]+='
+RANDOM_DIRS=r'ansible_|omit_place_holder__|instack\.|dib_build\.'
 MIXED_ALPHA_DIGITS_WORDS=r'[a-z0-9+]*[0-9][a-z0-9\/+]*'
 
 DEBUG_TOKEN=False
@@ -71,9 +77,10 @@ class Tokenizer:
                              r'%s' % DAYS +
                              r'|%s' % MONTHS +
                              r'|%s' % RANDOM_PREFIXES +
+                             r'|%s' % RANDOM_DIRS +
                              r'|%s' % MIXED_ALPHA_DIGITS_WORDS +
                              r')[^\s\/]*', re.I)
-    comments = re.compile(r'[\s]*# .*')
+    comments = re.compile(r'([\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
 
     @staticmethod
@@ -114,7 +121,7 @@ class Tokenizer:
             # Reduction was too agressive, just keep the filename in this case
             shortfilename = os.path.basename(filename).split('.')[0]
         # Append relevant extensions
-        for ext in (".conf", ".audit", ".txt", ".yaml", ".orig", ".log",
+        for ext in (".conf", ".audit", ".yaml", ".orig", ".log",
                     ".xml"):
             if ext in filename:
                 shortfilename += ext

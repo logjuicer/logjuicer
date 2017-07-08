@@ -20,6 +20,8 @@ import os
 import time
 import yaml
 
+import numpy as np
+
 import logreduce.utils
 
 from logreduce.bagofwords import BagOfWords
@@ -100,7 +102,7 @@ def main():
                 fail_target = args.baseline[idx].replace('.good', '.fail')
                 if os.path.isfile(fail_target):
                     log.info("Targetting %s" % fail_target)
-                    args.target = fail_target
+                    args.target = [fail_target]
             # Decode jenkins
             if args.baseline[idx].startswith("jenkins:"):
                 _, job_name = args.baseline[idx].split(':', 1)
@@ -108,15 +110,12 @@ def main():
                     job_name, job_nr = job_name.split(':')
                 else:
                     job_nr = jenkins.get_last_success_nr(job_name)
+                    log.info("Using last success job (%s:%d)" % (
+                        job_name, job_nr))
                 del args.baseline[idx]
                 args.baseline.extend(jenkins.get_logs(job_name, job_nr))
                 if not args.target:
-                    log.info("Targetting last failed %s job" % job_name)
                     args.target = ["jenkins:%s" % job_name]
-
-    if not args.target:
-        log.error("No target found/specified")
-        exit(1)
 
     for idx in range(len(args.target)):
         # Decode jenkins target
@@ -126,11 +125,14 @@ def main():
                 job_name, job_nr = job_name.split(':')
             else:
                 job_nr = jenkins.get_last_failed_nr(job_name)
+                log.info("Targetting last failed job (%s:%d)" % (
+                    job_name, job_nr))
             del args.target[idx]
             args.target.extend(jenkins.get_logs(job_name, job_nr))
 
     if args.load:
         clf = BagOfWords.load(args.load)
+        args.baseline = [args.load]
     else:
         clf = BagOfWords(args.model)
         clf.train(args.baseline)
@@ -139,6 +141,10 @@ def main():
         clf.save(args.save)
         if not args.target:
             exit(0)
+
+    if not args.target:
+        log.error("No target found/specified")
+        exit(1)
 
     output = {'files': {}}
     for filename, source_files, outliers in clf.test(args.target,
@@ -191,8 +197,15 @@ def main():
             output['files'][filename]["scores"].append(current_score)
             output['files'][filename]["line_pos"].append(current_pos)
             output['files'][filename]["lines_count"] += len(current_chunk)
+
+        # Compute mean distances of outliers
+        mean_distance = 0
+        if output['files'][filename]["scores"]:
+            mean_distance = np.mean(np.hstack(output['files'][filename]["scores"]))
+        output['files'][filename]["mean_distance"] = mean_distance
+
     output["files_sorted"] = sorted(output['files'].items(),
-                                    key=lambda x: x[1]['lines_count'],
+                                    key=lambda x: x[1]['mean_distance'],
                                     reverse=True)
     output["training_lines_count"] = clf.training_lines_count
     output["testing_lines_count"] = clf.testing_lines_count

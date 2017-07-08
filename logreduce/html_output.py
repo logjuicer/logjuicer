@@ -19,17 +19,19 @@ def render_html(output):
            "<title>Logreduce of %s</title>"
            "<link rel='stylesheet' href='bootstrap.min.css'>"
            "<script src='bootstrap.min.js'></script>"
+           "<style>.panel-body {max-height: 800; overflow-y: scroll;}</style>"
            "</head><body><h2>Logreduce</h2>" % " ".join(output["target"])]
     # Results info
-    dom.append("<ul><li>Command: %s</li>" % " ".join(sys.argv) +
-               "<li>Target: %s</li>" % " ".join(output["target"]) +
-               "<li>Baseline: %s</li>" % " ".join(output["baseline"]) +
-               "<li>Run time: %.2f seconds</li>" % output["total_time"] +
-               "<li>%02.2f%% reduction (from %d lines to %d)</li>" % (
-                   output["reduction"],
-                   output["testing_lines_count"],
-                   output["outlier_lines_count"]) +
-               "</ul>")
+    dom.append("<ul>")
+    dom.append("  <li>Command: %s</li>" % " ".join(sys.argv))
+    dom.append("  <li>Target: %s</li>" % " ".join(output["target"]))
+    dom.append("  <li>Baseline: %s</li>" % " ".join(output["baseline"]))
+    dom.append("  <li>Run time: %.2f seconds</li>" % output["total_time"])
+    dom.append("  <li>%02.2f%% reduction (from %d lines to %d)</li>" % (
+        output["reduction"],
+        output["testing_lines_count"],
+        output["outlier_lines_count"]))
+    dom.append("</ul>")
     # Results table of content
     dom.append("<table class='table table-condensed'>"
                "<thead><tr>"

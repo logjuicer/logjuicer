@@ -31,7 +31,9 @@ from logreduce.utils import Tokenizer
 RANDOM_STATE=int(os.environ.get("LR_RANDOM_STATE", 42))
 USE_IDF=bool(int(os.environ.get("LR_USE_IDF", 1)))
 N_ESTIMATORS=int(os.environ.get("LR_N_ESTIMATORS", 23))
-CHUNK_SIZE=int(os.environ.get("LR_CHUNK_SIZE", 4096))
+CHUNK_SIZE=int(os.environ.get("LR_CHUNK_SIZE", 512))
+# Disable multiprocessing by default
+os.environ["JOBLIB_MULTIPROCESSING"] = os.environ.get("LR_MULTIPROCESSING", "0")
 
 
 class Model:
@@ -78,6 +80,8 @@ class LSHF(Model):
 
 
 class SimpleNeighbors(Model):
+    log = logging.getLogger("SimpleNeighbors")
+
     def __init__(self):
         super(SimpleNeighbors, self).__init__()
         self.vectorizer = TfidfVectorizer(
@@ -85,8 +89,7 @@ class SimpleNeighbors(Model):
             preprocessor=None, stop_words=None)
         self.nn = NearestNeighbors(
             algorithm='brute',
-            metric='cosine',
-            n_jobs=4)
+            metric='cosine')
 
     def train(self, train_data):
         dat = self.vectorizer.fit_transform(train_data)
@@ -98,6 +101,7 @@ class SimpleNeighbors(Model):
         with warnings.catch_warnings():
             for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
                 chunk = test_data[chunk_pos:min(len(test_data), chunk_pos + CHUNK_SIZE)]
+                #self.log.debug("Testing %d:%d" % (chunk_pos, min(len(test_data), chunk_pos + CHUNK_SIZE)))
                 dat = self.vectorizer.transform(chunk)
                 distances, _ = self.nn.kneighbors(dat, n_neighbors=1)
                 all_distances.extend(distances)
