@@ -18,7 +18,9 @@ import warnings
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import LSHForest
+from sklearn.neighbors import NearestNeighbors
 
 from logreduce.utils import files_iterator
 from logreduce.utils import open_file
@@ -29,6 +31,7 @@ from logreduce.utils import Tokenizer
 RANDOM_STATE=int(os.environ.get("LR_RANDOM_STATE", 42))
 USE_IDF=bool(int(os.environ.get("LR_USE_IDF", 1)))
 N_ESTIMATORS=int(os.environ.get("LR_N_ESTIMATORS", 23))
+CHUNK_SIZE=int(os.environ.get("LR_CHUNK_SIZE", 4096))
 
 
 class Model:
@@ -47,7 +50,6 @@ class Noop(Model):
 class LSHF(Model):
     def __init__(self):
         super(LSHF, self).__init__()
-        self.sources = []
         self.count_vect = CountVectorizer(
             analyzer='word', lowercase=False, tokenizer=None,
             preprocessor=None, stop_words=None)
@@ -64,18 +66,49 @@ class LSHF(Model):
         return train_tfidf
 
     def test(self, test_data):
+        all_distances = []
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            test_count = self.count_vect.transform(test_data)
-            test_tfidf = self.tfidf_transformer.transform(test_count)
-            distances, _ = self.lshf.kneighbors(test_tfidf, n_neighbors=1)
-        return distances
+            for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
+                chunk = test_data[chunk_pos:min(len(test_data), chunk_pos + CHUNK_SIZE)]
+                test_count = self.count_vect.transform(chunk)
+                test_tfidf = self.tfidf_transformer.transform(test_count)
+                distances, _ = self.lshf.kneighbors(test_tfidf, n_neighbors=1)
+                all_distances.extend(distances)
+        return all_distances
+
+
+class SimpleNeighbors(Model):
+    def __init__(self):
+        super(SimpleNeighbors, self).__init__()
+        self.vectorizer = TfidfVectorizer(
+            analyzer='word', lowercase=False, tokenizer=None,
+            preprocessor=None, stop_words=None)
+        self.nn = NearestNeighbors(
+            algorithm='brute',
+            metric='cosine',
+            n_jobs=4)
+
+    def train(self, train_data):
+        dat = self.vectorizer.fit_transform(train_data)
+        self.nn.fit(dat)
+        return dat
+
+    def test(self, test_data):
+        all_distances = []
+        with warnings.catch_warnings():
+            for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
+                chunk = test_data[chunk_pos:min(len(test_data), chunk_pos + CHUNK_SIZE)]
+                dat = self.vectorizer.transform(chunk)
+                distances, _ = self.nn.kneighbors(dat, n_neighbors=1)
+                all_distances.extend(distances)
+        return all_distances
 
 
 class BagOfWords:
     log = logging.getLogger("BagOfWords")
     models = {
         'lshf': LSHF,
+        'simple': SimpleNeighbors,
         'noop': Noop,
     }
 
@@ -149,9 +182,9 @@ class BagOfWords:
                 bag_end_time = time.time()
                 bag_size_speed = (bag_size / (1024 * 1024)) / (bag_end_time - bag_start_time)
                 bag_count_speed = (bag_count / 1000) / (bag_end_time - bag_start_time)
-                if train_result:
+                try:
                     n_samples, n_features = train_result.shape
-                else:
+                except:
                     n_samples, n_features = 0, 0
                 self.log.debug("%s: took %.03fs at %.03fMb/s (%.03fkl/s): %d samples, %d features" % (
                     bag_name, bag_end_time - bag_start_time, bag_size_speed, bag_count_speed,

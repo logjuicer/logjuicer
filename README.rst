@@ -125,7 +125,7 @@ Full usage:
     --debug-token         Print tokenization process
     --update-cache        Force re-download
     --ignore-file IGNORE_FILE [IGNORE_FILE ...]
-    --model {lshf,noop}
+    --model {simple,lshf,noop}
     --output-format {text,json,yaml,pprint,html}
     --save FILE           Save the model
     --load FILE           Load a previous model

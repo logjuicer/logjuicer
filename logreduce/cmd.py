@@ -36,8 +36,8 @@ def usage():
                    help="Force re-download")
     p.add_argument("--ignore-file", nargs='+')
 
-    p.add_argument("--model", default="lshf",
-                   choices=["lshf", "noop"])
+    p.add_argument("--model", default="simple",
+                   choices=["simple", "lshf", "noop"])
 
     p.add_argument("--output-format", default="text",
                    choices=["text", "json", "yaml", "pprint", "html"])
