@@ -108,6 +108,7 @@ Full usage:
 
   $ usage: logreduce [-h] [--debug] [--debug-token] [--update-cache]
                    [--ignore-file IGNORE_FILE [IGNORE_FILE ...]]
+                   [--model {lshf,noop}]
                    [--output-format {text,json,yaml,pprint,html}] [--save FILE]
                    [--load FILE] [--jenkins-url JENKINS_URL] [--fetch-artifacts]
                    [--threshold THRESHOLD] [--merge-distance MERGE_DISTANCE]
@@ -124,6 +125,7 @@ Full usage:
     --debug-token         Print tokenization process
     --update-cache        Force re-download
     --ignore-file IGNORE_FILE [IGNORE_FILE ...]
+    --model {lshf,noop}
     --output-format {text,json,yaml,pprint,html}
     --save FILE           Save the model
     --load FILE           Load a previous model

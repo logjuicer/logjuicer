@@ -31,22 +31,62 @@ USE_IDF=bool(int(os.environ.get("LR_USE_IDF", 1)))
 N_ESTIMATORS=int(os.environ.get("LR_N_ESTIMATORS", 23))
 
 
+class Model:
+    def __init__(self):
+        self.sources = []
+
+
+class Noop(Model):
+    def train(self, train_data):
+        pass
+
+    def test(self, test_data):
+        return [0.5] * len(test_data)
+
+
+class LSHF(Model):
+    def __init__(self):
+        super(LSHF, self).__init__()
+        self.sources = []
+        self.count_vect = CountVectorizer(
+            analyzer='word', lowercase=False, tokenizer=None,
+            preprocessor=None, stop_words=None)
+        self.tfidf_transformer = TfidfTransformer(use_idf=USE_IDF)
+        self.lshf = LSHForest(random_state=RANDOM_STATE,
+                              n_estimators=N_ESTIMATORS)
+
+    def train(self, train_data):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            train_count = self.count_vect.fit_transform(train_data)
+            train_tfidf = self.tfidf_transformer.fit_transform(train_count)
+            self.lshf.fit(train_tfidf)
+        return train_tfidf
+
+    def test(self, test_data):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            test_count = self.count_vect.transform(test_data)
+            test_tfidf = self.tfidf_transformer.transform(test_count)
+            distances, _ = self.lshf.kneighbors(test_tfidf, n_neighbors=1)
+        return distances
+
+
 class BagOfWords:
     log = logging.getLogger("BagOfWords")
+    models = {
+        'lshf': LSHF,
+        'noop': Noop,
+    }
 
-    def __init__(self, threshold):
+    def __init__(self, model='lshf'):
         self.bags = {}
-        self.threshold = float(threshold)
+        self.model = model
         self.training_lines_count = 0
+        self.training_size = 0
 
     def get(self, bagname):
-        return self.bags.setdefault(bagname, (
-            [], # source files
-            CountVectorizer(analyzer='word', lowercase=False, tokenizer=None,
-                            preprocessor=None, stop_words=None),
-            TfidfTransformer(use_idf=USE_IDF),
-            LSHForest(random_state=RANDOM_STATE, n_estimators=N_ESTIMATORS),
-        ))
+        return self.bags.setdefault(bagname, BagOfWords.models[self.model]())
 
     def save(self, fileobj):
         """Save the model"""
@@ -73,10 +113,14 @@ class BagOfWords:
         for bag_name, filenames in to_train.items():
             # Tokenize and store all lines in train_data
             train_data = []
+            bag_start_time = time.time()
+            bag_size = 0
+            bag_count = 0
             for filename in filenames:
                 self.log.debug("%s: Loading %s" % (bag_name, filename))
                 try:
                     data = open_file(filename).readlines()
+                    bag_size += os.stat(filename).st_size
                 except:
                     self.log.exception("%s: couldn't read" % filename)
                     continue
@@ -87,21 +131,32 @@ class BagOfWords:
                         # We need at least two words
                         train_data.append(line)
                     idx += 1
-                self.training_lines_count += idx
+                bag_count += idx
+
             if not train_data:
+                self.log.info("%s: no training data found" % bag_name)
                 continue
 
+            self.training_lines_count += bag_count
+            self.training_size += bag_size
             try:
                 # Transform and fit the model data
-                files, count_vect, tfidf_transformer, lshf = self.get(bag_name)
+                model = self.get(bag_name)
                 for filename in filenames:
-                    files.append(filename)
+                    model.sources.append(filename)
+                train_result = model.train(train_data)
 
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    train_count = count_vect.fit_transform(train_data)
-                    train_tfidf = tfidf_transformer.fit_transform(train_count)
-                    lshf.fit(train_tfidf)
+                bag_end_time = time.time()
+                bag_size_speed = (bag_size / (1024 * 1024)) / (bag_end_time - bag_start_time)
+                bag_count_speed = (bag_count / 1000) / (bag_end_time - bag_start_time)
+                if train_result:
+                    n_samples, n_features = train_result.shape
+                else:
+                    n_samples, n_features = 0, 0
+                self.log.debug("%s: took %.03fs at %.03fMb/s (%.03fkl/s): %d samples, %d features" % (
+                    bag_name, bag_end_time - bag_start_time, bag_size_speed, bag_count_speed,
+                    n_samples, n_features
+                ))
             except ValueError:
                 self.log.warning("%s: couldn't train with %s" % (bag_name,
                                                                  train_data))
@@ -111,19 +166,25 @@ class BagOfWords:
                                                                    train_data))
                 del self.bags[bag_name]
         end_time = time.time()
-        train_speed = self.training_lines_count / (end_time - start_time)
-        self.log.debug("Training took %.03f seconds to ingest %d lines (%.03f kl/s)" % (
-            end_time - start_time, self.training_lines_count, train_speed / 1000))
+        train_size_speed = (self.training_size / (1024 * 1024)) / (end_time - start_time)
+        train_count_speed = (self.training_lines_count / 1000) / (end_time - start_time)
+        self.log.debug("Training took %.03f seconds to ingest %.03f MB (%.03f MB/s) or %d lines (%.03f kl/s)" % (
+            end_time - start_time,
+            self.training_size / (1024 * 1024),
+            train_size_speed,
+            self.training_lines_count,
+            train_count_speed))
         if not self.training_lines_count:
             raise RuntimeError("No train lines found")
         return self.training_lines_count
 
 
 #    @profile
-    def test(self, path, merge_distance, before_context, after_context):
+    def test(self, path, threshold, merge_distance, before_context, after_context):
         """Return outliers"""
         start_time = time.time()
         self.testing_lines_count = 0
+        self.testing_size = 0
         self.outlier_lines_count = 0
 
         for filename, filename_orig, fileobj in files_iterator(path):
@@ -140,6 +201,7 @@ class BagOfWords:
 
             try:
                 data = fileobj.readlines()
+                self.testing_size += os.stat(filename).st_size
             except:
                 self.log.exception("%s: couldn't read" % fileobj.name)
                 continue
@@ -162,12 +224,8 @@ class BagOfWords:
                 continue
 
             # Transform and compute distance from the model
-            files, count_vect, tfidf_transformer, lshf = self.bags[bag_name]
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                test_count = count_vect.transform(test_data)
-                test_tfidf = tfidf_transformer.transform(test_count)
-                distances, _ = lshf.kneighbors(test_tfidf, n_neighbors=1)
+            model = self.bags[bag_name]
+            distances = model.test(test_data)
 
             def get_line_info(line_pos):
                 try:
@@ -184,7 +242,7 @@ class BagOfWords:
             line_pos = 0
             while line_pos < len(data):
                 line_pos, distance, line = get_line_info(line_pos)
-                if distance >= self.threshold:
+                if distance >= threshold:
                     if line_pos - last_outlier >= merge_distance:
                         # When last outlier is too far, set last_outlier to before_context
                         last_outlier = max(line_pos - 1 - before_context, -1)
@@ -203,11 +261,16 @@ class BagOfWords:
                 line_pos += 1
 
             # Yield result
-            yield (filename_orig, files, outliers)
+            yield (filename_orig, model.sources, outliers)
 
         end_time = time.time()
-        test_speed = self.testing_lines_count / (end_time - start_time)
-        self.log.debug("Testing took %.03f seconds to test %d lines (%.03f kl/s)" % (
-            end_time - start_time, self.testing_lines_count, test_speed / 1000))
+        test_size_speed = (self.testing_size / (1024 * 1024)) / (end_time - start_time)
+        test_count_speed = (self.testing_lines_count / 1000) / (end_time - start_time)
+        self.log.debug("Testing took %.03f seconds to test %.03f MB (%.03f MB/s) or %d lines (%.03f kl/s)" % (
+            end_time - start_time,
+            self.testing_size / (1024 * 1024),
+            test_size_speed,
+            self.testing_lines_count,
+            test_count_speed))
         if not self.testing_lines_count:
             raise RuntimeError("No test lines found")

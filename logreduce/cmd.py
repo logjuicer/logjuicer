@@ -36,6 +36,9 @@ def usage():
                    help="Force re-download")
     p.add_argument("--ignore-file", nargs='+')
 
+    p.add_argument("--model", default="lshf",
+                   choices=["lshf", "noop"])
+
     p.add_argument("--output-format", default="text",
                    choices=["text", "json", "yaml", "pprint", "html"])
 
@@ -129,7 +132,7 @@ def main():
     if args.load:
         clf = BagOfWords.load(args.load)
     else:
-        clf = BagOfWords(args.threshold)
+        clf = BagOfWords(args.model)
         clf.train(args.baseline)
 
     if args.save:
@@ -139,6 +142,7 @@ def main():
 
     output = {'files': {}}
     for filename, source_files, outliers in clf.test(args.target,
+                                                     float(args.threshold),
                                                      args.merge_distance,
                                                      args.before_context,
                                                      args.after_context):
