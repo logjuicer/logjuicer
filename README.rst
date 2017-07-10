@@ -6,7 +6,7 @@ The goal is to assist in debugging failure and reduce effort needed to read
 boring log files.
 
 On average, learning run at 9k lines per second, and
-testing run at 0.150k lines per seconds.
+testing run at 0.300k lines per seconds.
 
 
 How it works
@@ -20,11 +20,15 @@ failed log that doesn't fit the model. The model is constructed as follow:
   (using **CountVectorizer**),
 * Vector are weighted based on term frequencies times inverse
   document-frequency (using **TfidfTransformer**),
-* Then vector are used in a nearest neighbor approximator called Locality Sensitive
-  Hashing Forest (using **LSHForest**).
+* Then vector are used in a unsupervised nearest neighbor learning model.
+
+There are currently two model:
+
+* simple, using **NearestNeighbors**
+* lsfh, using **LSHForest**
 
 In short, logreduce relies heavily on line stripping with a bag-of-words
-technique and it uses the distance to known sentence to detect outliers.
+technique and it uses the distance to known sentences to detect outliers.
 
 For example this input:
 
@@ -42,6 +46,19 @@ Results in:
 The tokenization makes the model a bit dependent on the target data, for example,
 to support OpenStack logs, words begining by ns- or req- are taken into account.
 Further improvement such as characters n-gram may remove such limitation.
+
+
+Caveats
+-------
+
+This method doesn't work when debug content is only included in failed logs.
+To successfully detect anomalies, failed and success logs needs to be similar,
+otherwise all the extra information in failed logs will be considered anomalous.
+
+This is currently the case for tripleo ovb ci where overcloud logs are
+only included in the failed logs, resulting in a lot of false-positive.
+
+This also happens with testr tests where success logs only contains 'SUCCESS'.
 
 
 Install
@@ -108,7 +125,7 @@ Full usage:
 
   $ usage: logreduce [-h] [--debug] [--debug-token] [--update-cache]
                    [--ignore-file IGNORE_FILE [IGNORE_FILE ...]]
-                   [--model {lshf,noop}]
+                   [--model {simple,lshf,noop}]
                    [--output-format {text,json,yaml,pprint,html}] [--save FILE]
                    [--load FILE] [--jenkins-url JENKINS_URL] [--fetch-artifacts]
                    [--threshold THRESHOLD] [--merge-distance MERGE_DISTANCE]
@@ -150,6 +167,30 @@ See bellow for some examples
 Examples
 --------
 
+* Look for anomalies in a periodic jobs. Lftp is not working properly with
+  the logs.openstack.org server, and logs collection needs to be done manually,
+  e.g. using "wget -r". This example will reduce
+  periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata job 4b51aec using
+  previous success 8a4e249:
+
+.. code-block:: console
+
+  # Create a model for this test
+  $ logreduce --output html --debug \
+	      --save periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata.clf \
+	      --baseline http://logs.openstack.org/periodic/periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata/8a4e249/
+  # Training took 311.655 seconds to ingest 189.395 MB (0.608 MB/s) or 1328459 lines (4.263 kl/s)
+
+  # Generate a report of the failed run
+  $ logreduce --output html --debug --threshold 0.6 \
+	      --load periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata.clf \
+	      http://logs.openstack.org/periodic/periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata/4b51aec/ \
+	      > periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata-4b51aec.html
+  # Testing took 3979.378 seconds to test 215.439 MB (0.054 MB/s) or 1489591 lines (0.374 kl/s)
+
+  # Result is published here: https://fedorapeople.org/~tdecacqu/tripleo-ci-2017-07-10/periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata-4b51aec.html
+
+
 * Look for anomalies in a flaky jenkins jobs. The DLRN-rpmbuild is used by
   different projects, thus the output varies even between successful jobs.
   In this case we can uses the **--threshold** parameter to reduces false-positive:
@@ -162,6 +203,7 @@ Examples
   0.731 | DLRN-rpmbuild/12483/console:7535: 2017-06-24 13:36:02,950 INFO:dlrn-build:DEBUG: error: Bad exit status from /var/tmp/rpm-tmp.rhaVaW (%install)
 
   # -> Reduced 7654 lines to 71
+
 
 * Look for anomalies in a job artifacts:
 
@@ -190,6 +232,7 @@ Examples
 
   # -> Reduced 233185 log lines to 321
 
+
 * Look for new events in log files:
 
 .. code-block:: console
@@ -199,6 +242,7 @@ Examples
   0.287 | /var/log/audit/audit.log:0607: type=USER_ACCT msg=audit(1498373150.931:1661764): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:accounting grantors=pam_succeed_if acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
 
   # Today the 'su' program was indeed used to recover a sudo bug...
+
 
 * Re-using a model:
 
