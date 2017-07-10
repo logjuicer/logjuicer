@@ -157,7 +157,10 @@ def download(url, expiry=None):
                 os.makedirs(os.path.dirname(local_path), 0o755)
             try:
                 with urllib.request.urlopen(url) as response:
-                    data = response.read().decode('utf-8')
+                    data = response.read()
+                if data[:2] == b'\x1f\x8b':
+                    data = gzip.decompress(data)
+                data = data.decode('utf-8')
                 # Make sure it wasn't an index of page
                 if "<title>index of" in data[:1024].lower():
                     log.info("%s is an index of, mirroring with lftp" % url)
