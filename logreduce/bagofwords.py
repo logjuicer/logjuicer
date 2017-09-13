@@ -71,7 +71,8 @@ class LSHF(Model):
         all_distances = []
         with warnings.catch_warnings():
             for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
-                chunk = test_data[chunk_pos:min(len(test_data), chunk_pos + CHUNK_SIZE)]
+                chunk = test_data[chunk_pos:min(len(test_data),
+                                                chunk_pos + CHUNK_SIZE)]
                 test_count = self.count_vect.transform(chunk)
                 test_tfidf = self.tfidf_transformer.transform(test_count)
                 distances, _ = self.lshf.kneighbors(test_tfidf, n_neighbors=1)
@@ -100,8 +101,8 @@ class SimpleNeighbors(Model):
         all_distances = []
         with warnings.catch_warnings():
             for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
-                chunk = test_data[chunk_pos:min(len(test_data), chunk_pos + CHUNK_SIZE)]
-                #self.log.debug("Testing %d:%d" % (chunk_pos, min(len(test_data), chunk_pos + CHUNK_SIZE)))
+                chunk = test_data[chunk_pos:min(len(test_data),
+                                                chunk_pos + CHUNK_SIZE)]
                 dat = self.vectorizer.transform(chunk)
                 distances, _ = self.nn.kneighbors(dat, n_neighbors=1)
                 all_distances.extend(distances)
@@ -128,7 +129,7 @@ class BagOfWords:
     def save(self, fileobj):
         """Save the model"""
         joblib.dump(self, fileobj, compress=True)
-        print("%s: written" % fileobj)
+        self.log.info("%s: written" % fileobj)
 
     @staticmethod
     def load(fileobj):
@@ -141,10 +142,9 @@ class BagOfWords:
 
         # Group similar files for the same model
         to_train = {}
-        for filename, _, fileobj in files_iterator(path):
+        for filename in files_iterator(path):
             bag_name = Tokenizer.filename2modelname(filename)
             to_train.setdefault(bag_name, []).append(filename)
-            fileobj.close()
 
         # Train each model
         for bag_name, filenames in to_train.items():
@@ -183,17 +183,18 @@ class BagOfWords:
                     model.sources.append(filename)
                 train_result = model.train(train_data)
 
-                bag_end_time = time.time()
-                bag_size_speed = (bag_size / (1024 * 1024)) / (bag_end_time - bag_start_time)
-                bag_count_speed = (bag_count / 1000) / (bag_end_time - bag_start_time)
+                bag_train_time = time.time() - bag_start_time
+
+                bag_size_speed = (bag_size / (1024 * 1024)) / bag_train_time
+                bag_count_speed = (bag_count / 1000) / bag_train_time
                 try:
                     n_samples, n_features = train_result.shape
                 except:
                     n_samples, n_features = 0, 0
-                self.log.debug("%s: took %.03fs at %.03fMb/s (%.03fkl/s): %d samples, %d features" % (
-                    bag_name, bag_end_time - bag_start_time, bag_size_speed, bag_count_speed,
-                    n_samples, n_features
-                ))
+                self.log.debug("%s: took %.03fs at %.03fMb/s (%.03fkl/s): "
+                               "%d samples, %d features" % (
+                                   bag_name, bag_train_time, bag_size_speed,
+                                   bag_count_speed, n_samples, n_features))
             except ValueError:
                 self.log.warning("%s: couldn't train with %s" % (bag_name,
                                                                  train_data))
@@ -202,34 +203,37 @@ class BagOfWords:
                 self.log.exception("%s: couldn't train with %s" % (bag_name,
                                                                    train_data))
                 del self.bags[bag_name]
-        end_time = time.time()
-        train_size_speed = (self.training_size / (1024 * 1024)) / (end_time - start_time)
-        train_count_speed = (self.training_lines_count / 1000) / (end_time - start_time)
-        self.log.debug("Training took %.03f seconds to ingest %.03f MB (%.03f MB/s) or %d lines (%.03f kl/s)" % (
-            end_time - start_time,
-            self.training_size / (1024 * 1024),
-            train_size_speed,
-            self.training_lines_count,
-            train_count_speed))
+        train_time = time.time() - start_time
+        train_size_speed = (self.training_size / (1024 * 1024)) / train_time
+        train_count_speed = (self.training_lines_count / 1000) / train_time
+        self.log.debug("Training took %.03f seconds to ingest %.03f MB "
+                       "(%.03f MB/s) or %d lines (%.03f kl/s)" % (
+                           train_time,
+                           self.training_size / (1024 * 1024),
+                           train_size_speed,
+                           self.training_lines_count,
+                           train_count_speed))
         if not self.training_lines_count:
             raise RuntimeError("No train lines found")
         return self.training_lines_count
 
 
 #    @profile
-    def test(self, path, threshold, merge_distance, before_context, after_context):
+    def test(self, path, threshold, merge_distance,
+             before_context, after_context):
         """Return outliers"""
         start_time = time.time()
         self.testing_lines_count = 0
         self.testing_size = 0
         self.outlier_lines_count = 0
 
-        for filename, filename_orig, fileobj in files_iterator(path):
+        for filename in files_iterator(path):
             if len(self.bags) > 1:
                 # Get model name based on filename
                 bag_name = Tokenizer.filename2modelname(filename)
                 if bag_name not in self.bags:
-                    self.log.debug("Skipping unknown file %s (%s)" % (filename, bag_name))
+                    self.log.debug("Skipping unknown file %s (%s)" % (filename,
+                                                                      bag_name))
                     continue
             else:
                 # Only one file was trained, use it's model
@@ -237,10 +241,10 @@ class BagOfWords:
             self.log.debug("%s: Testing %s" % (bag_name, filename))
 
             try:
-                data = fileobj.readlines()
+                data = open_file(filename).readlines()
                 self.testing_size += os.stat(filename).st_size
             except:
-                self.log.exception("%s: couldn't read" % fileobj.name)
+                self.log.exception("%s: couldn't read" % filename)
                 continue
 
             # Store file line number in test_data_pos
@@ -298,16 +302,17 @@ class BagOfWords:
                 line_pos += 1
 
             # Yield result
-            yield (filename_orig, model.sources, outliers)
+            yield (filename, model.sources, outliers)
 
-        end_time = time.time()
-        test_size_speed = (self.testing_size / (1024 * 1024)) / (end_time - start_time)
-        test_count_speed = (self.testing_lines_count / 1000) / (end_time - start_time)
-        self.log.debug("Testing took %.03f seconds to test %.03f MB (%.03f MB/s) or %d lines (%.03f kl/s)" % (
-            end_time - start_time,
-            self.testing_size / (1024 * 1024),
-            test_size_speed,
-            self.testing_lines_count,
-            test_count_speed))
+        test_time = time.time() - start_time
+        test_size_speed = (self.testing_size / (1024 * 1024)) / test_time
+        test_count_speed = (self.testing_lines_count / 1000) / test_time
+        self.log.debug("Testing took %.03f seconds to test %.03f MB "
+                       "(%.03f MB/s) or %d lines (%.03f kl/s)" % (
+                           test_time,
+                           self.testing_size / (1024 * 1024),
+                           test_size_speed,
+                           self.testing_lines_count,
+                           test_count_speed))
         if not self.testing_lines_count:
             raise RuntimeError("No test lines found")

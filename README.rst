@@ -5,8 +5,8 @@ Based on success logs, logreduce highlights useful text in failed logs.
 The goal is to assist in debugging failure and reduce effort needed to read
 boring log files.
 
-On average, learning run at 9k lines per second, and
-testing run at 0.300k lines per seconds.
+On average, learning run at 8k lines per second, and
+testing run at 0.400k lines per seconds.
 
 
 How it works
@@ -90,11 +90,7 @@ Install
 Usage
 -----
 
-Log files can be:
-
-* A single file
-* A directory
-* A jenkins job name
+Log files can be a single file or a directory.
 
 Logreduce needs a **--baseline** for success log training, and a **target**
 for the log to reduce.
@@ -111,10 +107,6 @@ When using the text **--output-format**, anomalies are printed using this format
   0.232 | testr-nodepool-01/output.fail:0677:	  File "voluptuous/schema_builder.py", line 370, in validate_mapping
   0.462 | testr-nodepool-01/output.fail:0678:	    raise er.MultipleInvalid(errors)
   0.650 | testr-nodepool-01/output.fail:0679:	voluptuous.error.MultipleInvalid: required key not provided @ data['providers'][2]['cloud']
-
-When using jenkins, the log syntax is *jenkins*:*job-name*[:*job-number*].
-When job-number is omited, logreduce automatically uses the lastSuccessfulBuild as baseline
-and the lastFailedBuild for the target.
 
 The model can be trained and saved for re-use using **--save**.
 When using **--load** logreduce doesn't need a **--baseline**.
@@ -140,14 +132,11 @@ Full usage:
     -h, --help            show this help message and exit
     --debug               Print debug
     --debug-token         Print tokenization process
-    --update-cache        Force re-download
     --ignore-file IGNORE_FILE [IGNORE_FILE ...]
     --model {simple,lshf,noop}
     --output-format {text,json,yaml,pprint,html}
     --save FILE           Save the model
     --load FILE           Load a previous model
-    --jenkins-url JENKINS_URL
-                          Target a custom Jenkins service
     --fetch-artifacts     Fetch zuul-swift-upload artifacts (needs lftp)
     --threshold THRESHOLD
                           Outlier distance threshold, set to 0.0 to display all
@@ -167,72 +156,6 @@ See bellow for some examples
 Examples
 --------
 
-* Look for anomalies in a periodic jobs. Lftp is not working properly with
-  the logs.openstack.org server, and logs collection needs to be done manually,
-  e.g. using "wget -r". This example will reduce
-  periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata job 4b51aec using
-  previous success 8a4e249:
-
-.. code-block:: console
-
-  # Create a model for this test
-  $ logreduce --output html --debug \
-	      --save periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata.clf \
-	      --baseline http://logs.openstack.org/periodic/periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata/8a4e249/
-  # Training took 311.655 seconds to ingest 189.395 MB (0.608 MB/s) or 1328459 lines (4.263 kl/s)
-
-  # Generate a report of the failed run
-  $ logreduce --output html --debug --threshold 0.6 \
-	      --load periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata.clf \
-	      http://logs.openstack.org/periodic/periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata/4b51aec/ \
-	      > periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata-4b51aec.html
-  # Testing took 3979.378 seconds to test 215.439 MB (0.054 MB/s) or 1489591 lines (0.374 kl/s)
-
-  # Result is published here: https://fedorapeople.org/~tdecacqu/tripleo-ci-2017-07-10/periodic-tripleo-ci-centos-7-ovb-nonha-tempest-oooq-ocata-4b51aec.html
-
-
-* Look for anomalies in a flaky jenkins jobs. The DLRN-rpmbuild is used by
-  different projects, thus the output varies even between successful jobs.
-  In this case we can uses the **--threshold** parameter to reduces false-positive:
-
-.. code-block:: console
-
-  $ logreduce --baseline jenkins:DLRN-rpmbuild --threshold 0.4 --jenkins-url https://review.rdoproject.org/jenkins
-  [...]
-  0.425 | DLRN-rpmbuild/12483/console:7530: 2017-06-24 13:36:02,886 INFO:dlrn-build:DEBUG: IOError: [Errno 2] No such file or directory: u'/builddir/build/BUILD/python-openstackclient-3.11.1.dev52/man/.doctrees/man/openstack.doctree'
-  0.731 | DLRN-rpmbuild/12483/console:7535: 2017-06-24 13:36:02,950 INFO:dlrn-build:DEBUG: error: Bad exit status from /var/tmp/rpm-tmp.rhaVaW (%install)
-
-  # -> Reduced 7654 lines to 71
-
-
-* Look for anomalies in a job artifacts:
-
-.. code-block:: console
-
-  $ logreduce  --baseline jenkins:gate-weirdo-dlrn-master-puppet-scenario001:804 \
-                          jenkins:gate-weirdo-dlrn-master-puppet-scenario001:805 \
-               --threshold 0.7 --jenkins-url https://review.rdoproject.org/jenkins
-  [...]
-  0.935 | scenario001/805/console:1460: AssertionError: From test "assert no delete metrics have the gabbilive policy" :
-  0.813 | scenario001/805/console:1479:   "message": "The request you have made requires authentication.",
-
-  # -> Reduced 3475 lines to 34
-  # Re-run above command with --fetch-artifacts
-
-  $ logreduce  --baseline jenkins:gate-weirdo-dlrn-master-puppet-scenario001:804 \
-                          jenkins:gate-weirdo-dlrn-master-puppet-scenario001:805 \
-               --threshold 0.7 --jenkins-url https://review.rdoproject.org/jenkins \
-	       --fetch-artifacts
-  [...]
-  0.736 | scenario001/805/artifacts/artifacts/weirdo-project/logs/aodh/evaluator.txt.gz:0205:      2017-06-20 09:34:56.710 32167 ERROR aodh.evaluator.threshold EndpointNotFound: public endpoint for metering service in RegionOne region not found
-  0.893 | scenario001/805/artifacts/artifacts/weirdo-project/logs/keystone/keystone.txt.gz:0082:   2017-06-20 09:01:04.573 31269 ERROR keystone OperationalError: (pymysql.err.OperationalError) (1045, u"Access denied for user 'keystone'@'localhost' (using password: YES)")
-  0.747 | scenario001/805/artifacts/artifacts/weirdo-project/logs/neutron/l3-agent.txt.gz:4953:    2017-06-20 09:35:18.750 30696 ERROR neutron.agent.linux.ip_lib ProcessExecutionError: Exit code: 2; Stdin: ; Stdout: ; Stderr: arping: Device qr-eab5db5e-2b not available.
-  0.880 | scenario001/805/artifacts/artifacts/weirdo-project/logs/neutron/server.txt.gz:7395:      2017-06-20 09:24:16.539 1290 DEBUG oslo_db.api [req-5a32c588-c96d-43a5-a3c0-207232c3f399 75837f1fbb1645deb29271c270bfe910 37e84afc107a43f6bc40a74e35c294b2 - default default] Performing DB retry for function neutron.plugins.ml2.plugin.create_port: NeutronDbObjectDuplicateEntry: Failed to create a duplicate IpamAllocation: for attribute(s) ['PRIMARY'] with value(s) 10.100.0.2-8e029793-091b-4870-97a5-37e02c86a239 wrapper /usr/lib/python2.7/site-packages/oslo_db/api.py:152
-  0.847 | scenario001/805/artifacts/artifacts/weirdo-project/logs/openvswitch/ovsdb-server.txt.gz:0022:    2017-06-20T09:33:06.479Z|00022|reconnect|ERR|tcp:127.0.0.1:34002: no response to inactivity probe after 6.32 seconds, disconnecting
-
-  # -> Reduced 233185 log lines to 321
-
-
 * Look for new events in log files:
 
 .. code-block:: console
@@ -240,9 +163,6 @@ Examples
   $ logreduce --baseline /var/log/audit/audit.log.4 /var/log/audit/audit.log --context-length 0
   0.276 | /var/log/audit/audit.log:0606: type=USER_AUTH msg=audit(1498373150.931:1661763): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:authentication grantors=pam_rootok acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
   0.287 | /var/log/audit/audit.log:0607: type=USER_ACCT msg=audit(1498373150.931:1661764): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:accounting grantors=pam_succeed_if acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
-
-  # Today the 'su' program was indeed used to recover a sudo bug...
-
 
 * Re-using a model:
 
@@ -309,8 +229,6 @@ Add --debug to display false positive and missing chunks.
 Roadmap/todo
 ------------
 
-* Add gerrit support to target a review directly
-* Add travis/github support to target a pull request directly
 * Support automatic log analysis and reporting when a job failed,
   e.g. through jenkins publisher or zuul post jobs.
 * Add tarball traversal in utils.files_iterator

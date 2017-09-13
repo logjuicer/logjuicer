@@ -16,7 +16,6 @@ import argparse
 import json
 import logging
 import pprint
-import os
 import time
 import yaml
 
@@ -25,7 +24,6 @@ import numpy as np
 import logreduce.utils
 
 from logreduce.bagofwords import BagOfWords
-from logreduce.jenkins import Jenkins
 from logreduce.html_output import render_html
 
 
@@ -46,10 +44,6 @@ def usage():
 
     p.add_argument("--save", metavar="FILE", help="Save the model")
     p.add_argument("--load", metavar="FILE", help="Load a previous model")
-    p.add_argument("--jenkins-url", help="Target a custom Jenkins service",
-                   default="https://softwarefactory-project.io/jenkins")
-    p.add_argument("--fetch-artifacts", action="store_true",
-                   help="Fetch zuul-swift-upload artifacts (needs lftp)")
 
     p.add_argument("--threshold", default=0.2, type=float,
                    help="Outlier distance threshold, set to 0.0 to display "
@@ -61,6 +55,7 @@ def usage():
                    help="Amount of lines to include before the anomaly")
     p.add_argument("--after-context", default=1, type=int,
                    help="Amount of lines to include after the anomaly")
+    p.add_argument("--context-length", help="Set both after and before size")
 
     p.add_argument("--baseline", action='append', metavar="LOG",
                    help="Success logs")
@@ -69,10 +64,14 @@ def usage():
     if not args.baseline and not args.load:
         print("baseline or load needs to be used")
         exit(1)
-    if args.update_cache:
-        logreduce.utils.UPDATE_CACHE = True
+    if args.load and args.save:
+        print("load and save can't be used together")
+        exit(1)
     if args.ignore_file:
         logreduce.utils.IGNORE_FILES.extend(args.ignore_file)
+    if args.context_length is not None:
+        args.before_context = args.context_length
+        args.after_context = args.context_length
 
     return args
 
@@ -93,42 +92,6 @@ def main():
     start_time = time.time()
     args = usage()
     log = setup_logging(args.debug, args.debug_token)
-    jenkins = Jenkins(args.jenkins_url, args.fetch_artifacts)
-
-    if args.baseline:
-        for idx in range(len(args.baseline)):
-            # Auto-target .fail file if baseline is a .good file
-            if args.baseline[idx].endswith(".good") and not args.target:
-                fail_target = args.baseline[idx].replace('.good', '.fail')
-                if os.path.isfile(fail_target):
-                    log.info("Targetting %s" % fail_target)
-                    args.target = [fail_target]
-            # Decode jenkins
-            if args.baseline[idx].startswith("jenkins:"):
-                _, job_name = args.baseline[idx].split(':', 1)
-                if ":" in job_name:
-                    job_name, job_nr = job_name.split(':')
-                else:
-                    job_nr = jenkins.get_last_success_nr(job_name)
-                    log.info("Using last success job (%s:%d)" % (
-                        job_name, job_nr))
-                del args.baseline[idx]
-                args.baseline.extend(jenkins.get_logs(job_name, job_nr))
-                if not args.target:
-                    args.target = ["jenkins:%s" % job_name]
-
-    for idx in range(len(args.target)):
-        # Decode jenkins target
-        if args.target[idx].startswith("jenkins:"):
-            _, job_name = args.target[idx].split(':', 1)
-            if ":" in job_name:
-                job_name, job_nr = job_name.split(':')
-            else:
-                job_nr = jenkins.get_last_failed_nr(job_name)
-                log.info("Targetting last failed job (%s:%d)" % (
-                    job_name, job_nr))
-            del args.target[idx]
-            args.target.extend(jenkins.get_logs(job_name, job_nr))
 
     if args.load:
         clf = BagOfWords.load(args.load)
@@ -152,13 +115,13 @@ def main():
                                                      args.merge_distance,
                                                      args.before_context,
                                                      args.after_context):
-        output['files'][filename] = {
+        file_info = output['files'].setdefault(filename, {
             'source_files': source_files,
             'chunks': [],
             'scores': [],
             'line_pos': [],
             'lines_count': 0,
-        }
+        })
         current_chunk = []
         current_score = []
         current_pos = []
@@ -169,10 +132,10 @@ def main():
             distance = abs(float(distance))
             if last_pos and pos - last_pos != 1:
                 # New chunk
-                output['files'][filename]["chunks"].append("\n".join(current_chunk))
-                output['files'][filename]["scores"].append(current_score)
-                output['files'][filename]["line_pos"].append(current_pos)
-                output['files'][filename]["lines_count"] += len(current_chunk)
+                file_info["chunks"].append("\n".join(current_chunk))
+                file_info["scores"].append(current_score)
+                file_info["line_pos"].append(current_pos)
+                file_info["lines_count"] += len(current_chunk)
                 current_chunk = []
                 current_score = []
                 current_pos = []
@@ -193,16 +156,16 @@ def main():
 
             last_pos = pos
         if current_chunk:
-            output['files'][filename]["chunks"].append("\n".join(current_chunk))
-            output['files'][filename]["scores"].append(current_score)
-            output['files'][filename]["line_pos"].append(current_pos)
-            output['files'][filename]["lines_count"] += len(current_chunk)
+            file_info["chunks"].append("\n".join(current_chunk))
+            file_info["scores"].append(current_score)
+            file_info["line_pos"].append(current_pos)
+            file_info["lines_count"] += len(current_chunk)
 
         # Compute mean distances of outliers
         mean_distance = 0
-        if output['files'][filename]["scores"]:
-            mean_distance = np.mean(np.hstack(output['files'][filename]["scores"]))
-        output['files'][filename]["mean_distance"] = mean_distance
+        if file_info["scores"]:
+            mean_distance = np.mean(np.hstack(file_info["scores"]))
+        file_info["mean_distance"] = mean_distance
 
     output["files_sorted"] = sorted(output['files'].items(),
                                     key=lambda x: x[1]['mean_distance'],
@@ -210,7 +173,8 @@ def main():
     output["training_lines_count"] = clf.training_lines_count
     output["testing_lines_count"] = clf.testing_lines_count
     output["outlier_lines_count"] = clf.outlier_lines_count
-    output["reduction"] = 100 - (output["outlier_lines_count"] / output["testing_lines_count"]) * 100
+    output["reduction"] = 100 - (output["outlier_lines_count"] /
+                                 output["testing_lines_count"]) * 100
     output["total_time"] = time.time() - start_time
     output["baseline"] = args.baseline
     output["target"] = args.target
