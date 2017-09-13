@@ -15,9 +15,7 @@
 import argparse
 import json
 import logging
-import pprint
 import time
-import yaml
 
 import numpy as np
 
@@ -39,8 +37,8 @@ def usage():
     p.add_argument("--model", default="simple",
                    choices=["simple", "lshf", "noop"])
 
-    p.add_argument("--output-format", default="text",
-                   choices=["text", "json", "yaml", "pprint", "html"])
+    p.add_argument("--html", help="Render html result")
+    p.add_argument("--json", help="Render json result")
 
     p.add_argument("--save", metavar="FILE", help="Save the model")
     p.add_argument("--load", metavar="FILE", help="Load a previous model")
@@ -55,7 +53,8 @@ def usage():
                    help="Amount of lines to include before the anomaly")
     p.add_argument("--after-context", default=1, type=int,
                    help="Amount of lines to include after the anomaly")
-    p.add_argument("--context-length", help="Set both after and before size")
+    p.add_argument("--context-length", type=int,
+                   help="Set both after and before size")
 
     p.add_argument("--baseline", action='append', metavar="LOG",
                    help="Success logs")
@@ -72,6 +71,11 @@ def usage():
     if args.context_length is not None:
         args.before_context = args.context_length
         args.after_context = args.context_length
+
+    if args.html or args.json:
+        args.print_console = False
+    else:
+        args.print_console = True
 
     return args
 
@@ -139,7 +143,7 @@ def main():
                 current_chunk = []
                 current_score = []
                 current_pos = []
-                if last_pos and args.output_format == "text":
+                if last_pos and args.print_console:
                     print()
 
             # Clean ansible one-liner outputs
@@ -148,7 +152,7 @@ def main():
                 current_score.append(distance)
                 current_chunk.append(line)
                 current_pos.append(pos)
-                if args.output_format == "text":
+                if args.print_console:
                     print("%1.3f | %s:%04d:\t%s" % (distance,
                                                     filename,
                                                     pos + 1,
@@ -179,22 +183,16 @@ def main():
     output["baseline"] = args.baseline
     output["target"] = args.target
 
-    if args.output_format == "pprint":
-        pprint.pprint(output)
-    elif args.output_format == "json":
-        print(json.dumps(output))
-    elif args.output_format == "html":
-        print(render_html(output))
-    elif args.output_format == "yaml":
-        print(yaml.safe_dump(output, default_flow_style=False))
-    elif args.output_format == "text":
+    if args.json:
+        open(args.json, "w").write(json.dumps(output))
+    if args.html:
+        open(args.html, "w").write(render_html(output))
+    if args.print_console:
         log.info("%02.2f%% reduction (from %d lines to %d)" % (
             output["reduction"],
             output["testing_lines_count"],
             output["outlier_lines_count"]
         ))
-    else:
-        raise RuntimeError("%s: unknown output-format" % args.output_format)
 
 
 if __name__ == "__main__":

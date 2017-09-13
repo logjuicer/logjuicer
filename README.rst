@@ -5,7 +5,7 @@ Based on success logs, logreduce highlights useful text in failed logs.
 The goal is to assist in debugging failure and reduce effort needed to read
 boring log files.
 
-On average, learning run at 8k lines per second, and
+On average, learning run at 1000 lines per second, and
 testing run at 0.400k lines per seconds.
 
 
