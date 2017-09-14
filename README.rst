@@ -68,7 +68,7 @@ Install
 
 .. code-block:: console
 
-  sudo dnf install -y python3-scikit-learn lftp
+  sudo dnf install -y python3-scikit-learn
   git clone https://softwarefactory-project.io/r/logreduce
   pushd logreduce
   sudo python3 setup.py develop
@@ -115,14 +115,15 @@ Full usage:
 
 .. code-block:: console
 
-  $ usage: logreduce [-h] [--debug] [--debug-token] [--update-cache]
+  $ logreduce --help
+  usage: logreduce [-h] [--debug] [--debug-token]
                    [--ignore-file IGNORE_FILE [IGNORE_FILE ...]]
-                   [--model {simple,lshf,noop}]
-                   [--output-format {text,json,yaml,pprint,html}] [--save FILE]
-                   [--load FILE] [--jenkins-url JENKINS_URL] [--fetch-artifacts]
-                   [--threshold THRESHOLD] [--merge-distance MERGE_DISTANCE]
+                   [--model {simple,lshf,noop}] [--html HTML] [--json JSON]
+                   [--save FILE] [--load FILE] [--threshold THRESHOLD]
+                   [--merge-distance MERGE_DISTANCE]
                    [--before-context BEFORE_CONTEXT]
-                   [--after-context AFTER_CONTEXT] [--baseline LOG]
+                   [--after-context AFTER_CONTEXT]
+                   [--context-length CONTEXT_LENGTH] [--baseline LOG]
                    [target [target ...]]
 
   positional arguments:
@@ -134,10 +135,10 @@ Full usage:
     --debug-token         Print tokenization process
     --ignore-file IGNORE_FILE [IGNORE_FILE ...]
     --model {simple,lshf,noop}
-    --output-format {text,json,yaml,pprint,html}
+    --html FILE           Render html result
+    --json FILE           Render json result
     --save FILE           Save the model
     --load FILE           Load a previous model
-    --fetch-artifacts     Fetch zuul-swift-upload artifacts (needs lftp)
     --threshold THRESHOLD
                           Outlier distance threshold, set to 0.0 to display all
                           log, 1.0 to only display clear anomalies
@@ -147,6 +148,8 @@ Full usage:
                           Amount of lines to include before the anomaly
     --after-context AFTER_CONTEXT
                           Amount of lines to include after the anomaly
+    --context-length CONTEXT_LENGTH
+                          Set both after and before size
     --baseline LOG        Success logs
 
 

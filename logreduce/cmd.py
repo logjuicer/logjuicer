@@ -30,15 +30,13 @@ def usage():
     p.add_argument("--debug", action="store_true", help="Print debug")
     p.add_argument("--debug-token", action="store_true",
                    help="Print tokenization process")
-    p.add_argument("--update-cache", action="store_true",
-                   help="Force re-download")
     p.add_argument("--ignore-file", nargs='+')
 
     p.add_argument("--model", default="simple",
                    choices=["simple", "lshf", "noop"])
 
-    p.add_argument("--html", help="Render html result")
-    p.add_argument("--json", help="Render json result")
+    p.add_argument("--html", metavar="FILE", help="Render html result")
+    p.add_argument("--json", metavar="FILE", help="Render json result")
 
     p.add_argument("--save", metavar="FILE", help="Save the model")
     p.add_argument("--load", metavar="FILE", help="Load a previous model")
