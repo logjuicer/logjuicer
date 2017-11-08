@@ -12,6 +12,7 @@
 
 import logging
 import os
+import re
 import time
 import warnings
 
@@ -21,6 +22,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import LSHForest
 from sklearn.neighbors import NearestNeighbors
+from sklearn import svm
 
 from logreduce.utils import files_iterator
 from logreduce.utils import open_file
@@ -28,23 +30,36 @@ from logreduce.utils import Tokenizer
 
 
 # Parameters
-RANDOM_STATE=int(os.environ.get("LR_RANDOM_STATE", 42))
-USE_IDF=bool(int(os.environ.get("LR_USE_IDF", 1)))
-N_ESTIMATORS=int(os.environ.get("LR_N_ESTIMATORS", 23))
-CHUNK_SIZE=int(os.environ.get("LR_CHUNK_SIZE", 512))
+RANDOM_STATE = int(os.environ.get("LR_RANDOM_STATE", 42))
+USE_IDF = bool(int(os.environ.get("LR_USE_IDF", 1)))
+N_ESTIMATORS = int(os.environ.get("LR_N_ESTIMATORS", 23))
+CHUNK_SIZE = int(os.environ.get("LR_CHUNK_SIZE", 512))
 # Disable multiprocessing by default
-os.environ["JOBLIB_MULTIPROCESSING"] = os.environ.get("LR_MULTIPROCESSING", "0")
+os.environ["JOBLIB_MULTIPROCESSING"] = os.environ.get("LR_MULTIPROCESSING",
+                                                      "0")
 
 
 class Model:
     def __init__(self):
         self.sources = []
 
+    def process_line(self, line):
+        """Process log lines, return reduced version only if revelant"""
+        line = Tokenizer.process(line)
+        if ' ' in line:
+            # We need at least two words
+            return line
 
-class Noop(Model):
     def train(self, train_data):
+        """Fit the model with train_datas"""
         pass
 
+    def test(self, test_data):
+        """Detect outliers, return list of distances"""
+        pass
+
+
+class Noop(Model):
     def test(self, test_data):
         return [0.5] * len(test_data)
 
@@ -109,11 +124,64 @@ class SimpleNeighbors(Model):
         return all_distances
 
 
-class BagOfWords:
-    log = logging.getLogger("BagOfWords")
+class Hash(Model):
+    log = logging.getLogger("Hash")
+    remove_re = re.compile(r'[0-9]')
+    split_re = re.compile(r'[/\-\.]')
+
+    def __init__(self):
+        super(Hash, self).__init__()
+        self.hashes = []
+        self.max_size = 0
+        self.nn = NearestNeighbors(
+            algorithm='brute',
+            metric='cosine')
+        self.svm = svm.OneClassSVM(nu=0.1, kernel="rbf", gamma=0.1)
+
+    def hash(self, line):
+        hs = [0] * 255
+        split = Hash.remove_re.subn("", line)[0][:-1]
+        split = Hash.split_re.subn(" ", split)[0]
+        split = split.split()
+        for i in split:
+            h = 0
+            for c in i:
+                h ^= (ord(c) & 0xff)
+            hs[h] = 1
+        return hs
+
+    def process_line(self, line):
+        if not line:
+            return None
+        hs = self.hash(line)
+        if len(hs) > self.max_size:
+            self.max_size = len(hs)
+        return hs
+
+    def train(self, train_data):
+        # Pad hashes
+        for hs in train_data:
+            d = self.max_size - len(hs)
+            if d:
+                hs.extend([0] * d)
+        self.nn.fit(train_data)
+
+    def test(self, test_data):
+        # Pad hashes
+        for hs in test_data:
+            d = self.max_size - len(hs)
+            if d:
+                hs.extend([0] * d)
+        distances, _ = self.nn.kneighbors(test_data, n_neighbors=1)
+        return distances
+
+
+class OutliersDetector:
+    log = logging.getLogger("OutlierDetector")
     models = {
-        'lshf': LSHF,
-        'simple': SimpleNeighbors,
+        'bag-of-words_lshf': LSHF,
+        'bag-of-words_nn': SimpleNeighbors,
+        'bag-of-hash_nn': Hash,
         'noop': Noop,
     }
 
@@ -124,7 +192,8 @@ class BagOfWords:
         self.training_size = 0
 
     def get(self, bagname):
-        return self.bags.setdefault(bagname, BagOfWords.models[self.model]())
+        return self.bags.setdefault(bagname,
+                                    OutliersDetector.models[self.model]())
 
     def save(self, fileobj):
         """Save the model"""
@@ -153,6 +222,7 @@ class BagOfWords:
             bag_start_time = time.time()
             bag_size = 0
             bag_count = 0
+            model = self.get(bag_name)
             for filename in filenames:
                 self.log.debug("%s: Loading %s" % (bag_name, filename))
                 try:
@@ -163,9 +233,8 @@ class BagOfWords:
                     continue
                 idx = 0
                 while idx < len(data):
-                    line = Tokenizer.process(data[idx][:-1])
-                    if ' ' in line:
-                        # We need at least two words
+                    line = model.process_line(data[idx][:-1])
+                    if line:
                         train_data.append(line)
                     idx += 1
                 bag_count += idx
@@ -232,8 +301,8 @@ class BagOfWords:
                 # Get model name based on filename
                 bag_name = Tokenizer.filename2modelname(filename)
                 if bag_name not in self.bags:
-                    self.log.debug("Skipping unknown file %s (%s)" % (filename,
-                                                                      bag_name))
+                    self.log.debug("Skipping unknown file %s (%s)" % (
+                        filename, bag_name))
                     continue
             else:
                 # Only one file was trained, use it's model
@@ -251,10 +320,11 @@ class BagOfWords:
             test_data_pos = []
             # Tokenize and store all lines in test_data
             test_data = []
+            model = self.get(bag_name)
             idx = 0
             while idx < len(data):
-                line = Tokenizer.process(data[idx][:-1])
-                if ' ' in line:
+                line = model.process_line(data[idx][:-1])
+                if line:
                     # We need at least two words
                     test_data.append(line)
                     test_data_pos.append(idx)
@@ -285,7 +355,8 @@ class BagOfWords:
                 line_pos, distance, line = get_line_info(line_pos)
                 if distance >= threshold:
                     if line_pos - last_outlier >= merge_distance:
-                        # When last outlier is too far, set last_outlier to before_context
+                        # When last outlier is too far,
+                        # set last_outlier to before_context
                         last_outlier = max(line_pos - 1 - before_context, -1)
                     # Add previous context
                     for prev_pos in range(last_outlier + 1, line_pos):

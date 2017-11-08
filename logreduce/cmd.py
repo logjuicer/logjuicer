@@ -21,19 +21,18 @@ import numpy as np
 
 import logreduce.utils
 
-from logreduce.bagofwords import BagOfWords
+from logreduce.models import OutliersDetector
 from logreduce.html_output import render_html
 
 
 def usage():
     p = argparse.ArgumentParser()
     p.add_argument("--debug", action="store_true", help="Print debug")
-    p.add_argument("--debug-token", action="store_true",
-                   help="Print tokenization process")
-    p.add_argument("--ignore-file", nargs='+')
+    p.add_argument("--ignore-file", nargs='+',
+                   help="Filename (basename) regexp")
 
-    p.add_argument("--model", default="simple",
-                   choices=["simple", "lshf", "noop"])
+    p.add_argument("--model", default="bag-of-words_nn",
+                   choices=list(OutliersDetector.models.keys()))
 
     p.add_argument("--html", metavar="FILE", help="Render html result")
     p.add_argument("--json", metavar="FILE", help="Render json result")
@@ -52,11 +51,11 @@ def usage():
     p.add_argument("--after-context", default=1, type=int,
                    help="Amount of lines to include after the anomaly")
     p.add_argument("--context-length", type=int,
-                   help="Set both after and before size")
+                   help="Set both before and after context size")
 
     p.add_argument("--baseline", action='append', metavar="LOG",
-                   help="Success logs")
-    p.add_argument("target", nargs='*', help="Failed logs")
+                   help="Success logs path")
+    p.add_argument("target", nargs='*', help="Failed logs path")
     args = p.parse_args()
     if not args.baseline and not args.load:
         print("baseline or load needs to be used")
@@ -71,35 +70,33 @@ def usage():
         args.after_context = args.context_length
 
     if args.html or args.json:
-        args.print_console = False
+        args.console_output = False
     else:
-        args.print_console = True
+        args.console_output = True
 
     return args
 
 
-def setup_logging(debug=False, debug_token=False):
+def setup_logging(debug=False):
     loglevel = logging.INFO
     if debug:
         loglevel = logging.DEBUG
-    if debug_token:
-        logreduce.utils.DEBUG_TOKEN = True
     logging.basicConfig(
         format='%(asctime)s %(levelname)-5.5s %(name)s - %(message)s',
         level=loglevel)
-    return logging.getLogger("LogAnomaly")
+    return logging.getLogger("LogReduce")
 
 
 def main():
     start_time = time.time()
     args = usage()
-    log = setup_logging(args.debug, args.debug_token)
+    log = setup_logging(args.debug)
 
     if args.load:
-        clf = BagOfWords.load(args.load)
+        clf = OutliersDetector.load(args.load)
         args.baseline = [args.load]
     else:
-        clf = BagOfWords(args.model)
+        clf = OutliersDetector(args.model)
         clf.train(args.baseline)
 
     if args.save:
@@ -141,7 +138,7 @@ def main():
                 current_chunk = []
                 current_score = []
                 current_pos = []
-                if last_pos and args.print_console:
+                if last_pos and args.console_output:
                     print()
 
             # Clean ansible one-liner outputs
@@ -150,7 +147,7 @@ def main():
                 current_score.append(distance)
                 current_chunk.append(line)
                 current_pos.append(pos)
-                if args.print_console:
+                if args.console_output:
                     print("%1.3f | %s:%04d:\t%s" % (distance,
                                                     filename,
                                                     pos + 1,
@@ -185,7 +182,7 @@ def main():
         open(args.json, "w").write(json.dumps(output))
     if args.html:
         open(args.html, "w").write(render_html(output))
-    if args.print_console:
+    if args.console_output:
         log.info("%02.2f%% reduction (from %d lines to %d)" % (
             output["reduction"],
             output["testing_lines_count"],

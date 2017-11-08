@@ -51,9 +51,9 @@ BLACKLIST_EXTENSIONS = (
     "_key",
     ".crt",
     ".pem",
+    ".rpm",
 )
 IGNORE_FILES = [
-    "*.rpm",
     "index.html",
 ]
 
@@ -64,8 +64,6 @@ MONTHS = "january|february|march|april|may|june|july|august|september|" \
 RANDOM_PREFIXES = r'tmp|br|tap|req-|ns-|0x|a[0-9]+='
 RANDOM_DIRS = r'ansible_|omit_place_holder__|instack\.|dib_build\.'
 MIXED_ALPHA_DIGITS_WORDS = r'[a-z0-9+]*[0-9][a-z0-9\/+]*'
-
-DEBUG_TOKEN = False
 
 
 class Tokenizer:
@@ -91,8 +89,6 @@ class Tokenizer:
         strip = Tokenizer.alpha_re.subn(" ", strip)[0]
         # Remove tiny words
         strip = " ".join(filter(lambda x: len(x) > 3, strip.split()))
-        if DEBUG_TOKEN:
-            print("[%s] => [%s]" % (line, strip))
         return strip
 
     @staticmethod
@@ -134,7 +130,7 @@ def open_file(p):
 
 
 def files_iterator(paths):
-    """Yield (path, file object)"""
+    """Walk directory and yield path"""
     if not isinstance(paths, list):
         paths = [paths]
     else:
@@ -146,7 +142,7 @@ def files_iterator(paths):
         elif os.path.isdir(path):
             for dname, _, fnames in os.walk(path):
                 for fname in fnames:
-                    if [True for ign in IGNORE_FILES if fname == ign]:
+                    if [True for ign in IGNORE_FILES if re.match(ign, fname)]:
                         continue
                     if [True for skip in BLACKLIST if fname.startswith(skip)]:
                         continue
