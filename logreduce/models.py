@@ -16,6 +16,8 @@ import re
 import time
 import warnings
 
+import sklearn.utils.validation
+
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
@@ -212,7 +214,7 @@ class OutliersDetector:
         # Group similar files for the same model
         to_train = {}
         for filename in files_iterator(path):
-            bag_name = Tokenizer.filename2modelname(filename)
+            bag_name = Tokenizer.filename2modelname(filename[len(path):])
             to_train.setdefault(bag_name, []).append(filename)
 
         # Train each model
@@ -299,7 +301,7 @@ class OutliersDetector:
         for filename in files_iterator(path):
             if len(self.bags) > 1:
                 # Get model name based on filename
-                bag_name = Tokenizer.filename2modelname(filename)
+                bag_name = Tokenizer.filename2modelname(filename[len(path):])
                 if bag_name not in self.bags:
                     self.log.debug("Skipping unknown file %s (%s)" % (
                         filename, bag_name))
@@ -336,7 +338,11 @@ class OutliersDetector:
 
             # Transform and compute distance from the model
             model = self.bags[bag_name]
-            distances = model.test(test_data)
+            try:
+                distances = model.test(test_data)
+            except sklearn.utils.validation.NotFittedError:
+                self.log.warning("%s: skipping unfitted model" % filename)
+                continue
 
             def get_line_info(line_pos):
                 try:

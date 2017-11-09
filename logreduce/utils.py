@@ -56,6 +56,9 @@ BLACKLIST_EXTENSIONS = (
 IGNORE_FILES = [
     "index.html",
 ]
+IGNORE_PATH = [
+    "group_vars/all.yaml"
+]
 
 
 DAYS = "sunday|monday|tuesday|wednesday|thursday|friday|saturday"
@@ -95,27 +98,23 @@ class Tokenizer:
     def filename2modelname(filename):
         """Create a modelname based on filename"""
         # Only keep parent directory and first component of the basename
-        # For example: puppet-20170620_063554.txt.gz -> puppet-_.txt
         shortfilename = os.path.join(
-            os.path.basename(os.path.dirname(filename)),
+            Tokenizer.randword_re.subn("", os.path.basename(
+                os.path.dirname(filename)))[0],
             os.path.basename(filename).split('.')[0])
-        shortfilename = Tokenizer.randword_re.subn("", shortfilename)[0]
-        # Detect jenkins jobs in path
-        # For example: jenkins/jobs/config-update/42/log -> config-update/log
-        if "/jobs/" in filename:
-            job_name = filename.split('/jobs/')[-1].split('/')[0]
-            shortfilename = os.path.join(job_name, shortfilename)
-        # Detect results in path
-        if "/results/" in filename:
-            job_name = filename.split('results/')[-1].split('/')[0]
-            shortfilename = os.path.join(job_name, shortfilename)
+        # Detect pipeline in path and add job name
+        for pipeline in ("check", "gate", "post", "periodic"):
+            pipedir = "/%s/" % pipeline
+            if pipedir in filename:
+                job_name = filename.split(pipedir)[-1].split('/')[0]
+                shortfilename = os.path.join(job_name, shortfilename)
         if shortfilename == '':
             # Reduction was too agressive, just keep the filename in this case
             shortfilename = os.path.basename(filename).split('.')[0]
         # Append relevant extensions
         for ext in (".conf", ".audit", ".yaml", ".orig", ".log",
-                    ".xml"):
-            if ext in filename:
+                    ".xml", ".html", ".txt", ".py", ".json", ".yml"):
+            if filename.endswith(ext) or filename.endswith("%s.gz" % ext):
                 shortfilename += ext
         # Remove numbers and symbols
         return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
@@ -151,6 +150,8 @@ def files_iterator(paths):
                             fname.endswith("%s.gz" % skip)]:
                         continue
                     fpath = os.path.join(dname, fname)
+                    if [True for ign in IGNORE_PATH if re.search(ign, fpath)]:
+                        continue
                     if "/.git/" in fpath:
                         continue
                     yield fpath
