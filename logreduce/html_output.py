@@ -20,7 +20,8 @@ def render_html(output):
            "<link rel='stylesheet' href='bootstrap.min.css'>"
            "<script src='bootstrap.min.js'></script>"
            "<style>.panel-body {max-height: 800; overflow-y: scroll;}</style>"
-           "</head><body><h2>Logreduce</h2>" % " ".join(output["target"])]
+           "</head><body style='margin-left: 20px'>"
+           "<h2>Logreduce</h2>" % " ".join(output["target"])]
     # Results info
     dom.append("<ul>")
     dom.append("  <li>Command: %s</li>" % " ".join(sys.argv))
@@ -33,7 +34,9 @@ def render_html(output):
         output["outlier_lines_count"]))
     dom.append("</ul>")
     # Results table of content
-    dom.append("<table class='table table-condensed'>"
+    dom.append("<div style='overflow-x: scroll'>"
+               "<table style='white-space: nowrap; margin: 0px' "
+               "class='table table-condensed table-responsive'>"
                "<thead><tr>"
                "<th>Count</th><th>Filename</th><th>Compared too</th>"
                "</tr></thead><tbody>")
@@ -46,7 +49,7 @@ def render_html(output):
                        filename.replace('/', '_'), filename) +
                    "<td>%s</td>" % " ".join(data["source_files"]) +
                    "</tr>")
-    dom.append("</tbody></table>")
+    dom.append("</tbody></table></div><br />")
 
     for filename, data in output["files_sorted"]:
         if not data["chunks"]:
