@@ -14,7 +14,6 @@
 
 import argparse
 import json
-import logging
 import time
 
 import numpy as np
@@ -77,20 +76,10 @@ def usage():
     return args
 
 
-def setup_logging(debug=False):
-    loglevel = logging.INFO
-    if debug:
-        loglevel = logging.DEBUG
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)-5.5s %(name)s - %(message)s',
-        level=loglevel)
-    return logging.getLogger("LogReduce")
-
-
 def main():
     start_time = time.time()
     args = usage()
-    log = setup_logging(args.debug)
+    log = logreduce.utils.setup_logging(args.debug)
 
     if args.load:
         clf = OutliersDetector.load(args.load)
