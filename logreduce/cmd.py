@@ -98,12 +98,13 @@ def main():
         exit(1)
 
     output = {'files': {}}
-    for filename, source_files, outliers in clf.test(args.target,
-                                                     float(args.threshold),
-                                                     args.merge_distance,
-                                                     args.before_context,
-                                                     args.after_context):
+    for filename, filename_orig, source_files, outliers in \
+        clf.test(args.target, float(args.threshold),
+                 args.merge_distance,
+                 args.before_context,
+                 args.after_context):
         file_info = output['files'].setdefault(filename, {
+            'file_url': filename_orig,
             'source_files': source_files,
             'chunks': [],
             'scores': [],

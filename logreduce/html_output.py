@@ -11,6 +11,7 @@
 # under the License.
 
 import html
+import os.path
 import sys
 
 
@@ -43,11 +44,24 @@ def render_html(output):
     for filename, data in output["files_sorted"]:
         if not data["chunks"]:
             continue
+        source_links = []
+        for source_file in data["source_files"]:
+            if source_file.startswith("http"):
+                source_dir = os.path.basename(os.path.dirname(source_file))
+                if source_dir.startswith("Z"):
+                    source_dir = ""
+                source_links.append("<a href='%s'>%s</a>" % (
+                    source_file, os.path.join(source_dir,
+                                              os.path.basename(source_file))
+                ))
+            else:
+                source_links.append(source_file)
         dom.append("  <tr>"
                    "<td>%d</td>" % len(data["scores"]) +
-                   "<td><a href='#%s'>%s</a></td>" % (
-                       filename.replace('/', '_'), filename) +
-                   "<td>%s</td>" % " ".join(data["source_files"]) +
+                   "<td><a href='#%s'>%s</a> (<a href='%s'>link</a>)</td>" % (
+                       filename.replace('/', '_'), filename,
+                       data["file_url"]) +
+                   "<td>%s</td>" % " ".join(source_links) +
                    "</tr>")
     dom.append("</tbody></table></div><br />")
 

@@ -129,7 +129,7 @@ def open_file(p):
 
 
 def files_iterator(paths):
-    """Walk directory and yield path"""
+    """Walk directory and yield (path, rel_path)"""
     if not isinstance(paths, list):
         paths = [paths]
     else:
@@ -137,7 +137,7 @@ def files_iterator(paths):
         paths = list(paths)
     for path in paths:
         if os.path.isfile(path):
-            yield path
+            yield (path, os.path.basename(path))
         elif os.path.isdir(path):
             for dname, _, fnames in os.walk(path):
                 for fname in fnames:
@@ -154,7 +154,7 @@ def files_iterator(paths):
                         continue
                     if "/.git/" in fpath:
                         continue
-                    yield fpath
+                    yield (fpath, fpath[len(path) + 1:])
         else:
             raise RuntimeError("%s: unknown uri" % path)
 

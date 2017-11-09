@@ -213,8 +213,8 @@ class OutliersDetector:
 
         # Group similar files for the same model
         to_train = {}
-        for filename in files_iterator(path):
-            bag_name = Tokenizer.filename2modelname(filename[len(path):])
+        for filename, filename_rel in files_iterator(path):
+            bag_name = Tokenizer.filename2modelname(filename_rel)
             to_train.setdefault(bag_name, []).append(filename)
 
         # Train each model
@@ -251,7 +251,12 @@ class OutliersDetector:
                 # Transform and fit the model data
                 model = self.get(bag_name)
                 for filename in filenames:
-                    model.sources.append(filename)
+                    url_prefix = "/tmp/logreduce-getthelogs/"
+                    if filename.startswith(url_prefix):
+                        forig = "http://%s" % (filename[len(url_prefix):])
+                    else:
+                        forig = filename
+                    model.sources.append(forig)
                 train_result = model.train(train_data)
 
                 bag_train_time = time.time() - bag_start_time
@@ -298,10 +303,10 @@ class OutliersDetector:
         self.testing_size = 0
         self.outlier_lines_count = 0
 
-        for filename in files_iterator(path):
+        for filename, filename_rel in files_iterator(path):
             if len(self.bags) > 1:
                 # Get model name based on filename
-                bag_name = Tokenizer.filename2modelname(filename[len(path):])
+                bag_name = Tokenizer.filename2modelname(filename_rel)
                 if bag_name not in self.bags:
                     self.log.debug("Skipping unknown file %s (%s)" % (
                         filename, bag_name))
@@ -378,8 +383,14 @@ class OutliersDetector:
                     last_outlier = line_pos
                 line_pos += 1
 
+            url_prefix = "/tmp/logreduce-getthelogs/"
+            if filename.startswith(url_prefix):
+                filename_orig = "http://%s" % (filename[len(url_prefix):])
+            else:
+                filename_orig = filename
+
             # Yield result
-            yield (filename, model.sources, outliers)
+            yield (filename_rel, filename_orig, model.sources, outliers)
 
         test_time = time.time() - start_time
         test_size_speed = (self.testing_size / (1024 * 1024)) / test_time
