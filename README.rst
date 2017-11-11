@@ -6,7 +6,7 @@ The goal is to assist in debugging failure and reduce effort needed to read
 boring log files.
 
 On average, learning run at 1000 lines per second, and
-testing run at 0.400k lines per seconds.
+testing run at 0.800k lines per seconds.
 
 
 How it works
@@ -237,7 +237,8 @@ Roadmap/todo
 * Add tarball traversal in utils.files_iterator
 * Improve tokenization tests
 * Discard files that are 100% anomalous
-* Run test in paralelle
+* Run logreduce-test in paralelle
+* Use model bin to group line per size, e.g. <8 tokens, 8~32 tokens, >32 tokens
 
 Other ideas:
 

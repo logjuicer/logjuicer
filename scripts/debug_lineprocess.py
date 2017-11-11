@@ -15,7 +15,7 @@
 """Script to debug line tokenization"""
 
 import sys
-from logreduce.utils import Tokenizer
+from logreduce.models import Model
 
 try:
     path = sys.argv[1]
@@ -23,6 +23,7 @@ except IndexError:
     print("usage: %s file" % sys.argv[0])
     exit(1)
 
+model = Model()
 for line in open(path).readlines():
     print(line[:-1])
-    print("-> %s" % Tokenizer.process(line))
+    print("-> %s" % model.process_line(line))

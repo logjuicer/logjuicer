@@ -97,12 +97,17 @@ def main():
         log.error("No target found/specified")
         exit(1)
 
-    output = {'files': {}}
+    output = {'files': {}, 'unknown_files': []}
     for filename, filename_orig, source_files, outliers in \
         clf.test(args.target, float(args.threshold),
                  args.merge_distance,
                  args.before_context,
                  args.after_context):
+        if not source_files:
+            # Do not bother with failed only logfile
+            if "failed_deployment_list.log.txt" not in filename:
+                output["unknown_files"].append((filename, filename_orig))
+            continue
         file_info = output['files'].setdefault(filename, {
             'file_url': filename_orig,
             'source_files': source_files,

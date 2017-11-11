@@ -15,7 +15,8 @@
 """Script to debug file groups"""
 
 import sys
-from logreduce.utils import files_iterator, Tokenizer
+from logreduce.utils import files_iterator
+from logreduce.models import OutliersDetector
 
 try:
     path = sys.argv[1]
@@ -25,7 +26,7 @@ except IndexError:
 
 groups = {}
 for filename, filename_rel in files_iterator(path):
-    bag_name = Tokenizer.filename2modelname(filename_rel)
+    bag_name = OutliersDetector.filename2modelname(filename_rel)
     groups.setdefault(bag_name, []).append(filename)
 
 for group_name, files in sorted(groups.items()):

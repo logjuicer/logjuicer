@@ -71,7 +71,8 @@ def render_html(output):
         dom.append(
             "<div class='panel panel-default' id='%s'>" % (
                 filename.replace('/', '_')) +
-            "<div class='panel-heading'>%s</div>" % (filename) +
+            "<div class='panel-heading'><a href='%s'>%s</a></div>" % (
+                data['file_url'], filename) +
             "<div class='panel-body'>")
         for idx in range(len(data["chunks"])):
             lines = data["chunks"][idx].split('\n')
@@ -86,5 +87,11 @@ def render_html(output):
             dom.append("<hr style='margin-top: 0px; margin-bottom: 10px;' />")
         dom.append("</div></div>")
 
+    if output.get("unknown_files"):
+        dom.append("<br /><h2>Unmatched file in previous success logs</h2>")
+        dom.append("<ul>")
+        for fname in output["unknown_files"]:
+            dom.append("<li><a href='%s'>%s</a></li>" % (fname[1], fname[0]))
+        dom.append("</ul>")
     dom.append("</body></html>")
     return "\n".join(dom)
