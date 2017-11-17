@@ -123,3 +123,14 @@ def setup_logging(debug=False, name="LogReduce"):
         format='%(asctime)s %(levelname)-5.5s %(name)s - %(message)s',
         level=loglevel)
     return logging.getLogger(name)
+
+
+def format_speed(count, size, elapsed_time):
+    """Return speed in MB/s and kilo-line count/s"""
+    return "%.03fs at %.03fMB/s (%0.3fkl/s) (%.03f MB - %.03f kilo-lines)" % (
+        elapsed_time,
+        (size / (1024 * 1024)) / elapsed_time,
+        (count / 1000) / elapsed_time,
+        (size / (1024 * 1024)),
+        (count / 1000),
+    )

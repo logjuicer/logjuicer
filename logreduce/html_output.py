@@ -41,7 +41,10 @@ def render_html(output):
                "<thead><tr>"
                "<th>Count</th><th>Filename</th><th>Compared too</th>"
                "</tr></thead><tbody>")
-    for filename, data in output["files_sorted"]:
+    files_sorted = sorted(output['files'].items(),
+                          key=lambda x: x[1]['mean_distance'],
+                          reverse=True)
+    for filename, data in files_sorted:
         if not data["chunks"]:
             continue
         source_links = []
@@ -65,7 +68,7 @@ def render_html(output):
                    "</tr>")
     dom.append("</tbody></table></div><br />")
 
-    for filename, data in output["files_sorted"]:
+    for filename, data in files_sorted:
         if not data["chunks"]:
             continue
         dom.append(

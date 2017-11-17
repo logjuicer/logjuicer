@@ -16,12 +16,11 @@ import argparse
 import json
 import time
 
-import numpy as np
-
 import logreduce.utils
 
-from logreduce.models import OutliersDetector
+from logreduce.process import OutliersDetector
 from logreduce.html_output import render_html
+from logreduce.models import models
 
 
 def usage():
@@ -31,7 +30,7 @@ def usage():
                    help="Filename (basename) regexp")
 
     p.add_argument("--model", default="bag-of-words_nn",
-                   choices=list(OutliersDetector.models.keys()))
+                   choices=list(models.keys()))
 
     p.add_argument("--html", metavar="FILE", help="Render html result")
     p.add_argument("--json", metavar="FILE", help="Render json result")
@@ -77,7 +76,7 @@ def usage():
 
 
 def main():
-    start_time = time.time()
+    start_time = time.monotonic()
     args = usage()
     log = logreduce.utils.setup_logging(args.debug)
 
@@ -97,82 +96,13 @@ def main():
         log.error("No target found/specified")
         exit(1)
 
-    output = {'files': {}, 'unknown_files': []}
-    for filename, filename_orig, source_files, outliers in \
-        clf.test(args.target, float(args.threshold),
-                 args.merge_distance,
-                 args.before_context,
-                 args.after_context):
-        if not source_files:
-            # Do not bother with failed only logfile
-            if "failed_deployment_list.log.txt" not in filename:
-                output["unknown_files"].append((filename, filename_orig))
-            continue
-        file_info = output['files'].setdefault(filename, {
-            'file_url': filename_orig,
-            'source_files': source_files,
-            'chunks': [],
-            'scores': [],
-            'line_pos': [],
-            'lines_count': 0,
-        })
-        current_chunk = []
-        current_score = []
-        current_pos = []
-        last_pos = None
-        log.debug("%s: compared with %s" % (filename, " ".join(source_files)))
+    output = clf.process(args.target, float(args.threshold),
+                         args.merge_distance,
+                         args.before_context,
+                         args.after_context,
+                         args.console_output)
 
-        for pos, distance, outlier in outliers:
-            distance = abs(float(distance))
-            if last_pos and pos - last_pos != 1:
-                # New chunk
-                file_info["chunks"].append("\n".join(current_chunk))
-                file_info["scores"].append(current_score)
-                file_info["line_pos"].append(current_pos)
-                file_info["lines_count"] += len(current_chunk)
-                current_chunk = []
-                current_score = []
-                current_pos = []
-                if last_pos and args.console_output:
-                    print()
-
-            # Clean ansible one-liner outputs
-            for line in outlier[:-1].split(r'\n'):
-                line = line.replace(r'\t', '\t')
-                current_score.append(distance)
-                current_chunk.append(line)
-                current_pos.append(pos)
-                if args.console_output:
-                    print("%1.3f | %s:%04d:\t%s" % (distance,
-                                                    filename,
-                                                    pos + 1,
-                                                    line))
-
-            last_pos = pos
-        if current_chunk:
-            file_info["chunks"].append("\n".join(current_chunk))
-            file_info["scores"].append(current_score)
-            file_info["line_pos"].append(current_pos)
-            file_info["lines_count"] += len(current_chunk)
-
-        # Compute mean distances of outliers
-        mean_distance = 0
-        if file_info["scores"]:
-            mean_distance = np.mean(np.hstack(file_info["scores"]))
-        file_info["mean_distance"] = mean_distance
-
-    output["files_sorted"] = sorted(output['files'].items(),
-                                    key=lambda x: x[1]['mean_distance'],
-                                    reverse=True)
-    output["training_lines_count"] = clf.training_lines_count
-    output["testing_lines_count"] = clf.testing_lines_count
-    output["outlier_lines_count"] = clf.outlier_lines_count
-    output["reduction"] = 100 - (output["outlier_lines_count"] /
-                                 output["testing_lines_count"]) * 100
-    output["total_time"] = time.time() - start_time
-    output["baseline"] = args.baseline
-    output["target"] = args.target
-
+    output["total_time"] = time.monotonic() - start_time
     if args.json:
         open(args.json, "w").write(json.dumps(output))
     if args.html:

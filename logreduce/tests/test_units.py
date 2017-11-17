@@ -12,7 +12,8 @@
 
 import unittest
 
-from logreduce.models import OutliersDetector, Tokenizer
+from logreduce.process import OutliersDetector
+from logreduce.tokenizer import Tokenizer
 
 
 class TokenizerTests(unittest.TestCase):
