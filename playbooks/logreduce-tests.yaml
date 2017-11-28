@@ -1,0 +1,26 @@
+---
+- hosts: all
+  vars:
+    venv_dir: "/tmp/venv"
+    logreduce_dir: "{{ zuul.project.src_dir }}/../logreduce"
+    logreduce_tests_dir: "{{ zuul.project.src_dir }}/../logreduce-tests"
+  tasks:
+    - name: Prepare virtualenv
+      command: virtualenv-3 --system-site-packages "{{ venv_dir }}"
+
+    - name: Install logreduce
+      command: "{{ venv_dir }}/bin/python setup.py develop"
+      args:
+        chdir: "{{ logreduce_dir }}"
+
+    - name: Install logreduce-tests
+      command: "{{ venv_dir }}/bin/python setup.py develop"
+      args:
+        chdir: "{{ logreduce_tests_dir }}"
+
+    - name: Run logreduce-tests
+      command: "{{ venv_dir }}/bin/logreduce-tests --debug"
+      environment:
+        PATH: "{{ venv_dir }}/bin:{{ ansible_env.PATH }}"
+      args:
+        chdir: "{{ logreduce_tests_dir }}"

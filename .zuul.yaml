@@ -1,0 +1,24 @@
+---
+- job:
+    name: logreduce-tests
+    parent: base
+    description: The logreduce regression tests suite
+    run: playbooks/logreduce-tests.yaml
+    required-projects:
+      - logreduce
+      - logreduce-tests
+    nodeset:
+      nodes:
+        - name: container
+          label: f27-oci
+
+- project:
+    name: logreduce
+    check:
+      jobs:
+        - logreduce-tests
+        - tox-pep8
+        - tox-py35-f27
+    gate:
+      jobs:
+        - noop

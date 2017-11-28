@@ -1,2 +1,4 @@
+numpy
+scipy
 scikit-learn
 PyYAML
