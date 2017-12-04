@@ -33,6 +33,7 @@ class Model:
     def __init__(self, name):
         self.name = name
         self.sources = []
+        self.train_time = 0
         self.info = ""
 
     def process_line(self, line):

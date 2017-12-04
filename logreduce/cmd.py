@@ -79,6 +79,10 @@ def main():
     start_time = time.monotonic()
     args = usage()
     log = logreduce.utils.setup_logging(args.debug)
+    # test html_output, only re-rerender
+#    output = json.loads(open(args.json, "r").read())
+#    open(args.html, "w").write(render_html(output))
+#    exit(0)
 
     if args.load:
         clf = OutliersDetector.load(args.load)

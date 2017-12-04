@@ -176,6 +176,7 @@ class OutliersDetector:
         self.outlier_lines_count = 0
 
         for filename, filename_rel in files_iterator(path):
+            test_start_time = time.monotonic()
             url_prefix = "/tmp/logreduce-getthelogs/"
             if filename.startswith(url_prefix):
                 filename_orig = "http://%s" % (filename[len(url_prefix):])
@@ -188,7 +189,7 @@ class OutliersDetector:
                 if model_name not in self.models:
                     self.log.debug("Skipping unknown file %s (%s)" % (
                         filename, model_name))
-                    yield (filename_rel, filename_orig, None, None)
+                    yield (filename_rel, filename_orig, None, None, None)
                     continue
             else:
                 # Only one file was trained, use its model
@@ -280,7 +281,8 @@ class OutliersDetector:
                 line_pos += 1
 
             # Yield result
-            yield (filename_rel, filename_orig, model.sources, outliers)
+            yield (filename_rel, filename_orig, model, outliers,
+                   time.monotonic() - test_start_time)
 
         self.test_time = time.monotonic() - start_time
         self.log.debug("Testing took %s" % format_speed(
@@ -295,17 +297,24 @@ class OutliersDetector:
         self.merge_distance = merge_distance
         self.before_context = before_context
         self.after_context = after_context
-        output = {'files': {}, 'unknown_files': []}
+        output = {'files': {}, 'unknown_files': [], 'models': {},
+                  'anomalies_count': 0}
         for file_result in self.test(path):
-            filename, filename_orig, source_files, outliers = file_result
-            if not source_files:
+            filename, filename_orig, model, outliers, test_time = file_result
+            if model is None:
                 # Do not bother with failed only logfile
                 if "failed_deployment_list.log.txt" not in filename:
                     output["unknown_files"].append((filename, filename_orig))
                 continue
+            output['models'].setdefault(model.name, {
+                'source_files': model.sources,
+                'train_time': model.train_time,
+                'info': model.info,
+            })
             file_info = output['files'].setdefault(filename, {
                 'file_url': filename_orig,
-                'source_files': source_files,
+                'test_time': test_time,
+                'model': model.name,
                 'chunks': [],
                 'scores': [],
                 'line_pos': [],
@@ -316,7 +325,7 @@ class OutliersDetector:
             current_pos = []
             last_pos = None
             self.log.debug("%s: compared with %s" % (
-                filename, " ".join(source_files)))
+                filename, " ".join(model.sources)))
 
             for pos, distance, outlier in outliers:
                 distance = abs(float(distance))
@@ -355,6 +364,7 @@ class OutliersDetector:
             mean_distance = 0
             if file_info["scores"]:
                 mean_distance = np.mean(np.hstack(file_info["scores"]))
+                output["anomalies_count"] += len(file_info["scores"])
             file_info["mean_distance"] = mean_distance
 
         output["training_lines_count"] = self.training_lines_count
