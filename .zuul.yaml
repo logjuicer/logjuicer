@@ -22,3 +22,6 @@
     gate:
       jobs:
         - noop
+    release:
+      jobs:
+        - upload-pypi
