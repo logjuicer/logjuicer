@@ -11,6 +11,7 @@
 # under the License.
 
 import gzip
+import lzma
 import os
 import re
 import logging
@@ -46,6 +47,8 @@ BLACKLIST = (
     "id_rsa",
     "tempest.log.txt",
     "tempest_output.log.txt",
+    ".*.subunit.gz",
+    "devstack.journal.xz",
 )
 BLACKLIST_EXTENSIONS = (
     ".db",
@@ -79,6 +82,8 @@ def open_file(p):
         # check if really gzip, logs.openstack.org return decompressed files
         if open(p, 'rb').read(2) == b'\x1f\x8b':
             return gzip.open(p, mode='r')
+    elif p.endswith(".xz"):
+        return lzma.open(p, mode='r')
     return open(p, 'rb')
 
 
