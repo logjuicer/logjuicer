@@ -54,7 +54,7 @@ def usage():
     r.add_argument("--ignore-file", nargs='+',
                    help="Filename (basename) regexp")
 
-    r.add_argument("--model-type", default="bag-of-words_nn",
+    r.add_argument("--model-type", default="hashing_nn",
                    choices=list(models.keys()))
 
     r.add_argument("--html", metavar="FILE", help="Render html result")

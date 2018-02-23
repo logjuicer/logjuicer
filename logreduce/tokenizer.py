@@ -50,6 +50,8 @@ class Tokenizer:
         r'|zuul.*echo BECOME-SUCCESS-'
         r')')
     power2_re = re.compile(r'([0-9a-f]{32}|[0-9a-f]{64}|[0-9a-f]{128})', re.I)
+    uuid_re = re.compile(UUID_RE, re.I)
+    date_re = re.compile('(%s|%s|%s)' % (DAYS, SHORT_MONTHS, MONTHS), re.I)
     randword_re = re.compile(r'\b(' +
                              r'%s' % DAYS +
                              r'|%s' % SHORT_MONTHS +
@@ -61,7 +63,30 @@ class Tokenizer:
                              r')[^\s\.\/]*', re.I)
     comments = re.compile(r'([\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
+    letters_re = re.compile(r'[a-z]', re.I)
     gitver_re = re.compile(r'git[a-z0-9]+', re.I)
+    digits_re = re.compile(r'[0-9]')
+
+    @staticmethod
+    def light_process(line):
+        # Ignore some raw pattern first
+        if Tokenizer.rawline_re.search(line):
+            return ''
+        strip = line
+        # Remove words that are exactly 32, 64 or 128 character longs
+        strip = Tokenizer.power2_re.subn("RNG", strip)[0]
+        # Remove uuid
+        strip = Tokenizer.uuid_re.subn("RNG", strip)[0]
+        # Remove date
+        strip = Tokenizer.date_re.subn("DATE", strip)[0]
+        # Remove numbers
+        strip = Tokenizer.digits_re.subn("", strip)[0]
+        # Remove tiny words
+        strip = " ".join(filter(lambda x: len(x) > 3, strip.split()))
+        # Ignore lines without letters
+        if not Tokenizer.letters_re.search(strip):
+            return ''
+        return strip
 
     @staticmethod
     def process(line):
