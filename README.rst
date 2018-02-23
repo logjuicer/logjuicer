@@ -71,7 +71,7 @@ Install
   sudo dnf install -y python3-scikit-learn
   git clone https://softwarefactory-project.io/r/logreduce
   pushd logreduce
-  sudo python3 setup.py develop
+  python3 setup.py develop --user
   popd
 
 * Pip:
@@ -92,7 +92,7 @@ Usage
 
 Log files can be a single file or a directory.
 
-Logreduce needs a **--baseline** for success log training, and a **target**
+Logreduce needs a **baseline** for success log training, and a **target**
 for the log to reduce.
 
 Logreduce will print anomalies on the console, the log files are not modified.
@@ -102,56 +102,14 @@ When using the text **--output-format**, anomalies are printed using this format
 
   # "%(distance)f | %(log_path)s:%(line_number)d: %(log_line)s"
 
-  $ logreduce --baseline testr-nodepool-01/output.good testr-nodepool-01/output.fail
+  $ logreduce run testr-nodepool-01/output.good testr-nodepool-01/output.fail
   [...]
   0.232 | testr-nodepool-01/output.fail:0677:	  File "voluptuous/schema_builder.py", line 370, in validate_mapping
   0.462 | testr-nodepool-01/output.fail:0678:	    raise er.MultipleInvalid(errors)
   0.650 | testr-nodepool-01/output.fail:0679:	voluptuous.error.MultipleInvalid: required key not provided @ data['providers'][2]['cloud']
 
-The model can be trained and saved for re-use using **--save**.
-When using **--load** logreduce doesn't need a **--baseline**.
-
-Full usage:
-
-.. code-block:: console
-
-  $ logreduce --help
-  usage: logreduce [-h] [--debug] [--debug-token]
-                   [--ignore-file IGNORE_FILE [IGNORE_FILE ...]]
-                   [--model {simple,lshf,noop}] [--html HTML] [--json JSON]
-                   [--save FILE] [--load FILE] [--threshold THRESHOLD]
-                   [--merge-distance MERGE_DISTANCE]
-                   [--before-context BEFORE_CONTEXT]
-                   [--after-context AFTER_CONTEXT]
-                   [--context-length CONTEXT_LENGTH] [--baseline LOG]
-                   [target [target ...]]
-
-  positional arguments:
-    target                Failed logs
-
-  optional arguments:
-    -h, --help            show this help message and exit
-    --debug               Print debug
-    --debug-token         Print tokenization process
-    --ignore-file IGNORE_FILE [IGNORE_FILE ...]
-    --model {simple,lshf,noop}
-    --html FILE           Render html result
-    --json FILE           Render json result
-    --save FILE           Save the model
-    --load FILE           Load a previous model
-    --threshold THRESHOLD
-                          Outlier distance threshold, set to 0.0 to display all
-                          log, 1.0 to only display clear anomalies
-    --merge-distance MERGE_DISTANCE
-                          Distance between chunks to merge in a continuous one
-    --before-context BEFORE_CONTEXT
-                          Amount of lines to include before the anomaly
-    --after-context AFTER_CONTEXT
-                          Amount of lines to include after the anomaly
-    --context-length CONTEXT_LENGTH
-                          Set both after and before size
-    --baseline LOG        Success logs
-
+The model can be trained and saved for re-use using **model-build**.
+When using **--model** logreduce doesn't need a **baseline**.
 
 See bellow for some examples
 
@@ -163,7 +121,7 @@ Examples
 
 .. code-block:: console
 
-  $ logreduce --baseline /var/log/audit/audit.log.4 /var/log/audit/audit.log --context-length 0
+  $ logreduce run /var/log/audit/audit.log.4 /var/log/audit/audit.log --context-length 0
   0.276 | /var/log/audit/audit.log:0606: type=USER_AUTH msg=audit(1498373150.931:1661763): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:authentication grantors=pam_rootok acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
   0.287 | /var/log/audit/audit.log:0607: type=USER_ACCT msg=audit(1498373150.931:1661764): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:accounting grantors=pam_succeed_if acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
 
@@ -171,8 +129,8 @@ Examples
 
 .. code-block:: console
 
-  $ logreduce --baseline /var/log/audit/audit.log.4 --save ~/audit.model
-  $ logreduce --load ~/audit.model /var/log/audit/audit.log
+  $ logreduce model-build /var/log/audit/audit.log.4 --save ~/audit.model
+  $ logreduce run --model ~/audit.model /var/log/audit/audit.log
 
 
 logreduce-tests
@@ -214,7 +172,7 @@ To run the evaluation, first install logreduce-tests:
 
   git clone https://softwarefactory-project.io/r/logreduce-tests
   pushd logreduce-tests
-  sudo python3 setup.py develop
+  python3 setup.py develop --user
 
 logreduce-tests expect tests directories as argument:
 
@@ -232,24 +190,12 @@ Add --debug to display false positive and missing chunks.
 Roadmap/todo
 ------------
 
-* Support automatic log analysis and reporting when a job failed,
-  e.g. through jenkins publisher or zuul post jobs.
+* Integrate zuul workflow
 * Add tarball traversal in utils.files_iterator
 * Improve tokenization tests
 * Discard files that are 100% anomalous
 * Run logreduce-test in paralelle
 * Use model bin to group line per size, e.g. <8 tokens, 8~32 tokens, >32 tokens
-
-Other ideas:
-
-* Compare logreduce performance between two versions, perhaps using logreduce
-  itself... logception!
-* Find an alternative to lshf, the model currently spend 97% of the time in the
-  lsh.kneighbors method...
-* Investigate character n-gram instead of word vectorisation
-* Investigate more advance model such as recurrent neural net, perhaps using
-  tensorflow instead of scikit-learn
-* Investigate learning failed logs to reduce common/useless failure expression
 
 
 Contribute

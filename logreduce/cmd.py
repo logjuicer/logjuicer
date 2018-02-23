@@ -14,6 +14,7 @@
 
 import argparse
 import json
+import logging
 import time
 
 import logreduce.utils
@@ -26,40 +27,78 @@ from logreduce.models import models
 def usage():
     p = argparse.ArgumentParser()
     p.add_argument("--debug", action="store_true", help="Print debug")
-    p.add_argument("--ignore-file", nargs='+',
+    sub = p.add_subparsers()
+
+    model_check = sub.add_parser("model-check", help="Check if model is valid")
+    model_check.add_argument("--max_age", type=int, default=7,
+                             help="Maximum age of a model")
+    model_check.add_argument("file")
+    model_check.set_defaults(func=model_check_action)
+
+    model_build = sub.add_parser("model-build", help="Build a model")
+    model_build.add_argument("--job")
+    model_build.add_argument("--branch")
+    model_build.add_argument("--project")
+    model_build.add_argument("--pipeline")
+    model_build.add_argument("--count")
+    model_build.add_argument("--zuul-web")
+    model_build.set_defaults(func=model_build_action)
+
+    logs_get = sub.add_parser("log-get", help="Download logs")
+    logs_get.add_argument("url")
+    logs_get.set_defaults(func=logs_get_action)
+
+    r = sub.add_parser("run", help="Detect anomalies")
+    r.set_defaults(func=run_action)
+
+    r.add_argument("--ignore-file", nargs='+',
                    help="Filename (basename) regexp")
 
-    p.add_argument("--model", default="bag-of-words_nn",
+    r.add_argument("--model-type", default="bag-of-words_nn",
                    choices=list(models.keys()))
 
-    p.add_argument("--html", metavar="FILE", help="Render html result")
-    p.add_argument("--json", metavar="FILE", help="Render json result")
+    r.add_argument("--html", metavar="FILE", help="Render html result")
+    r.add_argument("--json", metavar="FILE", help="Render json result")
 
-    p.add_argument("--save", metavar="FILE", help="Save the model")
-    p.add_argument("--load", metavar="FILE", help="Load a previous model")
+    r.add_argument("--model", metavar="FILE", help="Load a previous model")
 
-    p.add_argument("--threshold", default=0.2, type=float,
+    r.add_argument("--threshold", default=0.2, type=float,
                    help="Outlier distance threshold, set to 0.0 to display "
                         "all log, 1.0 to only display clear anomalies")
 
-    p.add_argument("--merge-distance", default=5, type=int,
+    r.add_argument("--merge-distance", default=5, type=int,
                    help="Distance between chunks to merge in a continuous one")
-    p.add_argument("--before-context", default=3, type=int,
+    r.add_argument("--before-context", default=3, type=int,
                    help="Amount of lines to include before the anomaly")
-    p.add_argument("--after-context", default=1, type=int,
+    r.add_argument("--after-context", default=1, type=int,
                    help="Amount of lines to include after the anomaly")
-    p.add_argument("--context-length", type=int,
+    r.add_argument("--context-length", type=int,
                    help="Set both before and after context size")
 
-    p.add_argument("--baseline", action='append', metavar="LOG",
-                   help="Success logs path")
-    p.add_argument("target", nargs='*', help="Failed logs path")
+    r.add_argument("dir", nargs='+',
+                   help="[baseline] target")
     args = p.parse_args()
-    if not args.baseline and not args.load:
-        print("baseline or load needs to be used")
-        exit(1)
-    if args.load and args.save:
-        print("load and save can't be used together")
+    logreduce.utils.setup_logging(args.debug)
+    return args
+
+
+def model_check_action(args):
+    ...
+
+
+def model_build_action(args):
+    ...
+
+
+def logs_get_action(args):
+    ...
+
+
+def run_action(args):
+    log = logging.getLogger("logreduce")
+    start_time = time.monotonic()
+    if len(args.dir) == 1 and not args.model:
+        print("baseline or model needs to be used")
         exit(1)
     if args.ignore_file:
         logreduce.utils.IGNORE_FILES.extend(args.ignore_file)
@@ -71,36 +110,20 @@ def usage():
         args.console_output = False
     else:
         args.console_output = True
-
-    return args
-
-
-def main():
-    start_time = time.monotonic()
-    args = usage()
-    log = logreduce.utils.setup_logging(args.debug)
     # test html_output, only re-rerender
 #    output = json.loads(open(args.json, "r").read())
 #    open(args.html, "w").write(render_html(output))
 #    exit(0)
 
-    if args.load:
-        clf = OutliersDetector.load(args.load)
-        args.baseline = [args.load]
+    if args.model:
+        clf = OutliersDetector.load(args.model)
+        args.baseline = [args.model]
     else:
-        clf = OutliersDetector(args.model)
-        clf.train(args.baseline)
+        clf = OutliersDetector(args.model_type)
+        clf.train(args.dir[:-1])
 
-    if args.save:
-        clf.save(args.save)
-        if not args.target:
-            exit(0)
-
-    if not args.target:
-        log.error("No target found/specified")
-        exit(1)
-
-    output = clf.process(args.target, float(args.threshold),
+    output = clf.process(args.dir[-1],
+                         float(args.threshold),
                          args.merge_distance,
                          args.before_context,
                          args.after_context,
@@ -117,6 +140,11 @@ def main():
             output["testing_lines_count"],
             output["outlier_lines_count"]
         ))
+
+
+def main():
+    args = usage()
+    args.func(args)
 
 
 if __name__ == "__main__":

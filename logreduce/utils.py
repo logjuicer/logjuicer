@@ -120,14 +120,13 @@ def files_iterator(paths):
             raise RuntimeError("%s: unknown uri" % path)
 
 
-def setup_logging(debug=False, name="LogReduce"):
+def setup_logging(debug=False):
     loglevel = logging.INFO
     if debug:
         loglevel = logging.DEBUG
     logging.basicConfig(
         format='%(asctime)s %(levelname)-5.5s %(name)s - %(message)s',
         level=loglevel)
-    return logging.getLogger(name)
 
 
 def format_speed(count, size, elapsed_time):
