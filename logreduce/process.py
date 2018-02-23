@@ -114,7 +114,9 @@ class OutliersDetector:
                         idx += 1
                     model.size += os.stat(filename).st_size
                     model.count += idx
-                except:
+                except KeyboardInterrupt:
+                    exit(1)
+                except Exception:
                     self.log.exception("%s: couldn't read" % filename)
                     continue
                 finally:
@@ -146,7 +148,9 @@ class OutliersDetector:
                 self.log.exception("%s: couldn't train with %s" % (model_name,
                                                                    train_data))
                 del self.models[model_name]
-            except:
+            except KeyboardInterrupt:
+                exit(1)
+            except Exception:
                 self.log.exception("%s: couldn't train with %s" % (model_name,
                                                                    train_data))
                 del self.models[model_name]
@@ -226,7 +230,9 @@ class OutliersDetector:
                 del test_data_set
                 self.testing_size += os.stat(filename).st_size
                 self.testing_lines_count += idx
-            except:
+            except KeyboardInterrupt:
+                exit(1)
+            except Exception:
                 self.log.exception("%s: couldn't read" % filename)
                 continue
             finally:
