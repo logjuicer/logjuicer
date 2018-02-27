@@ -1,0 +1,100 @@
+---
+- name: Set model name
+  set_fact:
+    _model_name: "{% if logclassify_model_per_project %}{{ zuul.project.name }}/{% endif %}{{ zuul.job }}/{{ zuul.branch }}.clf"
+
+- name: Set model path
+  set_fact:
+    _model_path: "{{ logclassify_model_dir }}/{{ _model_name }}"
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    owner: "{{ ansible_user }}"
+    mode: 0700
+    state: directory
+  with_items:
+    - "{{ _model_path|dirname }}"
+    - "{{ logclassify_tmp_dir }}"
+
+- name: Download pre-built model
+  get_url:
+    url: "{{ logclassify_model_store_url }}/{{ _model_name }}"
+    dest: "{{ _model_path }}"
+  failed_when: false
+
+- name: Check pre-built model
+  command: "{{ logclassify_cmd }} model-check {{ _model_path }} --max-age {{ logclassify_model_age }}"
+  register: _model_check
+  failed_when: _model_check.rc not in [0, 4]
+
+# Build model
+- name: Build new model
+  command: >
+    timeout {{ logclassify_max_run_time }}s {{ logclassify_cmd }}
+      --tmp-dir {{ logclassify_tmp_dir }} model-build
+      {{ _model_path }}
+      --job {{ zuul.job }}
+      --branch {{ zuul.branch }}
+      {% if logclassify_model_per_project|bool %}--project {{ zuul.project.name }}{% endif %}
+      --pipeline {{ logclassify_model_pipeline }}
+      --count {{ logclassify_model_job_count }}
+      --zuul-web {{ logclassify_zuul_web }}
+      {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
+      {% for _path in logclassify_exclude_paths %}--exclude-path {{ _path }}{% endfor %}
+      {% for _path in logclassify_exclude_files %}--exclude-file {{ _path }}{% endfor %}
+  register: _model_build
+  failed_when: _model_build.rc is not defined or _model_build.rc not in [0, 4]
+  when: _model_check.rc != 0
+
+- name: Get job-output from the executor
+  copy:
+    src: "{{ zuul.executor.log_root }}/job-output.txt"
+    dest: "{{ logclassify_tmp_dir }}/job-output.txt"
+  when:
+    - logclassify_local_dir != zuul.executor.log_root
+    - logclassify_console
+    - _model_check.rc == 0 or (_model_check.rc == 4 and _model_build.rc == 0)
+
+- name: Detect anomalies
+  command: >
+    timeout {{ logclassify_max_run_time }}s {{ logclassify_cmd }} model-run {{ _model_path }}
+      --threshold {{ logclassify_threshold }}
+      --before-context {{ logclassify_before_context }}
+      --after-context {{ logclassify_after_context }}
+      {% if logclassify_local_dir != zuul.executor.log_root and logclassify_console %}
+        {{ logclassify_tmp_dir }}/job-output.txt
+        {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
+      {% endif %}
+      {% if logclassify_local_dir %}{{ logclassify_local_dir }}{% endif %}
+      --html {{ logclassify_tmp_dir }}/report.html
+      {% for _path in logclassify_exclude_paths %}--exclude-path {{ _path }}{% endfor %}
+      {% for _path in logclassify_exclude_files %}--exclude-file {{ _path }}{% endfor %}
+  register: _model_run
+  failed_when: _model_run.rc not in [0, 4]
+  when:
+    - _model_check.rc == 0 or (_model_check.rc == 4 and _model_build.rc == 0)
+
+- name: Fetch report
+  synchronize:
+    src: "{{ logclassify_tmp_dir }}/report.{{ item }}"
+    dest: "{{ zuul.executor.log_root }}/report.{{ item }}"
+    mode: pull
+  with_items:
+    - html
+    - json
+  when: _model_run.rc == 0
+
+- name: Fetch model
+  synchronize:
+    src: "{{ _model_path }}"
+    dest: "{{ zuul.executor.log_root }}/model.clf"
+    mode: pull
+  when: _model_check.rc == 4
+
+- name: Write model name
+  copy:
+    content: "{{ _model_name }}"
+    dest: "{{ zuul.executor.log_root }}/model.name"
+  delegate_to: localhost
+  when: _model_check.rc == 4

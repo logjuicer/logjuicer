@@ -18,9 +18,10 @@ import sys
 def render_html(output):
     dom = ["<html><head>"
            "<title>Logreduce of %s</title>"
-           "<link rel='stylesheet' href='bootstrap.min.css'>"
-           "<script src='jquery.min.js'></script>"
-           "<script src='bootstrap.min.js'></script>"
+           "<link rel='stylesheet' "
+           "href='/static/bootstrap/css/bootstrap.min.css'>"
+           "<script src='/static/js/jquery.min.js'></script>"
+           "<script src='/static/bootstrap/js/bootstrap.min.js'></script>"
            "<script>$(document).ready(function(){"
            "$('#debugbtn').on('click', function(event) {\n"
            "$('[id=debuginfo]').toggle();\n"
@@ -150,5 +151,7 @@ def render_html(output):
         for fname in output["unknown_files"]:
             dom.append("<li><a href='%s'>%s</a></li>" % (fname[1], fname[0]))
         dom.append("</ul>")
+    dom.append("<h4>--&gt; <a href='./'>Full logs</a> // "
+               "<a href='ara'>ARA Record Ansible</a> &lt;--</h4>")
     dom.append("</body></html>")
     return "\n".join(dom)

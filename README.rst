@@ -2,8 +2,7 @@ logreduce - extract anomaly from log files
 ==========================================
 
 Based on success logs, logreduce highlights useful text in failed logs.
-The goal is to assist in debugging failure and reduce effort needed to read
-boring log files.
+The goal is to save time in finding a failure's root cause.
 
 On average, learning run at 1000 lines per second, and
 testing run at 0.800k lines per seconds.
@@ -12,40 +11,14 @@ testing run at 0.800k lines per seconds.
 How it works
 ------------
 
-logreduce uses a *model* to learn successful logs and detect outliers in
-failed log that doesn't fit the model. The model is constructed as follow:
+logreduce uses a *model* to learn successful logs and detect novelties in
+failed logs:
 
 * Random words are manually removed using regular expression
-* Striped lines are converted into a dictionary based numeric vector
-  (using **CountVectorizer**),
-* Vector are weighted based on term frequencies times inverse
-  document-frequency (using **TfidfTransformer**),
-* Then vector are used in a unsupervised nearest neighbor learning model.
-
-There are currently two model:
-
-* simple, using **NearestNeighbors**
-* lsfh, using **LSHForest**
-
-In short, logreduce relies heavily on line stripping with a bag-of-words
-technique and it uses the distance to known sentences to detect outliers.
-
-For example this input:
-
-.. code-block:: console
-
-  2017-06-21 04:37:45,827 INFO [nodepool.builder.UploadWorker.0] Uploading DIB image build 0000000002 from /tmpxvLOTg/fake-image-0000000002.qcow2 to fake-provider
-
-Results in:
-
-.. code-block:: console
-
-  INFO nodepool builder UploadWorker Uploading image build from /fake image fake provider
-
-
-The tokenization makes the model a bit dependent on the target data, for example,
-to support OpenStack logs, words begining by ns- or req- are taken into account.
-Further improvement such as characters n-gram may remove such limitation.
+* Then lines are converted to a matrix of token occurrences
+  (using **HashingVectorizer**),
+* An unsupervised learner implements neighbor searches
+  (using **NearestNeighbors**).
 
 
 Caveats
@@ -53,12 +26,9 @@ Caveats
 
 This method doesn't work when debug content is only included in failed logs.
 To successfully detect anomalies, failed and success logs needs to be similar,
-otherwise all the extra information in failed logs will be considered anomalous.
+otherwise the extra informations in failed logs will be considered anomalous.
 
-This is currently the case for tripleo ovb ci where overcloud logs are
-only included in the failed logs, resulting in a lot of false-positive.
-
-This also happens with testr tests where success logs only contains 'SUCCESS'.
+For example this happens with testr where success logs only contains 'SUCCESS'.
 
 
 Install
@@ -80,38 +50,24 @@ Install
 
   pip install --user logreduce
 
-* Fetch bootstrap for nicer html output
-
-.. code-block:: console
-
-  curl -O https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css
-  curl -O https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js
 
 Usage
 -----
 
-Log files can be a single file or a directory.
-
 Logreduce needs a **baseline** for success log training, and a **target**
 for the log to reduce.
 
-Logreduce will print anomalies on the console, the log files are not modified.
-When using the text **--output-format**, anomalies are printed using this format:
+Logreduce prints anomalies on the console, the log files are not modified:
 
 .. code-block:: console
 
   # "%(distance)f | %(log_path)s:%(line_number)d: %(log_line)s"
 
-  $ logreduce run testr-nodepool-01/output.good testr-nodepool-01/output.fail
+  $ logreduce diff testr-nodepool-01/output.good testr-nodepool-01/output.fail
   [...]
   0.232 | testr-nodepool-01/output.fail:0677:	  File "voluptuous/schema_builder.py", line 370, in validate_mapping
   0.462 | testr-nodepool-01/output.fail:0678:	    raise er.MultipleInvalid(errors)
   0.650 | testr-nodepool-01/output.fail:0679:	voluptuous.error.MultipleInvalid: required key not provided @ data['providers'][2]['cloud']
-
-The model can be trained and saved for re-use using **model-build**.
-When using **--model** logreduce doesn't need a **baseline**.
-
-See bellow for some examples
 
 
 Examples
@@ -121,16 +77,30 @@ Examples
 
 .. code-block:: console
 
-  $ logreduce run /var/log/audit/audit.log.4 /var/log/audit/audit.log --context-length 0
+  $ logreduce diff /var/log/audit/audit.log.4 /var/log/audit/audit.log --context-length 0
   0.276 | /var/log/audit/audit.log:0606: type=USER_AUTH msg=audit(1498373150.931:1661763): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:authentication grantors=pam_rootok acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
   0.287 | /var/log/audit/audit.log:0607: type=USER_ACCT msg=audit(1498373150.931:1661764): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:accounting grantors=pam_succeed_if acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
 
-* Re-using a model:
+* Look for anomaly in Zuul jobs:
 
 .. code-block:: console
 
-  $ logreduce model-build /var/log/audit/audit.log.4 --save ~/audit.model
-  $ logreduce run --model ~/audit.model /var/log/audit/audit.log
+  $ logreduce logs --zuul-web http://zuul.openstack.org --project openstack-infra/zuul --threshold 0.5 --context-length 0 \
+       http://logs.openstack.org/64/544964/3/check/tox-pep8/05fc35f/
+  0.592 | job-output.txt.gz:0518: 2018-02-22 11:22:10.888593 | ubuntu-xenial | ./tests/unit/test_merger_repo.py:81:9: F841 local variable 'remote_sha' is assigned to but never used
+  2018-02-28 09:17:13,886 INFO  Classifier - Testing took 0.068s at 0.767MB/s (9.962kl/s) (0.052 MB - 0.680 kilo-lines)
+  99.85% reduction (from 680 lines to 1)
+
+* Look for anomaly in Zuul jobs artifacts:
+
+.. code-block:: console
+
+  $ logreduce logs --zuul-web http://zuul.openstack.org --threshold 0.5 --include-path controller/ --exclude-file unbound_log.txt --pipeline check \
+       http://logs.openstack.org/34/548134/1/check/nodepool-functional-py35/3aab684/
+  0.500 | job-output.txt.gz:0634: 2018-02-27 03:29:38.186475 | controller |   "ephemeral_device": "VARIABLE IS NOT DEFINED!"
+  0.711 | controller/logs/libvirt/libvirtd_log.txt.gz:0536:       2018-02-27 03:37:12.853+0000: 24202: debug : virPCIDeviceFindCapabilityOffset:541 : 1af4 1000 0000:00:03.0: failed to find cap 0x10
+  2018-02-28 09:37:13,102 INFO  Classifier - Testing took 49.910s at 0.405MB/s (2.380kl/s) (20.207 MB - 118.798 kilo-lines)
+  99.97% reduction (from 118798 lines to 35)
 
 
 logreduce-tests
@@ -190,12 +160,12 @@ Add --debug to display false positive and missing chunks.
 Roadmap/todo
 ------------
 
-* Integrate zuul workflow
+* Add logstash filter module
+* Add daemon worker mode with MQTT event listener
 * Add tarball traversal in utils.files_iterator
 * Improve tokenization tests
 * Discard files that are 100% anomalous
-* Run logreduce-test in paralelle
-* Use model bin to group line per size, e.g. <8 tokens, 8~32 tokens, >32 tokens
+* Report mean diviation instead of absolute distances
 
 
 Contribute

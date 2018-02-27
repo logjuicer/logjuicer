@@ -17,8 +17,16 @@
     check:
       jobs:
         - logreduce-tests
-        - tox-pep8
-        - tox-py35-f27
+        - tox-pep8:
+            nodeset:
+              nodes:
+                - name: testrunner
+                  label: fedora-oci
+        - tox-py35:
+            nodeset:
+              nodes:
+                - name: testrunner
+                  label: fedora-oci
     gate:
       jobs:
         - noop

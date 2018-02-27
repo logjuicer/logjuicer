@@ -1,0 +1,7 @@
+---
+- name: Detect anomalies
+  ignore_errors: yes
+  block:
+    - import_tasks: install.yaml
+    - import_tasks: run.yaml
+  when: not zuul_success | bool

@@ -16,7 +16,7 @@
 
 import sys
 from logreduce.utils import files_iterator
-from logreduce.models import OutliersDetector
+from logreduce.models import Classifier
 
 try:
     path = sys.argv[1]
@@ -26,7 +26,7 @@ except IndexError:
 
 groups = {}
 for filename, filename_rel in files_iterator(path):
-    bag_name = OutliersDetector.filename2modelname(filename_rel)
+    bag_name = Classifier.filename2modelname(filename_rel)
     groups.setdefault(bag_name, []).append(filename)
 
 for group_name, files in sorted(groups.items()):

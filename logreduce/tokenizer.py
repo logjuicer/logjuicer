@@ -17,18 +17,53 @@ DAYS = "sunday|monday|tuesday|wednesday|thursday|friday|saturday"
 MONTHS = "january|february|march|april|may|june|july|august|september|" \
          "october|november|december"
 SHORT_MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dev"
+SHORT_DAYS = "mon|tue|wed|thu|fri|sat|sun"
 RANDOM_PREFIXES = r'tmp\.|tmp|br|tap|qdhcp-|req-|ns-|0x|a[0-9]+='
 RANDOM_DIRS = r'ansible_|omit_place_holder__|instack\.|dib_build\.'
 MIXED_ALPHA_DIGITS_WORDS = r'[a-z0-9]*[0-9][a-z0-9]*'
-UUID_RE = r'[0-9a-f]{8}-?[0-9a-f]{4}-?4[0-9a-f]{3}-?[89ab][0-9a-f]{3}-' \
+UUID_RE = r'[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-' \
           '?[0-9a-f]{12}'
+
+IPV4_RE = r'(([01]?[0-9]?[0-9]|2[0-4][0-9]|2[5][0-5])\.){3}' \
+          r'([01]?[0-9]?[0-9]|2[0-4][0-9]|2[5][0-5])'
+# TODO: simplify this if possible...
+IPV6_RE = (r'(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
+           r'(?:(?:[0-9]|[1-9][0-9]|'
+           r'1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|'
+           r'1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
+           r'::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
+           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
+           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
+           r'(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}'
+           r'(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
+           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
+           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
+           r'(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}'
+           r'(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
+           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
+           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
+           r'(?:(?:[0-9A-Fa-f]{1,4}:){,2}[0-9A-Fa-f]{1,4})?::'
+           r'(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
+           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
+           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
+           r'(?:(?:[0-9A-Fa-f]{1,4}:){,3}[0-9A-Fa-f]{1,4})?::'
+           r'[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
+           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
+           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
+           r'(?:(?:[0-9A-Fa-f]{1,4}:){,4}[0-9A-Fa-f]{1,4})?::'
+           r'(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
+           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
+           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
+           r'(?:(?:[0-9A-Fa-f]{1,4}:){,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|'
+           r'(?:(?:[0-9A-Fa-f]{1,4}:){,6}[0-9A-Fa-f]{1,4})?::)')
+MAC_RE = r'([0-9A-F]{2}[:-]){5}([0-9A-F]{2})'
 
 
 class Tokenizer:
     rawline_re = re.compile(
         r'('
         # useless http GET
-        r'"GET / HTTP/1.1" 200'
+        r'"GET / HTTP/1.1"'
         r'|"OPTIONS * HTTP/1.0" 200'
         # ssh keys
         r'|AAAA[A-Z][0-9]'
@@ -49,9 +84,12 @@ class Tokenizer:
         # zuul random test
         r'|zuul.*echo BECOME-SUCCESS-'
         r')')
-    power2_re = re.compile(r'([0-9a-f]{32}|[0-9a-f]{64}|[0-9a-f]{128})', re.I)
+    id_re = re.compile(r'(%s|%s|%s)' % (IPV4_RE, IPV6_RE, MAC_RE), re.I)
+    power2_re = re.compile(r'([0-9a-f]{32}|[0-9a-f+/]{64}|[0-9a-f]{128})',
+                           re.I)
     uuid_re = re.compile(UUID_RE, re.I)
-    date_re = re.compile('(%s|%s|%s)' % (DAYS, SHORT_MONTHS, MONTHS), re.I)
+    date_re = re.compile('(%s|%s|%s|%s)' % (DAYS, SHORT_DAYS,
+                                            SHORT_MONTHS, MONTHS), re.I)
     randword_re = re.compile(r'\b(' +
                              r'%s' % DAYS +
                              r'|%s' % SHORT_MONTHS +
@@ -66,6 +104,16 @@ class Tokenizer:
     letters_re = re.compile(r'[a-z]', re.I)
     gitver_re = re.compile(r'git[a-z0-9]+', re.I)
     digits_re = re.compile(r'[0-9]')
+    randpath_re = re.compile(r'('
+                             r'/tmp/ansible\.[a-z0-9_]{8}'
+                             r'|/tmp/tmp[a-z0-9_]{6}'
+                             r')', re.I)
+    gitsha_re = re.compile(r'('
+                           r'[a-z0-9]{7}\.\.[a-z0-9]{7}'
+                           r')', re.I)
+    hash_re = re.compile(r'('
+                         r'SHA256:[a-z0-9+/]{43} '
+                         r')', re.I)
 
     @staticmethod
     def light_process(line):
@@ -74,11 +122,19 @@ class Tokenizer:
             return ''
         strip = line
         # Remove words that are exactly 32, 64 or 128 character longs
-        strip = Tokenizer.power2_re.subn("RNG", strip)[0]
+        strip = Tokenizer.power2_re.subn("RNGN", strip)[0]
         # Remove uuid
-        strip = Tokenizer.uuid_re.subn("RNG", strip)[0]
+        strip = Tokenizer.uuid_re.subn("RNGU", strip)[0]
         # Remove date
         strip = Tokenizer.date_re.subn("DATE", strip)[0]
+        # Remove git sha
+        strip = Tokenizer.gitsha_re.subn("RNGG", strip)[0]
+        # Remove hashes
+        strip = Tokenizer.hash_re.subn("RNGH", strip)[0]
+        # Remove random path
+        strip = Tokenizer.randpath_re.subn("RNGP", strip)[0]
+        # Remove ip/id
+        strip = Tokenizer.id_re.subn("RNGI", strip)[0]
         # Remove numbers
         strip = Tokenizer.digits_re.subn("", strip)[0]
         # Remove tiny words

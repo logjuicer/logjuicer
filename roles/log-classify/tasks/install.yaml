@@ -1,0 +1,42 @@
+---
+- name: Check for pre-installed log-classify
+  command: bash -c "type -p logreduce"
+  environment:
+    PATH: "{{ ansible_env.PATH }}:{{ ansible_env.HOME }}/.local/bin"
+  register: _logclassify_cmd_path
+  failed_when: false
+  changed_when: false
+
+- name: Install log-classify
+  block:
+    - name: Look for depends-on location
+      set_fact:
+        _logclassify_dir: "{{ zuul.projects['managesf.softwarefactory-project.io/logreduce']['src_dir'] }}"
+      when: "'managesf.softwarefactory-project.io/logreduce' in zuul.projects"
+
+    - name: Fetch sources
+      block:
+        - name: Clone project
+          command: git clone --depth 1 https://softwarefactory-project.io/r/logreduce /tmp/logreduce
+
+        - name: Set clone location
+          set_fact:
+            _logclassify_dir: /tmp/logreduce
+      when: "'managesf.softwarefactory-project.io/logreduce' not in zuul.projects"
+
+    - name: Install from sources
+      command: python3 setup.py develop --user
+      args:
+        chdir: "{{ _logclassify_dir }}"
+
+    - name: Get log-classify command path
+      command: bash -c "type -p logreduce"
+      register: _logclassify_src_cmd_path
+      changed_when: false
+      environment:
+        PATH: "{{ ansible_env.PATH }}:{{ ansible_env.HOME }}/.local/bin"
+  when: _logclassify_cmd_path.rc != 0
+
+- name: Set logclassify_cmd fact
+  set_fact:
+    logclassify_cmd: "{{ _logclassify_src_cmd_path.stdout|default(_logclassify_cmd_path.stdout) }} {% if logclassify_debug %}--debug{% endif %}"

@@ -1,3 +1,4 @@
+aiohttp
 numpy
 scipy
 scikit-learn

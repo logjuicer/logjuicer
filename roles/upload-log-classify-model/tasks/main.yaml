@@ -1,0 +1,43 @@
+---
+- name: Check for a model
+  stat:
+    path: "{{ zuul.executor.log_root }}/model.clf"
+    get_checksum: no
+    get_mime: no
+    get_attributes: no
+  register: _model_file
+  delegate_to: localhost
+
+- name: Upload classifier model
+  # Avoid error
+  ignore_errors: yes
+  block:
+    - name: Get model name
+      command: "cat {{ zuul.executor.log_root }}/model.name"
+      register: _model_name
+      delegate_to: localhost
+
+    - name: Set model path
+      set_fact:
+        _model_dest_path: "{{ logclassify_model_root }}/{{ _model_name.stdout }}"
+
+    - name: Ensure classifier directory exists
+      file:
+        path: "{{ _model_dest_path|dirname }}"
+        state: directory
+        mode: 0775
+
+    - name: Upload classifier
+      copy:
+        src: "{{ zuul.executor.log_root }}/model.clf"
+        dest: "{{ _model_dest_path }}"
+
+    - name: Remove classifier from job logs
+      file:
+        path: "{{ zuul.executor.log_root }}/model.{{ item }}"
+        state: absent
+      with_items:
+        - clf
+        - name
+      delegate_to: localhost
+  when: _model_file.stat.exists

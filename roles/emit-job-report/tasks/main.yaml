@@ -1,0 +1,17 @@
+---
+- name: Check for report file
+  delegate_to: localhost
+  stat:
+    path: "{{ zuul.executor.log_root }}/report.html"
+  register: _report_file
+
+- name: Return report URL to Zuul
+  delegate_to: localhost
+  zuul_return:
+    data:
+      zuul:
+        log_url: "{{ zuul_log_url }}/{{ zuul_log_path }}/report.html"
+  when:
+    - _report_file.stat.exists
+    - zuul_log_url is defined
+    - zuul_log_path is defined

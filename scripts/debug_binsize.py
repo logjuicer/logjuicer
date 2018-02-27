@@ -16,7 +16,7 @@
 
 import sys
 from logreduce.utils import files_iterator, open_file
-from logreduce.models import OutliersDetector, Model
+from logreduce.models import Classifier, Model
 from logreduce.models import remove_ansible_std_lines_lists
 
 try:
@@ -29,7 +29,7 @@ binsize = {}
 
 groups = {}
 for filename, filename_rel in files_iterator(path):
-    bag_name = OutliersDetector.filename2modelname(filename_rel)
+    bag_name = Classifier.filename2modelname(filename_rel)
     groups.setdefault(bag_name, []).append(filename)
 
 model = Model()
@@ -55,7 +55,7 @@ for group_name, files in sorted(groups.items()):
                         else:
                             binsize[binsz] += 1
                 idx += 1
-        except:
+        except Exception:
             print("Ooops")
             raise
 

@@ -14,6 +14,7 @@
 import logging
 import os
 import re
+import struct
 import time
 
 import numpy as np
@@ -27,12 +28,17 @@ from logreduce.utils import format_speed
 from logreduce.utils import open_file
 
 
-class OutliersDetector:
-    log = logging.getLogger("OutlierDetector")
+class Classifier:
+    log = logging.getLogger("Classifier")
+    version = 1
 
-    def __init__(self, model='bag-of-words_nn'):
+    def __init__(self,
+                 model='bag-of-words_nn', exclude_paths=[], exclude_files=[]):
         self.models = {}
         self.model_name = model
+        self.exclude_paths = []
+        self.exclude_files = []
+        self.test_prefix = None
 
     def get(self, model_name):
         return self.models.setdefault(model_name,
@@ -40,17 +46,37 @@ class OutliersDetector:
 
     def save(self, fileobj):
         """Save the model"""
+        if isinstance(fileobj, str):
+            os.makedirs(os.path.dirname(fileobj), 0o700, exist_ok=True)
+            fileobj = open(fileobj, 'wb')
+        fileobj.write(b'LGRD')
+        fileobj.write(struct.pack('I', self.version))
         sklearn.externals.joblib.dump(self, fileobj, compress=True)
-        self.log.info("%s: written" % fileobj)
+        self.log.debug("%s: written" % fileobj.name)
+
+    @staticmethod
+    def check(fileobj):
+        hdr = fileobj.read(4)
+        if hdr != b'LGRD':
+            raise RuntimeError("Invalid header")
+        version = struct.unpack('I', fileobj.read(4))[0]
+        if version != Classifier.version:
+            raise RuntimeError("Invalid version")
 
     @staticmethod
     def load(fileobj):
         """Load a saved model"""
+        if isinstance(fileobj, str):
+            fileobj = open(fileobj, 'rb')
+        Classifier.check(fileobj)
         return sklearn.externals.joblib.load(fileobj)
 
     @staticmethod
     def filename2modelname(filename):
         """Create a modelname based on filename"""
+        # Special case for job-output which is stored at top-level
+        if filename.startswith("job-output.txt"):
+            return "job-output.txt"
         # Only keep parent directory and first component of the basename
         shortfilename = os.path.join(
             re.subn(r'[a-z0-9]*[0-9][a-z0-9]*[^\s\/-]*', "", os.path.basename(
@@ -62,6 +88,7 @@ class OutliersDetector:
             if pipedir in filename:
                 job_name = filename.split(pipedir)[-1].split('/')[0]
                 shortfilename = os.path.join(job_name, shortfilename)
+                break
         if shortfilename == '':
             # Reduction was too agressive, just keep the filename in this case
             shortfilename = os.path.basename(filename).split('.')[0]
@@ -73,7 +100,7 @@ class OutliersDetector:
         # Remove numbers and symbols
         return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
 
-    def train(self, path):
+    def train(self, path, url_prefixes={}):
         """Train the model"""
         start_time = time.monotonic()
         self.training_lines_count = 0
@@ -83,7 +110,13 @@ class OutliersDetector:
         # Group similar files for the same model
         to_train = {}
         for filename, filename_rel in files_iterator(path):
-            model_name = OutliersDetector.filename2modelname(filename_rel)
+            if [True for ign in self.exclude_files
+                    if re.match(ign, os.path.basename(filename))]:
+                continue
+            if [True for ign in self.exclude_paths
+                    if re.search(ign, filename_rel)]:
+                continue
+            model_name = Classifier.filename2modelname(filename_rel)
             to_train.setdefault(model_name, []).append(filename)
 
         # Train each model
@@ -105,6 +138,11 @@ class OutliersDetector:
                         if line == b'':
                             break
                         line = line.decode('ascii', errors='ignore')
+                        # Special case to not train ourself
+                        if model_name == "job-output.txt" and (
+                                "TASK [log-classify " in line or
+                                "TASK [Generate ara report]" in line):
+                            break
                         # Remove ansible std_lines list now
                         line = remove_ansible_std_lines_lists(line)
                         for sub_line in line.split(r'\r'):
@@ -122,11 +160,13 @@ class OutliersDetector:
                 finally:
                     if fobj:
                         fobj.close()
-                url_prefix = "/tmp/logreduce-getthelogs/"
-                if filename.startswith(url_prefix):
-                    forig = "http://%s" % (filename[len(url_prefix):])
-                else:
-                    forig = filename
+                # Set forig for report.html absolute url
+                forig = filename
+                for prefix, url in url_prefixes.items():
+                    if filename.startswith(prefix):
+                        forig = os.path.join(url,
+                                             filename[len(prefix):])
+                        break
                 model.sources.append(forig)
 
             if not train_data:
@@ -159,13 +199,14 @@ class OutliersDetector:
             self.training_size / (1024 * 1024)) / self.train_time
         self.train_count_speed = (
             self.training_lines_count / 1000) / self.train_time
-        self.log.debug("Training took %.03f seconds to ingest %.03f MB "
-                       "(%.03f MB/s) or %d lines (%.03f kl/s)" % (
-                           self.train_time,
-                           self.training_size / (1024 * 1024),
-                           self.train_size_speed,
-                           self.training_lines_count,
-                           self.train_count_speed))
+        self.log.info(
+            "Training took %.03f seconds to ingest %.03f MB "
+            "(%.03f MB/s) or %d lines (%.03f kl/s)" % (
+                self.train_time,
+                self.training_size / (1024 * 1024),
+                self.train_size_speed,
+                self.training_lines_count,
+                self.train_count_speed))
         if not self.training_lines_count:
             raise RuntimeError("No train lines found")
         return self.training_lines_count
@@ -180,16 +221,25 @@ class OutliersDetector:
         self.outlier_lines_count = 0
 
         for filename, filename_rel in files_iterator(path):
+            if [True for ign in self.exclude_files
+                    if re.match(ign, os.path.basename(filename))]:
+                continue
+            if [True for ign in self.exclude_paths
+                    if re.search(ign, filename_rel)]:
+                continue
             test_start_time = time.monotonic()
-            url_prefix = "/tmp/logreduce-getthelogs/"
-            if filename.startswith(url_prefix):
-                filename_orig = "http://%s" % (filename[len(url_prefix):])
-            else:
-                filename_orig = filename
 
+            if self.test_prefix:
+                filename_rel = os.path.join(self.test_prefix, filename_rel)
+
+            # Set filename_orig for report.html relative url
+            if filename_rel.startswith("job-output.txt"):
+                filename_orig = "job-output.txt.gz"
+            else:
+                filename_orig = filename_rel
             if len(self.models) > 1:
                 # Get model name based on filename
-                model_name = OutliersDetector.filename2modelname(filename_rel)
+                model_name = Classifier.filename2modelname(filename_rel)
                 if model_name not in self.models:
                     self.log.debug("Skipping unknown file %s (%s)" % (
                         filename, model_name))
@@ -217,6 +267,11 @@ class OutliersDetector:
                     if line == b'':
                         break
                     line = line.decode('ascii', errors='ignore')
+                    # Special case to not test ourself
+                    if model_name == "job-output.txt" and (
+                            "TASK [log-classify " in line or
+                            "TASK [Generate ara report]" in line):
+                        break
                     # Remove ansible std_lines list now
                     line = remove_ansible_std_lines_lists(line)
                     data.append(line)
@@ -291,12 +346,12 @@ class OutliersDetector:
                    time.monotonic() - test_start_time)
 
         self.test_time = time.monotonic() - start_time
-        self.log.debug("Testing took %s" % format_speed(
+        self.log.info("Testing took %s" % format_speed(
             self.testing_lines_count, self.testing_size, self.test_time))
         if not self.testing_lines_count:
             raise RuntimeError("No test lines found")
 
-    def process(self, path, threshold=0.2, merge_distance=5,
+    def process(self, path, path_source=None, threshold=0.2, merge_distance=5,
                 before_context=3, after_context=1, console_output=False):
         """Process target and create a report"""
         self.threshold = threshold
@@ -312,6 +367,8 @@ class OutliersDetector:
                 if "failed_deployment_list.log.txt" not in filename:
                     output["unknown_files"].append((filename, filename_orig))
                 continue
+            if path_source is not None:
+                filename_orig = os.path.join(path_source, filename_orig)
             output['models'].setdefault(model.name, {
                 'source_files': model.sources,
                 'train_time': model.train_time,
@@ -379,5 +436,5 @@ class OutliersDetector:
         output["reduction"] = 100 - (output["outlier_lines_count"] /
                                      output["testing_lines_count"]) * 100
         output["baseline"] = self.baseline
-        output["target"] = path
+        output["target"] = [path] if isinstance(path, str) else path
         return output

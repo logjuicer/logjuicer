@@ -17,39 +17,65 @@ import re
 import logging
 
 # Avoid those files that aren't useful for words analysis
-BLACKLIST = (
-    "lsof_network.txt",
-    "uname.txt",
-    "sysstat.txt",
-    "df.txt",
-    "rdo-trunk-deps-end.txt",
-    "meminfo.txt",
-    "repolist.txt",
-    "hosts.txt",
-    "lsof.txt",
-    "lsmod.txt",
-    "sysctl.txt",
-    "cpuinfo.txt",
-    "pstree.txt",
-    "iotop.txt",
-    "iostat.txt",
-    "free.txt",
-    "dstat.txt",
-    "postci.txt",
-    "heat-deploy-times.log.txt",
-    "btmp.txt",
-    "wtmp.txt",
-    "lastlog.txt",
-    "host_info.txt",
-    "devstack-gate-setup-host.txt",
-    "service_configs.json.txt",
-    "worlddump-",
-    "id_rsa",
-    "tempest.log.txt",
-    "tempest_output.log.txt",
-    ".*.subunit.gz",
-    "devstack.journal.xz",
-)
+DEFAULT_IGNORE_PATHS = [
+    "zuul-info/",
+    # sf-ci useless static files
+    "/executor.*/trusted/",
+    # tripleo-ci static files
+    "/etc/selinux/targeted/",
+    "/etc/sysconfig/",
+    "/etc/systemd/",
+    "/etc/polkit-1/",
+    "/etc/pki/",
+    "group_vars/all.yaml",
+    "keystone/credential-keys/1",
+    # extra/logstash is already printed in deploy logs
+    "extra/logstash.txt",
+    "migration/identity.gz",
+    "swift/backups/",
+    "/\.git/",
+    "/\.svn/",
+]
+
+DEFAULT_IGNORE_FILES = [
+    '_zuul_ansible/',
+    'ara-report/',
+    'ara-sf/',
+    'ara/',
+    'btmp.txt',
+    'cpuinfo.txt',
+    'devstack-gate-setup-host.txt',
+    'df.txt',
+    'dstat.txt',
+    'free.txt',
+    'heat-deploy-times.log.txt',
+    'host_info.txt',
+    'hosts.txt',
+    'id_rsa',
+    'index.html',
+    'iostat.txt',
+    'iotop.txt',
+    'lastlog.txt',
+    'lsmod.txt',
+    'lsof.txt',
+    'lsof_network.txt',
+    'meminfo.txt',
+    'nose_results.html',
+    'passwords.yml',
+    'postci.txt',
+    'pstree.txt',
+    'rdo-trunk-deps-end.txt',
+    'repolist.txt',
+    'service_configs.json.txt',
+    'sysctl.txt',
+    'sysstat.txt',
+    'tempest.log.txt',
+    'tempest_output.log.txt',
+    'uname.txt',
+    'worlddump-',
+    'wtmp.txt',
+]
+
 BLACKLIST_EXTENSIONS = (
     ".db",
     ".ico",
@@ -63,18 +89,11 @@ BLACKLIST_EXTENSIONS = (
     ".crt",
     ".pem",
     ".rpm",
+    ".subunit",
+    ".journal",
+    ".json",
+    ".conf",
 )
-IGNORE_PATH = (
-    "group_vars/all.yaml",
-    "keystone/credential-keys/1",
-    # extra/logstash is already printed in deploy logs
-    "extra/logstash.txt",
-    "migration/identity.gz",
-    "swift/backups/",
-)
-IGNORE_FILES = [
-    "index.html",
-]
 
 
 def open_file(p):
@@ -87,7 +106,7 @@ def open_file(p):
     return open(p, 'rb')
 
 
-def files_iterator(paths):
+def files_iterator(paths, ign_files=[], ign_paths=[]):
     """Walk directory and yield (path, rel_path)"""
     if not isinstance(paths, list):
         paths = [paths]
@@ -102,20 +121,19 @@ def files_iterator(paths):
                 path = "%s/" % path
             for dname, _, fnames in os.walk(path):
                 for fname in fnames:
-                    if [True for ign in IGNORE_FILES if re.match(ign, fname)]:
-                        continue
-                    if [True for skip in BLACKLIST if fname.startswith(skip)]:
+                    if [True for ign in ign_files if re.match(ign, fname)]:
                         continue
                     if [True for skip in BLACKLIST_EXTENSIONS if
                             fname.endswith("%s" % skip) or
-                            fname.endswith("%s.gz" % skip)]:
+                            fname.endswith("%s.gz" % skip) or
+                            fname.endswith("%s.bz2" % skip) or
+                            fname.endswith("%s.xz" % skip)]:
                         continue
                     fpath = os.path.join(dname, fname)
-                    if [True for ign in IGNORE_PATH if re.search(ign, fpath)]:
+                    rel_path = fpath[len(path):]
+                    if [True for ign in ign_paths if re.search(ign, rel_path)]:
                         continue
-                    if "/.git/" in fpath:
-                        continue
-                    yield (fpath, fpath[len(path):])
+                    yield (fpath, rel_path)
         else:
             raise RuntimeError("%s: unknown uri" % path)
 
