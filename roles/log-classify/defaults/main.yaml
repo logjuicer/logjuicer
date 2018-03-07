@@ -1,7 +1,7 @@
 # How many job logs to use for building the model
 logclassify_model_job_count: 2
 # The pipeline to use for building the model
-logclassify_model_pipeline: gate
+logclassify_model_pipeline:
 
 # Anomaly distance threshold (between 0.0 and 1.0)
 logclassify_threshold: 0.2

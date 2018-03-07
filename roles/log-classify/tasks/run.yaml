@@ -37,7 +37,7 @@
       --job {{ zuul.job }}
       --branch {{ zuul.branch }}
       {% if logclassify_model_per_project|bool %}--project {{ zuul.project.name }}{% endif %}
-      --pipeline {{ logclassify_model_pipeline }}
+      {% if logclassify_model_pipeline %}--pipeline {{ logclassify_model_pipeline }}{% endif %}
       --count {{ logclassify_model_job_count }}
       --zuul-web {{ logclassify_zuul_web }}
       {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
@@ -54,7 +54,7 @@
   when:
     - logclassify_local_dir != zuul.executor.log_root
     - logclassify_console
-    - _model_check.rc == 0 or (_model_check.rc == 4 and _model_build.rc == 0)
+    - _model_check.rc == 0 or _model_build.rc == 0
 
 - name: Detect anomalies
   command: >
@@ -73,7 +73,7 @@
   register: _model_run
   failed_when: _model_run.rc not in [0, 4]
   when:
-    - _model_check.rc == 0 or (_model_check.rc == 4 and _model_build.rc == 0)
+    - _model_check.rc == 0 or _model_build.rc == 0
 
 - name: Fetch report
   synchronize:
@@ -83,18 +83,24 @@
   with_items:
     - html
     - json
-  when: _model_run.rc == 0
+  when:
+    - _model_check.rc == 0 or _model_build.rc == 0
+    - _model_run.rc == 0
 
 - name: Fetch model
   synchronize:
     src: "{{ _model_path }}"
     dest: "{{ zuul.executor.log_root }}/model.clf"
     mode: pull
-  when: _model_check.rc == 4
+  when:
+    - _model_check.rc == 4
+    - _model_build.rc == 0
 
 - name: Write model name
   copy:
     content: "{{ _model_name }}"
     dest: "{{ zuul.executor.log_root }}/model.name"
   delegate_to: localhost
-  when: _model_check.rc == 4
+  when:
+    - _model_check.rc == 4
+    - _model_build.rc == 0

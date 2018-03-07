@@ -72,7 +72,7 @@ class Cli:
                            help="The job name")
             s.add_argument("--branch", default='master',
                            help="The branch name")
-            s.add_argument("--pipeline", default="gate",
+            s.add_argument("--pipeline",
                            help="The pipeline to fetch baseline from, "
                            "e.g. gate or periodic")
             s.add_argument("--project",
@@ -177,16 +177,23 @@ class Cli:
     def model_build(self, model_file):
         # Discover base-lines
         baselines = []
-        for baseline in logreduce.download.ZuulBuilds(self.zuul_web).get(
-                job=self.job,
-                branch=self.branch,
-                pipeline=self.pipeline,
-                project=self.project,
-                count=self.count):
-            baselines.append(baseline)
+        if self.pipeline:
+            pipelines = [self.pipeline]
+        else:
+            pipelines = ["periodic", "gate", "check"]
+        for pipeline in pipelines:
+            for baseline in logreduce.download.ZuulBuilds(self.zuul_web).get(
+                    job=self.job,
+                    branch=self.branch,
+                    pipeline=pipeline,
+                    project=self.project,
+                    count=self.count):
+                baselines.append(baseline)
+            if baselines:
+                break
         if not baselines:
             print("%s: couldn't find success in pipeline %s" % (
-                self.job, self.pipeline))
+                self.job, " ".join(pipelines)))
             exit(4)
         baselines_paths = []
         url_prefixes = {}

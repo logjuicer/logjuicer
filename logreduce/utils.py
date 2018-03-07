@@ -19,6 +19,10 @@ import logging
 # Avoid those files that aren't useful for words analysis
 DEFAULT_IGNORE_PATHS = [
     "zuul-info/",
+    '_zuul_ansible/',
+    'ara-report/',
+    'ara-sf/',
+    'ara/',
     # sf-ci useless static files
     "/executor.*/trusted/",
     # tripleo-ci static files
@@ -38,10 +42,6 @@ DEFAULT_IGNORE_PATHS = [
 ]
 
 DEFAULT_IGNORE_FILES = [
-    '_zuul_ansible/',
-    'ara-report/',
-    'ara-sf/',
-    'ara/',
     'btmp.txt',
     'cpuinfo.txt',
     'devstack-gate-setup-host.txt',
@@ -74,9 +74,16 @@ DEFAULT_IGNORE_FILES = [
     'uname.txt',
     'worlddump-',
     'wtmp.txt',
+    'README',
 ]
 
 BLACKLIST_EXTENSIONS = (
+    ".sqlite",
+    ".svg",
+    ".woff",
+    ".ttf",
+    ".css",
+    ".js",
     ".db",
     ".ico",
     ".png",
@@ -93,6 +100,8 @@ BLACKLIST_EXTENSIONS = (
     ".journal",
     ".json",
     ".conf",
+    ".yaml",
+    ".yml",
 )
 
 

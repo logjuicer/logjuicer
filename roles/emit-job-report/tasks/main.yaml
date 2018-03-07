@@ -5,7 +5,7 @@
     path: "{{ zuul.executor.log_root }}/report.html"
   register: _report_file
 
-- name: Return report URL to Zuul
+- name: Set zuul.log_url fact to the report URL
   delegate_to: localhost
   zuul_return:
     data:
