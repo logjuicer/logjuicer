@@ -4,7 +4,7 @@ logreduce - extract anomaly from log files
 Based on success logs, logreduce highlights useful text in failed logs.
 The goal is to save time in finding a failure's root cause.
 
-On average, learning run at 1000 lines per second, and
+On average, learning run at 2000 lines per second, and
 testing run at 0.800k lines per seconds.
 
 
@@ -61,7 +61,14 @@ Logreduce prints anomalies on the console, the log files are not modified:
 
 .. code-block:: console
 
-  # "%(distance)f | %(log_path)s:%(line_number)d: %(log_line)s"
+  "%(distance)f | %(log_path)s:%(line_number)d: %(log_line)s"
+
+Local file usage
+................
+
+* Compare two files or directories without building a model:
+
+.. code-block:: console
 
   $ logreduce diff testr-nodepool-01/output.good testr-nodepool-01/output.fail
   [...]
@@ -69,38 +76,48 @@ Logreduce prints anomalies on the console, the log files are not modified:
   0.462 | testr-nodepool-01/output.fail:0678:	    raise er.MultipleInvalid(errors)
   0.650 | testr-nodepool-01/output.fail:0679:	voluptuous.error.MultipleInvalid: required key not provided @ data['providers'][2]['cloud']
 
-
-Examples
---------
-
-* Look for new events in log files:
+* Compare two files or directories:
 
 .. code-block:: console
 
-  $ logreduce diff /var/log/audit/audit.log.4 /var/log/audit/audit.log --context-length 0
-  0.276 | /var/log/audit/audit.log:0606: type=USER_AUTH msg=audit(1498373150.931:1661763): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:authentication grantors=pam_rootok acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
-  0.287 | /var/log/audit/audit.log:0607: type=USER_ACCT msg=audit(1498373150.931:1661764): pid=20252 uid=0 auid=1000 ses=19490 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:accounting grantors=pam_succeed_if acct="root" exe="/usr/bin/su" hostname=? addr=? terminal=pts/0 res=success'
+  $ logreduce dir preprod-logs/ /var/log/
 
-* Look for anomaly in Zuul jobs:
 
-.. code-block:: console
-
-  $ logreduce logs --zuul-web http://zuul.openstack.org --project openstack-infra/zuul --threshold 0.5 --context-length 0 \
-       http://logs.openstack.org/64/544964/3/check/tox-pep8/05fc35f/
-  0.592 | job-output.txt.gz:0518: 2018-02-22 11:22:10.888593 | ubuntu-xenial | ./tests/unit/test_merger_repo.py:81:9: F841 local variable 'remote_sha' is assigned to but never used
-  2018-02-28 09:17:13,886 INFO  Classifier - Testing took 0.068s at 0.767MB/s (9.962kl/s) (0.052 MB - 0.680 kilo-lines)
-  99.85% reduction (from 680 lines to 1)
-
-* Look for anomaly in Zuul jobs artifacts:
+* Or build a model first and run it separately:
 
 .. code-block:: console
 
-  $ logreduce logs --zuul-web http://zuul.openstack.org --threshold 0.5 --include-path controller/ --exclude-file unbound_log.txt --pipeline check \
-       http://logs.openstack.org/34/548134/1/check/nodepool-functional-py35/3aab684/
-  0.500 | job-output.txt.gz:0634: 2018-02-27 03:29:38.186475 | controller |   "ephemeral_device": "VARIABLE IS NOT DEFINED!"
-  0.711 | controller/logs/libvirt/libvirtd_log.txt.gz:0536:       2018-02-27 03:37:12.853+0000: 24202: debug : virPCIDeviceFindCapabilityOffset:541 : 1af4 1000 0000:00:03.0: failed to find cap 0x10
-  2018-02-28 09:37:13,102 INFO  Classifier - Testing took 49.910s at 0.405MB/s (2.380kl/s) (20.207 MB - 118.798 kilo-lines)
-  99.97% reduction (from 118798 lines to 35)
+  $ logreduce dir-train model-file.clf preprod-logs/ new-preprod-logs/
+  $ logreduce dir-run model-file.clf /var/log/
+
+
+Zuul job usage
+..............
+
+Logreduce can query Zuul build database to train a model.
+
+* Extract novelty from a job logs
+
+.. code-block:: console
+
+  $ logreduce job http://logs.openstack.org/...
+
+  # Reduce comparaison to a single project (e.g. for tox jobs)
+  $ logreduce job --project openstack/nova http://logs.openstack.org/...
+
+  # Compare using many baselines
+  $ logreduce job --count 10 http://logs.openstack.org/...
+
+  # Include job artifacts
+  $ logreduce job --include-path logs/ http:/logs.openstack.org/...
+
+* Or build a model first and run it separately:
+
+.. code-block:: console
+
+  $ logreduce job-train --job job_name model-file.clf
+  $ logreduce job-run model-file.clf http://logs.openstack.org/.../
+
 
 
 logreduce-tests

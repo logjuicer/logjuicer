@@ -121,7 +121,9 @@ class HashingNeighbors(Model):
     # True random words
     def __init__(self, name=""):
         super().__init__(name)
-        self.vectorizer = HashingVectorizer(lowercase=False)
+        self.vectorizer = HashingVectorizer(
+            analyzer='word', lowercase=False, tokenizer=None,
+            preprocessor=None, stop_words=None)
         self.nn = NearestNeighbors(algorithm='brute', metric='cosine')
 
     def train(self, train_data):
@@ -132,18 +134,17 @@ class HashingNeighbors(Model):
 
     def test(self, test_data):
         all_distances = []
-        for data in test_data:
-            dat = self.vectorizer.transform([data])
-            # Skip vector that contains less than 2 elements
-            if dat.getnnz() <= 1:
-                all_distances.append(0)
-            else:
-                all_distances.append(
-                    self.nn.kneighbors(dat, n_neighbors=1)[0][0])
+        with warnings.catch_warnings():
+            for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
+                chunk = test_data[chunk_pos:min(len(test_data),
+                                                chunk_pos + CHUNK_SIZE)]
+                dat = self.vectorizer.transform(chunk)
+                distances, _ = self.nn.kneighbors(dat, n_neighbors=1)
+                all_distances.extend(distances)
         return all_distances
 
     def process_line(self, line):
-        return Tokenizer.light_process(line)
+        return Tokenizer.process(line)
 
 
 models = {

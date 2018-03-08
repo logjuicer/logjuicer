@@ -32,7 +32,7 @@
 - name: Build new model
   command: >
     timeout {{ logclassify_max_run_time }}s {{ logclassify_cmd }}
-      --tmp-dir {{ logclassify_tmp_dir }} model-build
+      --tmp-dir {{ logclassify_tmp_dir }} job-build
       {{ _model_path }}
       --job {{ zuul.job }}
       --branch {{ zuul.branch }}
@@ -58,7 +58,7 @@
 
 - name: Detect anomalies
   command: >
-    timeout {{ logclassify_max_run_time }}s {{ logclassify_cmd }} model-run {{ _model_path }}
+    timeout {{ logclassify_max_run_time }}s {{ logclassify_cmd }} dir-run {{ _model_path }}
       --threshold {{ logclassify_threshold }}
       --before-context {{ logclassify_before_context }}
       --after-context {{ logclassify_after_context }}
@@ -66,7 +66,10 @@
         {{ logclassify_tmp_dir }}/job-output.txt
         {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
       {% endif %}
-      {% if logclassify_local_dir %}{{ logclassify_local_dir }}{% endif %}
+      {% if logclassify_local_dir %}
+        {% if logclassify_logserver_dir %}{{ logclassify_local_dir }}{% else %}
+        {{ logclassify_local_dir }}/job-output.txt{% endif %}
+      {% endif %}
       --html {{ logclassify_tmp_dir }}/report.html
       {% for _path in logclassify_exclude_paths %}--exclude-path {{ _path }}{% endfor %}
       {% for _path in logclassify_exclude_files %}--exclude-file {{ _path }}{% endfor %}

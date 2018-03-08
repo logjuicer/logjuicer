@@ -37,16 +37,23 @@ class Cli:
             parser.print_help()
             exit(4)
         logreduce.utils.setup_logging(args.debug)
+        self.model_type = "hashing_nn"
+        self.exclude_file = logreduce.utils.DEFAULT_IGNORE_FILES
+        self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
+        self.include_path = []
         kwargs = {}
         for k, v in args.__dict__.items():
             if k == "exclude_file":
-                v.extend(logreduce.utils.DEFAULT_IGNORE_FILES)
+                self.exclude_file.extend(v)
             elif k == "exclude_path":
-                v.extend(logreduce.utils.DEFAULT_IGNORE_PATHS)
-            if k in ("logs_url", "model_file", "target_dir", "baselines_dir"):
+                self.exclude_path.extend(v)
+            elif k in ("logs_url", "model_file", "target", "baseline"):
                 kwargs[k] = v
             else:
                 self.__dict__[k] = v
+        # Convenient trick
+        if "logs.openstack.org" in kwargs.get('logs_url', ""):
+            self.zuul_web = "http://zuul.openstack.org"
         try:
             args.func(**kwargs)
         except RuntimeError:
@@ -67,8 +74,8 @@ class Cli:
             s.add_argument("--exclude-path", action='append', default=[],
                            help="Path exclude regexp")
 
-        def job_filters(s, job_required=True):
-            s.add_argument("--job", required=job_required,
+        def job_filters(s):
+            s.add_argument("--job",
                            help="The job name")
             s.add_argument("--branch", default='master',
                            help="The branch name")
@@ -106,18 +113,14 @@ class Cli:
                            choices=list(models.keys()),
                            help="The model type")
 
+        def journal_filters(s):
+            s.add_argument("--since")
+            s.add_argument("--until")
+
         # Sub command usages
         def model_check_usage(sub):
             s = sub.add_parser("model-check", help="Check if a model is valid")
             s.set_defaults(func=self.model_check)
-            model_filters(s)
-            s.add_argument("model_file")
-
-        def model_build_usage(sub):
-            s = sub.add_parser("model-build", help="Build a model")
-            s.set_defaults(func=self.model_build)
-            job_filters(s)
-            path_filters(s)
             model_filters(s)
             s.add_argument("model_file")
 
@@ -127,40 +130,121 @@ class Cli:
             path_filters(s)
             report_filters(s)
             s.add_argument("model_file", metavar="FILE")
-            s.add_argument("target_dir", metavar="DIR", nargs='+')
+            s.add_argument("target", nargs='+')
 
-        def logs_get_usage(sub):
-            s = sub.add_parser("logs-get", help="Get the logs")
-            s.set_defaults(func=self.logs_get)
+        # Local directory
+        def dir_train_usage(sub):
+            s = sub.add_parser("dir-train",
+                               help="Build a model for local files/dirs")
+            s.set_defaults(func=self.dir_train)
+            model_filters(s)
+            path_filters(s)
+            s.add_argument("model_file")
+            s.add_argument("baseline", nargs='+')
+
+        def dir_run_usage(sub):
+            s = sub.add_parser("dir-run",
+                               help="Run a model against local files/dirs")
+            s.set_defaults(func=self.dir_run)
+            report_filters(s)
+            path_filters(s)
+            s.add_argument("model_file")
+            s.add_argument("target")
+
+        def dir_usage(sub):
+            s = sub.add_parser("dir",
+                               help="Train and run against local files/dirs")
+            s.set_defaults(func=self.file)
+            model_filters(s)
+            report_filters(s)
+            path_filters(s)
+            s.add_argument("baseline")
+            s.add_argument("target")
+
+        # Zuul integration
+        def job_train_usage(sub):
+            s = sub.add_parser("job-train", help="Build a model for a CI job")
+            s.set_defaults(func=self.job_train)
+            model_filters(s)
+            job_filters(s)
+            path_filters(s)
+            s.add_argument("model_file")
+
+        def job_run_usage(sub):
+            s = sub.add_parser("job-run", help="Run a model against CI logs")
+            s.set_defaults(func=self.job_run)
+            report_filters(s)
+            path_filters(s)
+            s.add_argument("model_file")
+            s.add_argument("logs_url", help="The CI logs url")
+
+        def job_usage(sub):
+            s = sub.add_parser("job", help="Train and run against CI logs")
+            s.set_defaults(func=self.job)
+            model_filters(s)
+            report_filters(s)
+            job_filters(s)
+            path_filters(s)
+            s.add_argument("logs_url")
+
+        # Journald integration
+        def journal_train_usage(sub):
+            s = sub.add_parser("journal-train",
+                               help="Build a model for local journald")
+            s.set_defaults(func=self.journal_train)
+            journal_filters(s)
+            model_filters(s)
+            s.add_argument("model_file")
+
+        def journal_run_usage(sub):
+            s = sub.add_parser("journal-run",
+                               help="Run a model against a local journald")
+            s.set_defaults(func=self.journal_run)
+            journal_filters(s)
+            report_filters(s)
+            s.add_argument("model_file")
+            s.add_argument("since")
+            s.add_argument("until")
+
+        def journal_usage(sub):
+            s = sub.add_parser("journal",
+                               help="Train and run against local journald")
+            s.set_defaults(func=self.journal)
+            journal_filters(s)
+            report_filters(s)
+            s.add_argument("since")
+            s.add_argument("until")
+
+        # Extra command line usage...
+        def download_logs_usage(sub):
+            s = sub.add_parser("download-logs", help="Get the logs")
+            s.set_defaults(func=self.download_logs)
             path_filters(s)
             s.add_argument("logs_url", help="The logs file url")
             s.add_argument("target_dir", nargs='?')
 
-        def logs_usage(sub):
-            s = sub.add_parser("logs", help="Get the logs, build a model, "
-                                            "report anomalies")
-            s.set_defaults(func=self.logs_run)
-            path_filters(s)
-            job_filters(s, job_required=False)
-            model_filters(s)
-            report_filters(s)
-            s.add_argument("logs_url")
-
         def diff_usage(sub):
             s = sub.add_parser("diff", help="Compare directories/files")
+            s.set_defaults(func=self.diff)
             report_filters(s)
             s.add_argument("--json", metavar="FILE",
                            help="Optional json output")
-            s.add_argument("baselines_dir", nargs='+')
-            s.add_argument("target_dir")
-            s.set_defaults(func=self.diff_run)
+            s.add_argument("baseline", nargs='+')
+            s.add_argument("target")
 
         sub_parser = parser.add_subparsers()
         model_check_usage(sub_parser)
-        model_build_usage(sub_parser)
         model_run_usage(sub_parser)
-        logs_get_usage(sub_parser)
-        logs_usage(sub_parser)
+        dir_train_usage(sub_parser)
+        dir_run_usage(sub_parser)
+        dir_usage(sub_parser)
+        job_train_usage(sub_parser)
+        job_run_usage(sub_parser)
+        job_usage(sub_parser)
+        journal_train_usage(sub_parser)
+        journal_run_usage(sub_parser)
+        journal_usage(sub_parser)
+        download_logs_usage(sub_parser)
         diff_usage(sub_parser)
         return parser
 
@@ -174,8 +258,33 @@ class Cli:
         except Exception as e:
             raise RuntimeError("%s: %s" % (model_file, e))
 
-    def model_build(self, model_file):
-        # Discover base-lines
+    def model_run(self, model_file, target):
+        clf = self._get_classifier(model_file)
+        self._report(clf, target)
+
+    # Local file usage
+    def dir_train(self, model_file, baseline):
+        clf = self._get_classifier()
+        clf.train(baseline)
+        clf.save(model_file)
+        return clf
+
+    def dir_run(self, model_file, target):
+        clf = self._get_classifier(model_file)
+        self._report(clf, target)
+
+    def file(self, baseline, target):
+        model_file = os.path.join(
+            self.tmp_dir, "_models", baseline.replace('/', '_') + ".clf")
+        if os.path.exists(model_file):
+            clf = self._get_classifier(model_file)
+        else:
+            clf = self.dir_train(model_file, baseline)
+        self._report(clf, target)
+
+    # Zuul job usage
+    def job_train(self, model_file):
+        # Discover baseline
         baselines = []
         if self.pipeline:
             pipelines = [self.pipeline]
@@ -202,23 +311,85 @@ class Cli:
                 baseline += "/"
             dest = os.path.join(
                 self.tmp_dir, "_baselines", self.job, baseline.split('/')[-2])
-            self.logs_get(baseline, dest)
+            self.download_logs(baseline, dest)
             baselines_paths.append(dest)
             url_prefixes["%s/" % dest] = baseline
 
         # Train model
-        clf = Classifier(
-            self.model_type, self.exclude_path, self.exclude_file)
+        clf = self._get_classifier()
         clf.train(baselines_paths, url_prefixes)
         clf.save(model_file)
         print("%s: built with %s" % (model_file, " ".join(baselines)))
+        return clf
 
-    def model_run(self, model_file, target_dir):
-        clf = Classifier.load(model_file)
+    def job_run(self, model_file, logs_url):
+        clf = self._get_classifier(model_file)
+        target = self.download_logs(logs_url)
+        self._report(clf, target)
+
+    def job(self, logs_url):
+        if self.job is None:
+            self.job = logs_url.split('/')[-3]
+        model_name = self.job + ".clf"
+        if self.project is not None:
+            model_name = os.path.join(self.project, model_name)
+        model_file = os.path.join(self.tmp_dir, "_models", model_name)
+        if os.path.exists(model_file):
+            clf = self._get_classifier(model_file)
+        else:
+            clf = self.job_train(model_file)
+
+        target = self.download_logs(logs_url)
+        self._report(clf, target)
+
+    def journal_train(self, model_file):
+        ...
+
+    def journal_run(self, model_file, since, until):
+        ...
+
+    def journal(self, since, until):
+        ...
+
+    def diff(self, baseline, target):
+        clf = self._get_classifier()
+        clf.train(baseline)
+        self._report(clf, target, json_file=self.json)
+
+    def download_logs(self, logs_url, target_dir=None):
+        if logs_url[-1] != "/":
+            logs_url += "/"
+        if target_dir is None:
+            if self.job is None:
+                self.job = logs_url.split('/')[-3]
+            target_dir = os.path.join(
+                self.tmp_dir, "_targets", self.job, logs_url.split('/')[-2])
+        os.makedirs(target_dir, exist_ok=True)
+
+        logs_path = ["job-output.txt.gz"]
+        if self.include_path:
+            logs_path.append(self.include_path)
+
+        for sub_path in logs_path:
+            url = os.path.join(logs_url, sub_path)
+            logreduce.download.RecursiveDownload(
+                url,
+                target_dir,
+                trim=logs_url,
+                exclude_files=self.exclude_file,
+                exclude_paths=self.exclude_path,
+                exclude_extensions=logreduce.utils.BLACKLIST_EXTENSIONS).wait()
+        return target_dir
+
+    def _get_classifier(self, model_file=None):
+        if model_file is not None:
+            clf = Classifier.load(model_file)
+        else:
+            clf = Classifier(self.model_type)
         clf.exclude_paths = self.exclude_path
         clf.exclude_files = self.exclude_file
         clf.test_prefix = self.include_path
-        self._report(clf, target_dir)
+        return clf
 
     def _report(self, clf, target_dirs, target_source=None, json_file=None):
         if self.context_length is not None:
@@ -249,64 +420,6 @@ class Cli:
                 output["testing_lines_count"],
                 output["outlier_lines_count"]
             ))
-
-    def logs_get(self, logs_url, dest_dir=None):
-        if logs_url[-1] != "/":
-            logs_url += "/"
-        if self.job is None:
-            self.job = logs_url.split('/')[-3]
-        if dest_dir is None:
-            dest_dir = os.path.join(
-                self.tmp_dir, "_targets", self.job, logs_url.split('/')[-2])
-        os.makedirs(dest_dir, exist_ok=True)
-
-        logs_path = ["job-output.txt.gz"]
-        if self.include_path:
-            logs_path.append(self.include_path)
-
-        for sub_path in logs_path:
-            url = os.path.join(logs_url, sub_path)
-            logreduce.download.RecursiveDownload(
-                url,
-                dest_dir,
-                trim=logs_url,
-                exclude_files=self.exclude_file,
-                exclude_paths=self.exclude_path,
-                exclude_extensions=logreduce.utils.BLACKLIST_EXTENSIONS).wait()
-        return dest_dir
-
-    def logs_run(self, logs_url):
-        if logs_url[-1] != "/":
-            logs_url += "/"
-        if self.job is None:
-            self.job = logs_url.split('/')[-3]
-
-        if "logs.openstack.org" in logs_url:
-            self.zuul_web = "http://zuul.openstack.org"
-
-        if self.project:
-            model_file = os.path.join(
-                "_baselines", self.project, "%s.clf" % self.job)
-        else:
-            model_file = os.path.join("_baselines", "%s.clf" % self.job)
-        try:
-            self.model_check(model_file)
-        except RuntimeError:
-            self.model_build(model_file)
-
-        dest_dir = os.path.join(
-            self.tmp_dir, "_targets", self.job, logs_url.split('/')[-2])
-        self.logs_get(logs_url, dest_dir)
-
-        clf = Classifier.load(model_file)
-        clf.exclude_paths = self.exclude_path
-        clf.exclude_files = self.exclude_file
-        self._report(clf, dest_dir, logs_url)
-
-    def diff_run(self, baselines_dir, target_dir):
-        clf = Classifier()
-        clf.train(baselines_dir)
-        self._report(clf, target_dir, json_file=self.json)
 
 
 def main():

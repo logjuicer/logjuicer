@@ -36,8 +36,8 @@ class Classifier:
                  model='bag-of-words_nn', exclude_paths=[], exclude_files=[]):
         self.models = {}
         self.model_name = model
-        self.exclude_paths = []
-        self.exclude_files = []
+        self.exclude_paths = exclude_paths
+        self.exclude_files = exclude_files
         self.test_prefix = None
 
     def get(self, model_name):
@@ -47,7 +47,8 @@ class Classifier:
     def save(self, fileobj):
         """Save the model"""
         if isinstance(fileobj, str):
-            os.makedirs(os.path.dirname(fileobj), 0o700, exist_ok=True)
+            if os.path.dirname(fileobj):
+                os.makedirs(os.path.dirname(fileobj), 0o700, exist_ok=True)
             fileobj = open(fileobj, 'wb')
         fileobj.write(b'LGRD')
         fileobj.write(struct.pack('I', self.version))
@@ -109,7 +110,9 @@ class Classifier:
 
         # Group similar files for the same model
         to_train = {}
-        for filename, filename_rel in files_iterator(path):
+        for filename, filename_rel in files_iterator(path,
+                                                     self.exclude_files,
+                                                     self.exclude_paths):
             if [True for ign in self.exclude_files
                     if re.match(ign, os.path.basename(filename))]:
                 continue
@@ -220,7 +223,9 @@ class Classifier:
         self.testing_size = 0
         self.outlier_lines_count = 0
 
-        for filename, filename_rel in files_iterator(path):
+        for filename, filename_rel in files_iterator(path,
+                                                     self.exclude_files,
+                                                     self.exclude_paths):
             if [True for ign in self.exclude_files
                     if re.match(ign, os.path.basename(filename))]:
                 continue

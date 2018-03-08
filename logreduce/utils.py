@@ -37,6 +37,8 @@ DEFAULT_IGNORE_PATHS = [
     "extra/logstash.txt",
     "migration/identity.gz",
     "swift/backups/",
+    "/conf.modules.d/",
+    "/lib/heat-config/heat-config-script/",
     "/\.git/",
     "/\.svn/",
 ]
@@ -55,7 +57,7 @@ DEFAULT_IGNORE_FILES = [
     'index.html',
     'iostat.txt',
     'iotop.txt',
-    'lastlog.txt',
+    'lastlog',
     'lsmod.txt',
     'lsof.txt',
     'lsof_network.txt',
@@ -75,6 +77,10 @@ DEFAULT_IGNORE_FILES = [
     'worlddump-',
     'wtmp.txt',
     'README',
+    'unbound.log',
+    'dns_cache.txt',
+    'password.gz',
+    'moduli',
 ]
 
 BLACKLIST_EXTENSIONS = (
@@ -99,7 +105,10 @@ BLACKLIST_EXTENSIONS = (
     ".subunit",
     ".journal",
     ".json",
+    ".json.txt",
+    ".yaml.txt",
     ".conf",
+    ".conf.txt",
     ".yaml",
     ".yml",
 )
