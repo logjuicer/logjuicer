@@ -114,8 +114,9 @@ class Cli:
                            help="The model type")
 
         def journal_filters(s):
-            s.add_argument("--since")
-            s.add_argument("--until")
+            s.add_argument("--range", choices=("day", "week", "month"),
+                           default="week",
+                           help="Training/testing time frame range")
 
         # Sub command usages
         def model_check_usage(sub):
@@ -203,8 +204,6 @@ class Cli:
             journal_filters(s)
             report_filters(s)
             s.add_argument("model_file")
-            s.add_argument("since")
-            s.add_argument("until")
 
         def journal_usage(sub):
             s = sub.add_parser("journal",
@@ -212,8 +211,6 @@ class Cli:
             s.set_defaults(func=self.journal)
             journal_filters(s)
             report_filters(s)
-            s.add_argument("since")
-            s.add_argument("until")
 
         # Extra command line usage...
         def download_logs_usage(sub):
@@ -342,14 +339,28 @@ class Cli:
         target = self.download_logs(logs_url)
         self._report(clf, target)
 
+    # Jounrald usage
     def journal_train(self, model_file):
-        ...
+        baseline = logreduce.utils.Journal(self.range, previous=True)
+        clf = self._get_classifier()
+        clf.train(baseline)
+        clf.save(model_file)
+        return clf
 
-    def journal_run(self, model_file, since, until):
-        ...
+    def journal_run(self, model_file):
+        clf = self._get_classifier(model_file)
+        target = logreduce.utils.Journal(self.range)
+        self._report(clf, target)
 
-    def journal(self, since, until):
-        ...
+    def journal(self):
+        model_file = os.path.join(
+            self.tmp_dir, "_models", "jounral-%s.clf" % self.range)
+        if os.path.exists(model_file):
+            clf = self._get_classifier(model_file)
+        else:
+            clf = self.journal_train(model_file)
+        target = logreduce.utils.Journal(self.range)
+        self._report(clf, target)
 
     def diff(self, baseline, target):
         clf = self._get_classifier()

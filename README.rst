@@ -5,7 +5,7 @@ Based on success logs, logreduce highlights useful text in failed logs.
 The goal is to save time in finding a failure's root cause.
 
 On average, learning run at 2000 lines per second, and
-testing run at 0.800k lines per seconds.
+testing run at 1300 lines per seconds.
 
 
 How it works
@@ -71,10 +71,9 @@ Local file usage
 .. code-block:: console
 
   $ logreduce diff testr-nodepool-01/output.good testr-nodepool-01/output.fail
-  [...]
-  0.232 | testr-nodepool-01/output.fail:0677:	  File "voluptuous/schema_builder.py", line 370, in validate_mapping
-  0.462 | testr-nodepool-01/output.fail:0678:	    raise er.MultipleInvalid(errors)
-  0.650 | testr-nodepool-01/output.fail:0679:	voluptuous.error.MultipleInvalid: required key not provided @ data['providers'][2]['cloud']
+  0.232 | testr-nodepool-01/output.fail:0677:  File "voluptuous/schema_builder.py", line 370, in validate_mapping
+  0.462 | testr-nodepool-01/output.fail:0678:    raise er.MultipleInvalid(errors)
+  0.650 | testr-nodepool-01/output.fail:0679:  voluptuous.error.MultipleInvalid: required key not provided @ data['providers'][2]['cloud']
 
 * Compare two files or directories:
 
@@ -87,8 +86,8 @@ Local file usage
 
 .. code-block:: console
 
-  $ logreduce dir-train model-file.clf preprod-logs/ new-preprod-logs/
-  $ logreduce dir-run model-file.clf /var/log/
+  $ logreduce dir-train sosreport.clf old-sosreport/ good-sosreport/
+  $ logreduce dir-run sosreport.clf new-sosreport/
 
 
 Zuul job usage
@@ -96,7 +95,7 @@ Zuul job usage
 
 Logreduce can query Zuul build database to train a model.
 
-* Extract novelty from a job logs
+* Extract novelty from a job logs:
 
 .. code-block:: console
 
@@ -115,9 +114,28 @@ Logreduce can query Zuul build database to train a model.
 
 .. code-block:: console
 
-  $ logreduce job-train --job job_name model-file.clf
-  $ logreduce job-run model-file.clf http://logs.openstack.org/.../
+  $ logreduce job-train --job job_name job_name.clf
+  $ logreduce job-run job_name.clf http://logs.openstack.org/.../
 
+
+Journald usage
+..............
+
+Logreduce can look for anomaly in journald, comparing the last day/week/month
+to the previous one:
+
+* Extract novelty from last day journal:
+
+.. code-block:: console
+
+  $ logreduce journal --range day
+
+* Build a model using journal of last month and look for novelty in last week:
+
+.. code-block:: console
+
+  $ logreduce journal-train --range month good-journal.clf
+  $ logreduce journal-run --range week good-journal.clf
 
 
 logreduce-tests
@@ -183,6 +201,7 @@ Roadmap/todo
 * Improve tokenization tests
 * Discard files that are 100% anomalous
 * Report mean diviation instead of absolute distances
+* Investigate second stage model
 
 
 Contribute

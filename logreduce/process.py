@@ -30,7 +30,7 @@ from logreduce.utils import open_file
 
 class Classifier:
     log = logging.getLogger("Classifier")
-    version = 1
+    version = 2
 
     def __init__(self,
                  model='bag-of-words_nn', exclude_paths=[], exclude_files=[]):
@@ -113,12 +113,13 @@ class Classifier:
         for filename, filename_rel in files_iterator(path,
                                                      self.exclude_files,
                                                      self.exclude_paths):
-            if [True for ign in self.exclude_files
-                    if re.match(ign, os.path.basename(filename))]:
-                continue
-            if [True for ign in self.exclude_paths
-                    if re.search(ign, filename_rel)]:
-                continue
+            if filename_rel:
+                if [True for ign in self.exclude_files
+                        if re.match(ign, os.path.basename(filename))]:
+                    continue
+                if [True for ign in self.exclude_paths
+                        if re.search(ign, filename_rel)]:
+                    continue
             model_name = Classifier.filename2modelname(filename_rel)
             to_train.setdefault(model_name, []).append(filename)
 
@@ -153,7 +154,10 @@ class Classifier:
                             if sub_line:
                                 train_data.append(sub_line)
                         idx += 1
-                    model.size += os.stat(filename).st_size
+                    try:
+                        model.size += os.stat(filename).st_size
+                    except TypeError:
+                        pass
                     model.count += idx
                 except KeyboardInterrupt:
                     exit(1)
@@ -226,12 +230,13 @@ class Classifier:
         for filename, filename_rel in files_iterator(path,
                                                      self.exclude_files,
                                                      self.exclude_paths):
-            if [True for ign in self.exclude_files
-                    if re.match(ign, os.path.basename(filename))]:
-                continue
-            if [True for ign in self.exclude_paths
-                    if re.search(ign, filename_rel)]:
-                continue
+            if filename_rel:
+                if [True for ign in self.exclude_files
+                        if re.match(ign, os.path.basename(filename))]:
+                    continue
+                if [True for ign in self.exclude_paths
+                        if re.search(ign, filename_rel)]:
+                    continue
             test_start_time = time.monotonic()
 
             if self.test_prefix:
@@ -288,7 +293,10 @@ class Classifier:
                             test_data_pos.append(idx)
                     idx += 1
                 del test_data_set
-                self.testing_size += os.stat(filename).st_size
+                try:
+                    self.testing_size += os.stat(filename).st_size
+                except TypeError:
+                    pass
                 self.testing_lines_count += idx
             except KeyboardInterrupt:
                 exit(1)
@@ -375,7 +383,7 @@ class Classifier:
             if path_source is not None:
                 filename_orig = os.path.join(path_source, filename_orig)
             output['models'].setdefault(model.name, {
-                'source_files': model.sources,
+                'source_files': list(map(str, model.sources)),
                 'train_time': model.train_time,
                 'info': model.info,
             })
@@ -393,7 +401,7 @@ class Classifier:
             current_pos = []
             last_pos = None
             self.log.debug("%s: compared with %s" % (
-                filename, " ".join(model.sources)))
+                filename, " ".join(list(map(str, model.sources)))))
 
             for pos, distance, outlier in outliers:
                 distance = abs(float(distance))
