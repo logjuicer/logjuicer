@@ -267,6 +267,8 @@ class Classifier:
             test_data = []
             test_data_set = set()
             model = self.get(model_name)
+            # store duplicate line position to initial position in dup_pos
+            dup_pos = {}
 
             fobj = None
             try:
@@ -287,7 +289,9 @@ class Classifier:
                     data.append(line)
                     for sub_line in line.split(r'\r'):
                         sub_line = model.process_line(sub_line)
-                        if sub_line and sub_line not in test_data_set:
+                        if sub_line in test_data_set:
+                            dup_pos[idx] = test_data.index(sub_line)
+                        elif sub_line:
                             test_data.append(sub_line)
                             test_data_set.add(sub_line)
                             test_data_pos.append(idx)
@@ -320,12 +324,17 @@ class Classifier:
                 continue
 
             def get_line_info(line_pos):
+                line = data[line_pos]
                 try:
                     distance = distances[test_data_pos.index(line_pos)]
                 except ValueError:
                     # Line wasn't in test data
-                    distance = 0.0
-                return (line_pos, distance, data[line_pos])
+                    try:
+                        distance = distances[dup_pos[line_pos]]
+                    except KeyError:
+                        # Line wasn't a duplicate
+                        distance = 0.0
+                return (distance, line)
 
             # Store (line_pos, distance, line) in outliers
             outliers = []
@@ -333,7 +342,7 @@ class Classifier:
             remaining_after_context = 0
             line_pos = 0
             while line_pos < len(data):
-                line_pos, distance, line = get_line_info(line_pos)
+                distance, line = get_line_info(line_pos)
                 if distance >= self.threshold:
                     if line_pos - last_outlier >= self.merge_distance:
                         # When last outlier is too far,
@@ -342,7 +351,7 @@ class Classifier:
                                            -1)
                     # Add previous context
                     for prev_pos in range(last_outlier + 1, line_pos):
-                        outliers.append(get_line_info(prev_pos))
+                        outliers.append((prev_pos, ) + get_line_info(prev_pos))
                     last_outlier = line_pos
 
                     outliers.append((line_pos, distance, line))
