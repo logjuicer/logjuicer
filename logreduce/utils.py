@@ -184,6 +184,8 @@ class Journal:
         entry['LEVEL'] = FACILITY2NAME.get(entry.get('SYSLOG_FACILITY'),
                                            'NOTI').upper()
         entry['DATE'] = ts.strftime('%Y-%m-%d %H:%M:%S')
+        entry.setdefault("SYSLOG_IDENTIFIER", "NONE")
+        entry.setdefault("MESSAGE", "NONE")
         return "{DATE} - {SYSLOG_IDENTIFIER} - {LEVEL} - {MESSAGE}\n".format(
             **entry).encode('utf-8')
 
