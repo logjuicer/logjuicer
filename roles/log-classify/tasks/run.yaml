@@ -32,7 +32,7 @@
 - name: Build new model
   command: >
     timeout {{ logclassify_max_run_time }}s {{ logclassify_cmd }}
-      --tmp-dir {{ logclassify_tmp_dir }} job-build
+      --tmp-dir {{ logclassify_tmp_dir }} job-train
       {{ _model_path }}
       --job {{ zuul.job }}
       --branch {{ zuul.branch }}
