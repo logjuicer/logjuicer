@@ -172,8 +172,8 @@ class ZuulBuilds:
         url = "%s/builds?job_name=%s" % (self.zuul_url, job)
         if project:
             url += "&project=%s" % project
-#        if branch:
-#            url += "&branch=%s" % branch
+        if branch:
+            url += "&branch=%s" % branch
         if pipeline:
             url += "&pipeline=%s" % pipeline
         if result:

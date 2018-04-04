@@ -15,7 +15,7 @@ logclassify_model_age: 7
 logclassify_model_per_project: false
 
 logclassify_model_store_url: https://softwarefactory-project.io/logs/classifiers
-logclassify_zuul_web: https://softwarefactory-project.io/zuul/local
+logclassify_zuul_web: https://softwarefactory-project.io/zuul/api/tenant/local
 logclassify_tmp_dir: /tmp/log-classify
 logclassify_model_dir: "{{ logclassify_tmp_dir }}"
 

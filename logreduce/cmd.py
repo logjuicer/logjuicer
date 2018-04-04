@@ -53,7 +53,7 @@ class Cli:
                 self.__dict__[k] = v
         # Convenient trick
         if "logs.openstack.org" in kwargs.get('logs_url', ""):
-            self.zuul_web = "http://zuul.openstack.org"
+            self.zuul_web = "http://zuul.openstack.org/api"
         try:
             args.func(**kwargs)
         except RuntimeError:
