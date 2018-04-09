@@ -122,6 +122,7 @@ class HashingNeighbors(Model):
     def __init__(self, name=""):
         super().__init__(name)
         self.vectorizer = HashingVectorizer(
+            binary=True,
             analyzer='word', lowercase=False, tokenizer=None,
             preprocessor=None, stop_words=None)
         self.nn = NearestNeighbors(algorithm='brute', metric='cosine')

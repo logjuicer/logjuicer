@@ -70,7 +70,7 @@ class Tokenizer:
         # Certificates
         r'|-----BEGIN'
         # git status
-        r'|HEAD is now at|[a-z0-9]{40}|Change-Id: '
+        r'|HEAD is now at|Change-Id: '
         # Download statement
         r'| ETA '
         # yum mirrors information
@@ -85,8 +85,8 @@ class Tokenizer:
         r'|zuul.*echo BECOME-SUCCESS-'
         r')')
     ip_re = re.compile(r'(%s|%s|%s)' % (IPV4_RE, IPV6_RE, MAC_RE), re.I)
-    power2_re = re.compile(r'([0-9a-f]{32}|[0-9a-f+/]{64}|[0-9a-f]{128})',
-                           re.I)
+    power2_re = re.compile(r'([0-9a-f]{128}|[0-9a-f+/]{64}|'
+                           '[0-9a-f]{40}|[0-9a-f]{32})', re.I)
     uuid_re = re.compile(UUID_RE, re.I)
     date_re = re.compile('(%s|%s|%s|%s)' % (DAYS, SHORT_DAYS,
                                             SHORT_MONTHS, MONTHS), re.I)
@@ -131,6 +131,10 @@ class Tokenizer:
         strip = Tokenizer.alpha_re.subn(" ", strip)[0]
         # Remove tiny words
         strip = " ".join(filter(lambda x: len(x) > 3, strip.split()))
+        # Weight failure token
+        for token in ("error", "fail", "warn"):
+            if token in strip.lower():
+                strip += " %sA %sB %sC %sD" % (token, token, token, token)
         return strip
 
 
