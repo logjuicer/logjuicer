@@ -38,6 +38,7 @@ class Cli:
             exit(4)
         logreduce.utils.setup_logging(args.debug)
         self.model_type = "hashing_nn"
+        self.job = None
         self.exclude_file = logreduce.utils.DEFAULT_IGNORE_FILES
         self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
         self.include_path = []
@@ -47,9 +48,12 @@ class Cli:
                 self.exclude_file.extend(v)
             elif k == "exclude_path":
                 self.exclude_path.extend(v)
-            elif k in ("logs_url", "model_file", "target", "baseline"):
+            elif k in ("logs_url", "model_file", "target", "baseline",
+                       "target_dir"):
+                # function argument
                 kwargs[k] = v
             else:
+                # class member variables
                 self.__dict__[k] = v
         # Convenient trick
         if "logs.openstack.org" in kwargs.get('logs_url', ""):
@@ -155,7 +159,7 @@ class Cli:
         def dir_usage(sub):
             s = sub.add_parser("dir",
                                help="Train and run against local files/dirs")
-            s.set_defaults(func=self.file)
+            s.set_defaults(func=self.dir_allinone)
             model_filters(s)
             report_filters(s)
             path_filters(s)
@@ -181,7 +185,7 @@ class Cli:
 
         def job_usage(sub):
             s = sub.add_parser("job", help="Train and run against CI logs")
-            s.set_defaults(func=self.job)
+            s.set_defaults(func=self.job_allinone)
             model_filters(s)
             report_filters(s)
             job_filters(s)
@@ -208,7 +212,7 @@ class Cli:
         def journal_usage(sub):
             s = sub.add_parser("journal",
                                help="Train and run against local journald")
-            s.set_defaults(func=self.journal)
+            s.set_defaults(func=self.journal_allinone)
             journal_filters(s)
             report_filters(s)
 
@@ -270,7 +274,7 @@ class Cli:
         clf = self._get_classifier(model_file)
         self._report(clf, target)
 
-    def file(self, baseline, target):
+    def dir_allinone(self, baseline, target):
         model_file = os.path.join(
             self.tmp_dir, "_models", baseline.replace('/', '_') + ".clf")
         if os.path.exists(model_file):
@@ -324,7 +328,7 @@ class Cli:
         target = self.download_logs(logs_url)
         self._report(clf, target)
 
-    def job(self, logs_url):
+    def job_allinone(self, logs_url):
         if self.job is None:
             self.job = logs_url.split('/')[-3]
         model_name = self.job + ".clf"
@@ -352,7 +356,7 @@ class Cli:
         target = logreduce.utils.Journal(self.range)
         self._report(clf, target)
 
-    def journal(self):
+    def journal_allinone(self):
         model_file = os.path.join(
             self.tmp_dir, "_models", "jounral-%s.clf" % self.range)
         if os.path.exists(model_file):
@@ -368,6 +372,8 @@ class Cli:
         self._report(clf, target, json_file=self.json)
 
     def download_logs(self, logs_url, target_dir=None):
+        if logs_url.endswith("/job-output.txt.gz"):
+            logs_url = logs_url[:-len("/job-output.txt.gz")]
         if logs_url[-1] != "/":
             logs_url += "/"
         if target_dir is None:
