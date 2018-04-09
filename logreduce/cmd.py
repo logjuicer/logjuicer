@@ -26,7 +26,7 @@ from logreduce.models import models
 
 
 DEFAULT_ZUUL_WEB = os.environ.get(
-    "ZUUL_WEB", "https://softwarefactory-project.io/zuul/local")
+    "ZUUL_WEB", "https://softwarefactory-project.io/zuul/api/tenant/local")
 
 
 class Cli:
@@ -424,6 +424,8 @@ class Cli:
                              before_context=self.before_context,
                              after_context=self.after_context,
                              console_output=console_output)
+        if not output.get("anomalies_count"):
+            exit(4)
         output["total_time"] = time.monotonic() - start_time
         if self.html:
             open(self.html, "w").write(render_html(output))
