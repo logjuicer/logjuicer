@@ -34,6 +34,8 @@ def render_html(output):
            " ".join(output["target"])]
     dom.append("<button type='button' id='debugbtn' "
                "class='pull-right btn-xs btn-primary btn'>Show Debug</button>")
+    dom.append("<h4>--&gt; <a href='./'>Full logs</a> // "
+               "<a href='ara'>ARA Record Ansible</a> &lt;--</h4>")
     # Results info
     dom.append("<ul id='debuginfo'>")
     dom.append("  <li>Command: %s</li>" % " ".join(sys.argv))
@@ -54,9 +56,12 @@ def render_html(output):
                "<th>Anomaly count</th><th>Filename</th>"
                "<th>Test time</th><th>Model</th>"
                "</tr></thead><tbody>")
-    files_sorted = sorted(output['files'].items(),
-                          key=lambda x: x[1]['mean_distance'],
-                          reverse=True)
+    files_sorted = sorted(
+        output['files'].items(),
+        key=lambda x: (x[0].startswith("job-output.txt") or
+                       x[1]['mean_distance']),
+        reverse=True)
+
     for filename, data in files_sorted:
         if not data["chunks"]:
             continue
