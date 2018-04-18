@@ -19,8 +19,9 @@ try:
     from systemd import journal
     import datetime
     import time
+    journal_installed = True
 except ImportError:
-    pass
+    journal_installed = False
 
 
 # Avoid those files that aren't useful for words analysis
@@ -151,6 +152,9 @@ FACILITY2NAME = {
 
 class Journal:
     def __init__(self, since, previous=False):
+        if not journal_installed:
+            raise RuntimeError(
+                "Please run dnf install -y python3-systemd to continue")
         _day = 3600 * 24
         if since.lower() == "day":
             ts = _day
@@ -175,6 +179,7 @@ class Journal:
 
     def close(self):
         self.journal.close()
+        del self.journal
 
     def readline(self):
         entry = self.journal.get_next()

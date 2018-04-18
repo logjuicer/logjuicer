@@ -60,7 +60,8 @@ class Cli:
             self.zuul_web = "http://zuul.openstack.org/api"
         try:
             args.func(**kwargs)
-        except RuntimeError:
+        except RuntimeError as e:
+            print(e)
             exit(4)
 
     def usage(self):
