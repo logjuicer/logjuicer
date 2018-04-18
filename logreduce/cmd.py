@@ -42,6 +42,7 @@ class Cli:
         self.exclude_file = logreduce.utils.DEFAULT_IGNORE_FILES
         self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
         self.include_path = []
+        self.test_prefix = None
         kwargs = {}
         for k, v in args.__dict__.items():
             if k == "exclude_file":
@@ -78,6 +79,9 @@ class Cli:
                            help="Filename (basename) exclude regexp")
             s.add_argument("--exclude-path", action='append', default=[],
                            help="Path exclude regexp")
+            s.add_argument("--test-prefix",
+                           help="Local path mapping to logserver directory. "
+                           "(e.g.: 'controller/logs' for '/opt/stack/logs')")
 
         def job_filters(s):
             s.add_argument("--job",
@@ -408,7 +412,7 @@ class Cli:
             clf = Classifier(self.model_type)
         clf.exclude_paths = self.exclude_path
         clf.exclude_files = self.exclude_file
-        clf.test_prefix = self.include_path
+        clf.test_prefix = self.test_prefix
         return clf
 
     def _report(self, clf, target_dirs, target_source=None, json_file=None):

@@ -28,8 +28,8 @@ logclassify_logserver_dir: ""
 # Location of test instances logs that match the above include_paths
 logclassify_local_dir: ""
 # For example, devstack job may uses:
-#  logclassify_logserver_dir: controller/
-#  logclassify_local_dir: /opt/stack/logs
+#  logclassify_logserver_dir: controller/logs/
+#  logclassify_local_dir: /opt/stack/logs/
 
 # Exclude regexp list of path
 logclassify_exclude_paths: []

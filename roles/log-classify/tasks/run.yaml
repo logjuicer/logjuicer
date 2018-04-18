@@ -62,13 +62,22 @@
       --threshold {{ logclassify_threshold }}
       --before-context {{ logclassify_before_context }}
       --after-context {{ logclassify_after_context }}
-      {% if logclassify_local_dir != zuul.executor.log_root and logclassify_console %}
-        {{ logclassify_tmp_dir }}/job-output.txt
-        {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
-      {% endif %}
-      {% if logclassify_local_dir %}
-        {% if logclassify_logserver_dir %}{{ logclassify_local_dir }}{% else %}
-        {{ logclassify_local_dir }}/job-output.txt{% endif %}
+      {% if logclassify_local_dir != zuul.executor.log_root %}
+        {# Running on test instance directly #}
+        {% if logclassify_console %}
+            {{ logclassify_tmp_dir }}/job-output.txt
+        {% endif %}
+        {% if logclassify_local_dir %}
+            {{ logclassify_local_dir }}
+            --test-prefix {{ logclassify_logserver_dir }}
+        {% endif %}
+      {% else %}
+        {# Running on executor #}
+        {% if logclassify_logserver_dir %}
+            {{ logclassify_local_dir }}
+        {% else %}
+            {{ logclassify_local_dir }}/job-output.txt
+        {% endif %}
       {% endif %}
       --html {{ logclassify_tmp_dir }}/report.html
       {% if logclassify_static_location %}--static-location {{ logclassify_static_location }}{% endif %}
