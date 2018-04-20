@@ -71,6 +71,7 @@
         {{ logclassify_local_dir }}/job-output.txt{% endif %}
       {% endif %}
       --html {{ logclassify_tmp_dir }}/report.html
+      {% if logclassify_static_location %}--static-location {{ logclassify_static_location }}{% endif %}
       {% for _path in logclassify_exclude_paths %}--exclude-path {{ _path }}{% endfor %}
       {% for _path in logclassify_exclude_files %}--exclude-file {{ _path }}{% endfor %}
   register: _model_run

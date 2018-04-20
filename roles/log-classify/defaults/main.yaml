@@ -14,6 +14,7 @@ logclassify_model_age: 7
 # Build a model per project (instead of per job)
 logclassify_model_per_project: false
 
+logclassify_static_location: /static
 logclassify_model_store_url: https://softwarefactory-project.io/logs/classifiers
 logclassify_zuul_web: https://softwarefactory-project.io/zuul/api/tenant/local
 logclassify_tmp_dir: /tmp/log-classify

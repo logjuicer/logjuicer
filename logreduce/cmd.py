@@ -96,6 +96,8 @@ class Cli:
 
         def report_filters(s):
             s.add_argument("--html", metavar="FILE", help="Render html result")
+            s.add_argument("--static-location",
+                           help="The js/css static directory location")
             s.add_argument("--threshold", default=0.2, type=float,
                            help="Anomalies distance threshold")
             s.add_argument(
@@ -429,7 +431,8 @@ class Cli:
             exit(4)
         output["total_time"] = time.monotonic() - start_time
         if self.html:
-            open(self.html, "w").write(render_html(output))
+            open(self.html, "w").write(
+                render_html(output, self.static_location))
             open(self.html.replace(".html", ".json"), "w").write(
                 json.dumps(output))
         if json_file is not None:

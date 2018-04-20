@@ -15,27 +15,36 @@ import os.path
 import sys
 
 
-def render_html(output):
-    dom = ["<html><head>"
-           "<title>Logreduce of %s</title>"
-           "<link rel='stylesheet' "
-           "href='/static/bootstrap/css/bootstrap.min.css'>"
-           "<script src='/static/js/jquery.min.js'></script>"
-           "<script src='/static/bootstrap/js/bootstrap.min.js'></script>"
-           "<script>$(document).ready(function(){"
-           "$('#debugbtn').on('click', function(event) {\n"
-           "$('[id=debuginfo]').toggle();\n"
-           "});});"
-           "</script>"
-           "<style>.panel-body {max-height: 800; overflow-y: scroll;}\n"
-           "#debuginfo {display: none;}</style>"
-           "</head><body style='margin-left: 20px'>"
-           "<h2 id='debuginfo'>Logreduce</h2>" %
-           " ".join(output["target"])]
-    dom.append("<button type='button' id='debugbtn' "
-               "class='pull-right btn-xs btn-primary btn'>Show Debug</button>")
-    dom.append("<h4>--&gt; <a href='./'>Full logs</a> // "
-               "<a href='ara'>ARA Record Ansible</a> &lt;--</h4>")
+def render_html(output, static_location=None):
+    if static_location:
+        jquery_loc = static_location + "/js/jquery.min.js"
+        bootst_loc = static_location + "/bootstrap/"
+    else:
+        jquery_loc = "https://code.jquery.com/jquery-3.3.1.min.js"
+        bootst_loc = "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7"
+    dom = [
+        "<html><head>"
+        "<title>Logreduce of {target}</title>"
+        "<link rel='stylesheet' href='{bootst_loc}/css/bootstrap.min.css'>"
+        "<script src='{jquery_loc}'></script>"
+        "<script src='{bootst_loc}/js/bootstrap.min.js'>".format(
+            target=" ".join(output["target"]),
+            jquery_loc=jquery_loc,
+            bootst_loc=bootst_loc)]
+    dom.append(
+        "</script><script>$(document).ready(function(){"
+        "$('#debugbtn').on('click', function(event) {\n"
+        "$('[id=debuginfo]').toggle();\n"
+        "});});"
+        "</script>"
+        "<style>.panel-body {max-height: 800; overflow-y: scroll;}\n"
+        "#debuginfo {display: none;}</style>"
+        "</head><body style='margin-left: 20px'>"
+        "<h2 id='debuginfo'>Logreduce</h2>"
+        "<button type='button' id='debugbtn' "
+        "class='pull-right btn-xs btn-primary btn'>Show Debug</button>"
+        "<h4>--&gt; <a href='./'>Full logs</a> // "
+        "<a href='ara'>ARA Record Ansible</a> &lt;--</h4>")
     # Results info
     dom.append("<ul id='debuginfo'>")
     dom.append("  <li>Command: %s</li>" % " ".join(sys.argv))
