@@ -19,6 +19,7 @@ import time
 
 import numpy as np
 import sklearn.utils.validation
+import sklearn.exceptions
 import sklearn.externals
 
 from logreduce.models import models
@@ -319,7 +320,8 @@ class Classifier:
             model = self.models[model_name]
             try:
                 distances = model.test(test_data)
-            except sklearn.utils.validation.NotFittedError:
+            except (sklearn.utils.validation.NotFittedError,
+                    sklearn.exceptions.NotFittedError):
                 self.log.warning("%s: skipping unfitted model" % filename)
                 continue
 

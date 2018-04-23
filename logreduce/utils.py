@@ -237,6 +237,17 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
                             fname.endswith("%s.xz" % skip)]:
                         continue
                     fpath = os.path.join(dname, fname)
+
+                    # Skip empty files
+                    try:
+                        zero_sizes = [0]
+                        if ".gz" in fpath:
+                            zero_sizes.append(20)
+                        if os.stat(fpath).st_size in zero_sizes:
+                            continue
+                    except Exception:
+                        pass
+
                     rel_path = fpath[len(path):]
                     if [True for ign in ign_paths if re.search(ign, rel_path)]:
                         continue
