@@ -83,6 +83,9 @@ class Tokenizer:
         r'|sshd.*: Failed password for'
         # zuul random test
         r'|zuul.*echo BECOME-SUCCESS-'
+        # useless debug statement
+        r'|ovs-ofctl .* (dump-ports|dump-flows|show)\b'
+        r'|(i|eb)tables .* -L\b'
         r')')
     ip_re = re.compile(r'(%s|%s|%s)' % (IPV4_RE, IPV6_RE, MAC_RE), re.I)
     power2_re = re.compile(r'([0-9a-f]{128}|[0-9a-f+/]{64}|'
@@ -97,6 +100,7 @@ class Tokenizer:
     randpath_re = re.compile(r'('
                              r'/tmp/ansible\.[a-z0-9_]{8}'
                              r'|/tmp/tmp[a-z0-9_]{6}'
+                             r'|/tmp/tmp.[a-z0-9]{10}'
                              r')', re.I)
     gitsha_re = re.compile(r'('
                            r'[a-z0-9]{7}\.\.[a-z0-9]{7}'
