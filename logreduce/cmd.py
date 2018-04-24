@@ -14,6 +14,7 @@
 
 import argparse
 import json
+import logging
 import os
 import time
 
@@ -30,6 +31,8 @@ DEFAULT_ZUUL_WEB = os.environ.get(
 
 
 class Cli:
+    log = logging.getLogger("LogReduce")
+
     def __init__(self):
         parser = self.usage()
         args = parser.parse_args()
@@ -284,9 +287,13 @@ class Cli:
     def dir_allinone(self, baseline, target):
         model_file = os.path.join(
             self.tmp_dir, "_models", baseline.replace('/', '_') + ".clf")
+        clf = None
         if os.path.exists(model_file):
-            clf = self._get_classifier(model_file)
-        else:
+            try:
+                clf = self._get_classifier(model_file)
+            except Exception:
+                self.log.exception("Couldn't reuse %s" % model_file)
+        if clf is None:
             clf = self.dir_train(model_file, baseline)
         self._report(clf, target)
 
@@ -342,9 +349,13 @@ class Cli:
         if self.project is not None:
             model_name = os.path.join(self.project, model_name)
         model_file = os.path.join(self.tmp_dir, "_models", model_name)
+        clf = None
         if os.path.exists(model_file):
-            clf = self._get_classifier(model_file)
-        else:
+            try:
+                clf = self._get_classifier(model_file)
+            except Exception:
+                self.log.exception("Couldn't reuse %s" % model_file)
+        if clf is None:
             clf = self.job_train(model_file)
 
         target = self.download_logs(logs_url)
@@ -366,9 +377,13 @@ class Cli:
     def journal_allinone(self):
         model_file = os.path.join(
             self.tmp_dir, "_models", "jounral-%s.clf" % self.range)
+        clf = None
         if os.path.exists(model_file):
-            clf = self._get_classifier(model_file)
-        else:
+            try:
+                clf = self._get_classifier(model_file)
+            except Exception:
+                self.log.exception("Couldn't reuse %s" % model_file)
+        if clf is None:
             clf = self.journal_train(model_file)
         target = logreduce.utils.Journal(self.range)
         self._report(clf, target)
@@ -408,11 +423,14 @@ class Cli:
     def _get_classifier(self, model_file=None):
         if model_file is not None:
             clf = Classifier.load(model_file)
+            if clf.include_path != self.include_path:
+                raise RuntimeError("Included paths changed, need re-train")
         else:
             clf = Classifier(self.model_type)
         clf.exclude_paths = self.exclude_path
         clf.exclude_files = self.exclude_file
         clf.test_prefix = self.test_prefix
+        clf.include_path = self.include_path
         return clf
 
     def _report(self, clf, target_dirs, target_source=None, json_file=None):

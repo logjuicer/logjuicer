@@ -31,7 +31,7 @@ from logreduce.utils import open_file
 
 class Classifier:
     log = logging.getLogger("Classifier")
-    version = 2
+    version = 3
 
     def __init__(self,
                  model='bag-of-words_nn', exclude_paths=[], exclude_files=[]):
