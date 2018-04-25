@@ -203,18 +203,8 @@ class Classifier:
                                                                    train_data))
                 del self.models[model_name]
         self.train_time = time.monotonic() - start_time
-        self.train_size_speed = (
-            self.training_size / (1024 * 1024)) / self.train_time
-        self.train_count_speed = (
-            self.training_lines_count / 1000) / self.train_time
-        self.log.info(
-            "Training took %.03f seconds to ingest %.03f MB "
-            "(%.03f MB/s) or %d lines (%.03f kl/s)" % (
-                self.train_time,
-                self.training_size / (1024 * 1024),
-                self.train_size_speed,
-                self.training_lines_count,
-                self.train_count_speed))
+        self.log.info("Training took %s" % format_speed(
+            self.training_lines_count, self.training_size, self.train_time))
         if not self.training_lines_count:
             raise RuntimeError("No train lines found")
         return self.training_lines_count
