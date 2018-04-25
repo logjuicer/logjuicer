@@ -191,7 +191,7 @@ class Cli:
             report_filters(s)
             path_filters(s)
             s.add_argument("model_file")
-            s.add_argument("logs_url", help="The CI logs url")
+            s.add_argument("logs_url", help="The CI logs url or a local dir")
 
         def job_usage(sub):
             s = sub.add_parser("job", help="Train and run against CI logs")
@@ -339,7 +339,10 @@ class Cli:
 
     def job_run(self, model_file, logs_url):
         clf = self._get_classifier(model_file)
-        target = self.download_logs(logs_url)
+        if os.path.exists(logs_url):
+            target = logs_url
+        else:
+            target = self.download_logs(logs_url)
         self._report(clf, target)
 
     def job_allinone(self, logs_url):
