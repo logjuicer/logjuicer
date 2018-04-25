@@ -186,8 +186,11 @@ class Journal:
         ts = entry.get('__REALTIME_TIMESTAMP', datetime.datetime(1970, 1, 1))
         if not entry or (self.until and ts.timestamp() > self.until):
             return b''
-        entry['LEVEL'] = FACILITY2NAME.get(entry.get('SYSLOG_FACILITY'),
-                                           'NOTI').upper()
+        facility = entry.get('SYSLOG_FACILITY')
+        if isinstance(facility, int):
+            entry['LEVEL'] = FACILITY2NAME.get(facility, 'NOTI').upper()
+        else:
+            entry['LEVEL'] = str(facility)
         entry['DATE'] = ts.strftime('%Y-%m-%d %H:%M:%S')
         entry.setdefault("SYSLOG_IDENTIFIER", "NONE")
         entry.setdefault("MESSAGE", "NONE")
