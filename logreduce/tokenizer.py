@@ -85,7 +85,7 @@ class Tokenizer:
         r'|zuul.*echo BECOME-SUCCESS-'
         # useless debug statement
         r'|ovs-ofctl .* (dump-ports|dump-flows|show)\b'
-        r'|(i|eb)tables .* -L\b'
+        r'|(ip|eb)tables .* -L\b'
         r')')
     ip_re = re.compile(r'(%s|%s|%s)' % (IPV4_RE, IPV6_RE, MAC_RE), re.I)
     power2_re = re.compile(r'([0-9a-f]{128}|[0-9a-f+/]{64}|'
