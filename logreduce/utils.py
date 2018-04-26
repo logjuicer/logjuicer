@@ -40,7 +40,8 @@ DEFAULT_IGNORE_PATHS = [
     "etc/polkit-1/",
     "etc/pki/",
     "group_vars/all.yaml",
-    "keystone/credential-keys/1",
+    "keystone/credential-keys",
+    "keystone/fernet-keys",
     # extra/logstash is already printed in deploy logs
     "extra/logstash.txt",
     "migration/identity.gz",
@@ -75,6 +76,7 @@ DEFAULT_IGNORE_FILES = [
     'passwords.yml',
     'postci.txt',
     'pstree.txt',
+    'ps.txt',
     'rdo-trunk-deps-end.txt',
     'repolist.txt',
     'service_configs.json.txt',
@@ -90,6 +92,7 @@ DEFAULT_IGNORE_FILES = [
     'dns_cache.txt',
     'password.gz',
     'moduli',
+    'screen-dstat',
 ]
 
 BLACKLIST_EXTENSIONS = (
@@ -109,6 +112,7 @@ BLACKLIST_EXTENSIONS = (
     ".key",
     "_key",
     ".crt",
+    ".csr",
     ".pem",
     ".rpm",
     ".subunit",
@@ -120,6 +124,7 @@ BLACKLIST_EXTENSIONS = (
     ".conf.txt",
     ".yaml",
     ".yml",
+    "ring.gz",
 )
 
 FACILITY2NAME = {
@@ -236,6 +241,7 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
                     if [True for skip in BLACKLIST_EXTENSIONS if
                             fname.endswith("%s" % skip) or
                             fname.endswith("%s.gz" % skip) or
+                            fname.endswith("%s.txt.gz" % skip) or
                             fname.endswith("%s.bz2" % skip) or
                             fname.endswith("%s.xz" % skip)]:
                         continue
