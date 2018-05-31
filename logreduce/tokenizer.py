@@ -83,6 +83,7 @@ class Tokenizer:
         r'|sshd.*: Failed password for'
         # zuul random test
         r'|zuul.*echo BECOME-SUCCESS-'
+        r'|^[^ ]{64}$'
         # useless debug statement
         r'|ovs-ofctl .* (dump-ports|dump-flows|show)\b'
         r'|(ip|eb)tables .* -L\b'
@@ -90,9 +91,10 @@ class Tokenizer:
     ip_re = re.compile(r'(%s|%s|%s)' % (IPV4_RE, IPV6_RE, MAC_RE), re.I)
     power2_re = re.compile(r'([0-9a-f]{128}|[0-9a-f+/]{64}|'
                            '[0-9a-f]{40}|[0-9a-f]{32})', re.I)
-    uuid_re = re.compile(UUID_RE, re.I)
+    uuid_re = re.compile(r'(%s|tx[^ ]{32})' % UUID_RE, re.I)
     date_re = re.compile('(%s|%s|%s|%s)' % (DAYS, SHORT_DAYS,
                                             SHORT_MONTHS, MONTHS), re.I)
+    heat_re = re.compile("-[^ -]{12}[- $]", re.I)
     comments = re.compile(r'([\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
     gitver_re = re.compile(r'git[a-z0-9]+', re.I)
@@ -118,6 +120,7 @@ class Tokenizer:
         # Remove words that are exactly 32, 64 or 128 character longs
         strip = Tokenizer.power2_re.subn("RNGN", strip)[0]
         # Remove uuid
+        strip = Tokenizer.heat_re.subn(" HEAT ", strip)[0]
         strip = Tokenizer.uuid_re.subn("RNGU", strip)[0]
         # Remove date
         strip = Tokenizer.date_re.subn("DATE", strip)[0]

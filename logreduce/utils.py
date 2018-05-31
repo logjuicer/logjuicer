@@ -31,6 +31,8 @@ DEFAULT_IGNORE_PATHS = [
     'ara-report/',
     'ara-sf/',
     'ara/',
+    'etc/hostname',
+    'etc/nodepool/provider',
     # sf-ci useless static files
     "executor.*/trusted/",
     # tripleo-ci static files
@@ -68,6 +70,7 @@ DEFAULT_IGNORE_FILES = [
     'iotop.txt',
     'lastlog',
     'last',
+    'authkey',
     'lsmod.txt',
     'lsof.txt',
     'lsof_network.txt',

@@ -24,6 +24,7 @@ import sklearn.externals
 
 from logreduce.models import models
 from logreduce.tokenizer import remove_ansible_std_lines_lists
+from logreduce.tokenizer import Tokenizer
 from logreduce.utils import files_iterator
 from logreduce.utils import format_speed
 from logreduce.utils import open_file
@@ -99,6 +100,8 @@ class Classifier:
                     ".xml", ".html", ".txt", ".py", ".json", ".yml"):
             if ext in filename:
                 shortfilename += ext
+        # Remove UUID in filename
+        shortfilename = Tokenizer.uuid_re.subn('', shortfilename)[0]
         # Remove numbers and symbols
         return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
 
