@@ -44,7 +44,7 @@ def render_html(output, static_location=None):
         "<button type='button' id='debugbtn' "
         "class='pull-right btn-xs btn-primary btn'>Show Debug</button>"
         "<h4>--&gt; <a href='./'>Full logs</a> // "
-        "<a href='ara'>ARA Record Ansible</a> &lt;--</h4>")
+        "<a href='ara'>ARA Records Ansible</a> &lt;--</h4>")
     # Results info
     dom.append("<ul id='debuginfo'>")
     dom.append("  <li>Command: %s</li>" % " ".join(sys.argv))
@@ -166,6 +166,6 @@ def render_html(output, static_location=None):
             dom.append("<li><a href='%s'>%s</a></li>" % (fname[1], fname[0]))
         dom.append("</ul>")
     dom.append("<h4>--&gt; <a href='./'>Full logs</a> // "
-               "<a href='ara'>ARA Record Ansible</a> &lt;--</h4>")
+               "<a href='ara'>ARA Records Ansible</a> &lt;--</h4>")
     dom.append("</body></html>")
     return "\n".join(dom)
