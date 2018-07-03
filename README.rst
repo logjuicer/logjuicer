@@ -192,13 +192,21 @@ logreduce-tests expect tests directories as argument:
 Add --debug to display false positive and missing chunks.
 
 
-Roadmap/todo
-------------
+TODOs
+-----
 
-* Add logstash filter module
-* Add daemon worker mode with MQTT event listener
+* Add terminal colors output
+* Add progress bar
+* Better differentiate training debug from testing debug
+* Add a starting log line and report written
 * Add tarball traversal in utils.files_iterator
+* Add logstash filter module
 * Improve tokenization tests
+
+
+Roadmap
+-------
+* Add daemon worker mode with MQTT event listener
 * Discard files that are 100% anomalous
 * Report mean diviation instead of absolute distances
 * Investigate second stage model
