@@ -62,6 +62,10 @@ class Cli:
         # Convenient trick
         if "logs.openstack.org" in kwargs.get('logs_url', ""):
             self.zuul_web = "http://zuul.openstack.org/api"
+        if "logs.rdoproject.org" in kwargs.get('logs_url', ""):
+            self.zuul_web = "https://softwarefactory-project.io/zuul/api/" \
+                            "tenant/rdoproject.org"
+
         try:
             args.func(**kwargs)
         except RuntimeError as e:
