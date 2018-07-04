@@ -1,4 +1,9 @@
 ---
+- name: Foce the model_per_project option for known job to have different output per project
+  set_fact:
+    logclassify_model_per_project: true
+  when: "'tox' in zuul.job"
+
 - name: Set model name
   set_fact:
     _model_name: "{% if logclassify_model_per_project %}{{ zuul.project.name }}/{% endif %}{{ zuul.job }}/{{ zuul.branch }}.clf"
@@ -6,6 +11,10 @@
 - name: Set model path
   set_fact:
     _model_path: "{{ logclassify_model_dir }}/{{ _model_name }}"
+
+- name: Set report name
+  set_fact:
+    _report_name: "{% if logclassify_report %}report{% else %}log-classify{% endif %}"
 
 - name: Create directories
   file:
@@ -79,7 +88,7 @@
             {{ logclassify_local_dir }}/job-output.txt
         {% endif %}
       {% endif %}
-      --html {{ logclassify_tmp_dir }}/report.html
+      --html {{ logclassify_tmp_dir }}/{{ _report_name }}.html
       {% if logclassify_static_location %}--static-location {{ logclassify_static_location }}{% endif %}
       {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
       {% for _path in logclassify_exclude_paths %}--exclude-path {{ _path }}{% endfor %}
@@ -91,8 +100,8 @@
 
 - name: Fetch report
   synchronize:
-    src: "{{ logclassify_tmp_dir }}/report.{{ item }}"
-    dest: "{{ zuul.executor.log_root }}/report.{{ item }}"
+    src: "{{ logclassify_tmp_dir }}/{{ _report_name }}.{{ item }}"
+    dest: "{{ zuul.executor.log_root }}/{{ _report_name }}.{{ item }}"
     mode: pull
   with_items:
     - html

@@ -11,8 +11,8 @@
   block:
     - name: Look for depends-on location
       set_fact:
-        _logclassify_dir: "{{ zuul.projects['managesf.softwarefactory-project.io/logreduce']['src_dir'] }}"
-      when: "'managesf.softwarefactory-project.io/logreduce' in zuul.projects"
+        _logclassify_dir: "{{ zuul.projects['softwarefactory-project.io/logreduce']['src_dir'] }}"
+      when: "'softwarefactory-project.io/logreduce' in zuul.projects"
 
     - name: Fetch sources
       block:
@@ -22,7 +22,7 @@
         - name: Set clone location
           set_fact:
             _logclassify_dir: /tmp/logreduce
-      when: "'managesf.softwarefactory-project.io/logreduce' not in zuul.projects"
+      when: "'softwarefactory-project.io/logreduce' not in zuul.projects"
 
     - name: Install from sources
       command: python3 setup.py develop --user
