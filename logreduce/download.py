@@ -162,13 +162,17 @@ class ZuulBuilds:
         self.zuul_url = zuul_url
 
     def get(self, **kwarg):
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         urls = loop.run_until_complete(self._get(**kwarg))
         return urls
 
     async def _get(self, job, project=None, pipeline=None,
-                   branch=None,
-                   count=3, result="SUCCESS"):
+                   branch=None, uuid=None,
+                   count=3, result="SUCCESS", getJson=False):
         url = "%s/builds?job_name=%s" % (self.zuul_url, job)
         if project:
             url += "&project=%s" % project
@@ -176,6 +180,8 @@ class ZuulBuilds:
             url += "&branch=%s" % branch
         if pipeline:
             url += "&pipeline=%s" % pipeline
+        if uuid:
+            url += "&uuid=%s" % uuid
         if result:
             url += "&result=%s" % result
         async with aiohttp.ClientSession() as session:
@@ -185,7 +191,10 @@ class ZuulBuilds:
                 data = await response.read()
                 urls = []
                 for build in json.loads(data.decode('utf-8'))[:count]:
-                    urls.append(build["log_url"])
+                    if getJson:
+                        urls.append(build)
+                    else:
+                        urls.append(build["log_url"])
                 return urls
 
 

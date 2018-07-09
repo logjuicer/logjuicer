@@ -41,6 +41,11 @@ class Classifier:
         self.exclude_paths = exclude_paths
         self.exclude_files = exclude_files
         self.test_prefix = None
+        # Default
+        self.threshold = 0.2
+        self.merge_distance = 5
+        self.before_context = 2
+        self.after_context = 2
 
     def get(self, model_name):
         return self.models.setdefault(model_name,
@@ -328,7 +333,7 @@ class Classifier:
                         distance = distances[dup_pos[line_pos]]
                     except KeyError:
                         # Line wasn't a duplicate
-                        distance = 0.0
+                        distance = np.array([0.0])
                 return (distance, line)
 
             # Store (line_pos, distance, line) in outliers
