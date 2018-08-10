@@ -19,6 +19,7 @@ import logging
 import re
 import os
 from urllib.parse import urlparse
+import urllib.request
 
 import aiohttp
 
@@ -161,41 +162,48 @@ class ZuulBuilds:
     def __init__(self, zuul_url):
         self.zuul_url = zuul_url
 
-    def get(self, **kwarg):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        urls = loop.run_until_complete(self._get(**kwarg))
-        return urls
-
-    async def _get(self, job, project=None, pipeline=None,
-                   branch=None, uuid=None,
-                   count=3, result="SUCCESS", getJson=False):
-        url = "%s/builds?job_name=%s" % (self.zuul_url, job)
+    def get(self, job=None, project=None, pipeline=None,
+            branch=None, uuid=None,
+            count=3, result=None):
+        url = "%s/builds" % self.zuul_url
+        args = ""
+        if job:
+            args += "&job_name=%s" % job
         if project:
-            url += "&project=%s" % project
+            args += "&project=%s" % project
         if branch:
-            url += "&branch=%s" % branch
+            args += "&branch=%s" % branch
         if pipeline:
-            url += "&pipeline=%s" % pipeline
+            args += "&pipeline=%s" % pipeline
         if uuid:
-            url += "&uuid=%s" % uuid
+            args += "&uuid=%s" % uuid
         if result:
-            url += "&result=%s" % result
-        async with aiohttp.ClientSession() as session:
-            self.log.debug('Getting %s' % url)
-            async with session.get(url, timeout=30) as response:
-                assert response.status == 200
-                data = await response.read()
-                urls = []
-                for build in json.loads(data.decode('utf-8'))[:count]:
-                    if getJson:
-                        urls.append(build)
-                    else:
-                        urls.append(build["log_url"])
-                return urls
+            args += "&result=%s" % result
+        if args:
+            url = "%s?%s" % (url, args[1:])
+        self.log.debug('Getting %s' % url)
+        resp = urllib.request.urlopen(url)
+        builds_data = json.loads(resp.read().decode('utf-8'))
+        builds = []
+        for build in builds_data[:count]:
+            # Discover true log_url when success-url is nested
+            log_url = build["log_url"].rstrip('/')
+            attempts = 5
+            while attempts > 0:
+                inf_url = os.path.join(log_url, "zuul-info/inventory.yaml")
+                self.log.debug('Checking %s' % inf_url)
+                req = urllib.request.Request(inf_url, method='HEAD')
+                try:
+                    resp = urllib.request.urlopen(req)
+                    if resp.status == 200:
+                        build["log_url"] = "%s/" % log_url
+                        break
+                except urllib.error.HTTPError:
+                    pass
+                attempts -= 1
+                log_url = os.path.dirname(log_url)
+            builds.append(build)
+        return builds
 
 
 def main():
@@ -204,12 +212,12 @@ def main():
     if args.url:
         urls.append(args.url)
     else:
-        for url in ZuulBuilds(args.zuul_url).get(
+        for build in ZuulBuilds(args.zuul_url).get(
                 job=args.job,
                 pipeline=args.pipeline,
                 project=args.project,
                 count=args.count):
-            urls.append(url)
+            urls.append(build['log_url'])
     for url in urls:
         print(RecursiveDownload(url, args.dest, args.threads,
                                 exclude_files=args.exclude_file,

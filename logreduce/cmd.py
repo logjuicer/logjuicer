@@ -312,11 +312,12 @@ class Cli:
         for pipeline in pipelines:
             for baseline in logreduce.download.ZuulBuilds(self.zuul_web).get(
                     job=self.job,
+                    result='SUCCESS',
                     branch=self.branch,
                     pipeline=pipeline,
                     project=self.project,
                     count=self.count):
-                baselines.append(baseline)
+                baselines.append(baseline['log_url'])
             if baselines:
                 break
         if not baselines:
