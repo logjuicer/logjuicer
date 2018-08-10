@@ -110,16 +110,21 @@ class Classifier:
         # Remove numbers and symbols
         return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
 
-    def train(self, path, url_prefixes={}):
-        """Train the model"""
+    def train(self, baselines):
+        """Train the model, baselines can be path(s) or build dict(s)"""
         start_time = time.monotonic()
         self.training_lines_count = 0
         self.training_size = 0
-        self.baseline = path
+        if not isinstance(baselines, list):
+            baselines = [baselines]
+        if not len(baselines):
+            raise RuntimeError("Empty training baselines")
+
+        self.baselines = baselines
 
         # Group similar files for the same model
         to_train = {}
-        for filename, filename_rel in files_iterator(path,
+        for filename, filename_rel in files_iterator(baselines,
                                                      self.exclude_files,
                                                      self.exclude_paths):
             if filename_rel:
@@ -176,13 +181,15 @@ class Classifier:
                 finally:
                     if fobj:
                         fobj.close()
-                # Set forig for report.html absolute url
+                # Check for remote file source location
                 forig = filename
-                for prefix, url in url_prefixes.items():
-                    if filename.startswith(prefix):
-                        forig = os.path.join(url,
-                                             filename[len(prefix):])
-                        break
+                for build in self.baselines:
+                    if isinstance(build, dict):
+                        build_prefix = "%s/" % build.get('local_path', '')
+                        if filename.startswith(build_prefix):
+                            forig = os.path.join(build.get('log_url'),
+                                                 filename[len(build_prefix):])
+                            break
                 model.sources.append(forig)
 
             if not train_data:
@@ -219,14 +226,20 @@ class Classifier:
 
 
 #    @profile
-    def test(self, path):
-        """Return outliers"""
+    def test(self, targets):
+        """Return outliers, target can be path(s) or build dict(s)"""
         start_time = time.monotonic()
         self.testing_lines_count = 0
         self.testing_size = 0
         self.outlier_lines_count = 0
+        if not isinstance(targets, list):
+            targets = [targets]
+        if not len(targets):
+            raise RuntimeError("Empty testing targets")
 
-        for filename, filename_rel in files_iterator(path,
+        self.targets = targets
+
+        for filename, filename_rel in files_iterator(targets,
                                                      self.exclude_files,
                                                      self.exclude_paths):
             if filename_rel:
@@ -380,8 +393,9 @@ class Classifier:
         self.merge_distance = merge_distance
         self.before_context = before_context
         self.after_context = after_context
-        output = {'files': {}, 'unknown_files': [], 'models': {},
-                  'anomalies_count': 0}
+        output = {'files': {}, 'unknown_files': [],
+                  'models': {}, 'anomalies_count': 0,
+                  'baselines': self.baselines}
         for file_result in self.test(path):
             filename, filename_orig, model, outliers, test_time = file_result
             if model is None:
@@ -452,11 +466,10 @@ class Classifier:
                 output["anomalies_count"] += len(file_info["scores"])
             file_info["mean_distance"] = mean_distance
 
+        output['targets'] = self.targets
         output["training_lines_count"] = self.training_lines_count
         output["testing_lines_count"] = self.testing_lines_count
         output["outlier_lines_count"] = self.outlier_lines_count
         output["reduction"] = 100 - (output["outlier_lines_count"] /
                                      output["testing_lines_count"]) * 100
-        output["baseline"] = self.baseline
-        output["target"] = [path] if isinstance(path, str) else path
         return output

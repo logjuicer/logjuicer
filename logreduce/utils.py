@@ -229,6 +229,9 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
         # Copy path list
         paths = list(paths)
     for path in paths:
+        if isinstance(path, dict) and path.get('local_path'):
+            # This is a build object, return the log's local path
+            path = path['local_path']
         if isinstance(path, Journal):
             yield (path, "")
         elif os.path.isfile(path):

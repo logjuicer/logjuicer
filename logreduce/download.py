@@ -156,6 +156,24 @@ class RecursiveDownload:
             self.active_worker -= 1
 
 
+class ZuulBuild(dict):
+    def __repr__(self):
+        inf = "id=%s ref=%s" % (self['uuid'][:7], self['ref'])
+        if self.get("project"):
+            inf += " project=%s" % self['project']
+        if self.get('local_path'):
+            inf += " local_path=%s" % self['local_path']
+        if self.get("log_url"):
+            inf += " log_url=%s" % self['log_url']
+        return "<ZuulBuild %s>" % inf
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __unicode__(self):
+        return self.__repr__()
+
+
 class ZuulBuilds:
     log = logging.getLogger("ZuulBuilds")
 
@@ -202,7 +220,7 @@ class ZuulBuilds:
                     pass
                 attempts -= 1
                 log_url = os.path.dirname(log_url)
-            builds.append(build)
+            builds.append(ZuulBuild(build))
         return builds
 
 

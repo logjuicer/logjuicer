@@ -40,16 +40,22 @@ def render_html(output, static_location=None):
         "<style>.panel-body {max-height: 800; overflow-y: scroll;}\n"
         "#debuginfo {display: none;}</style>"
         "</head><body style='margin-left: 20px'>"
+        "<h4>--&gt; <a href='./'>Full logs</a> // "
+        "<a href='ara-report/'>ARA Records Ansible</a> &lt;--</h4>"
         "<h2 id='debuginfo'>Logreduce</h2>"
         "<button type='button' id='debugbtn' "
-        "class='pull-right btn-xs btn-primary btn'>Show Debug</button>"
-        "<h4>--&gt; <a href='./'>Full logs</a> // "
-        "<a href='ara-report/'>ARA Records Ansible</a> &lt;--</h4>")
+        "class='pull-right btn-xs btn-primary btn'>Show Debug</button>")
     # Results info
+    baseline_ref = ""
+    if output.get('baselines'):
+        baseline_ref = "%s - " % ", ".join(
+            map(lambda x: x['ref'], output['baselines']))
     dom.append("<ul id='debuginfo'>")
     dom.append("  <li>Command: %s</li>" % " ".join(sys.argv))
-    dom.append("  <li>Target: %s</li>" % " ".join(output["target"]))
-    dom.append("  <li>Baseline: %s</li>" % " ".join(output["baseline"]))
+    dom.append("  <li>Target: %s - %s</li>" % (
+        output.get('build', {}).get('ref'), " ".join(output["target"])))
+    dom.append("  <li>Baseline: %s%s</li>" % (
+        baseline_ref, " ".join(output["baseline"])))
     dom.append("  <li>Anomalies count: %d</li>" % output["anomalies_count"])
     dom.append("  <li>Run time: %.2f seconds</li>" % output["total_time"])
     dom.append("  <li>%02.2f%% reduction (from %d lines to %d)</li>" % (

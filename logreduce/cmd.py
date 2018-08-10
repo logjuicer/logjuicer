@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import time
+import yaml
 
 import logreduce.download
 import logreduce.utils
@@ -195,6 +196,8 @@ class Cli:
             s = sub.add_parser("job-run", help="Run a model against CI logs")
             s.set_defaults(func=self.job_run)
             report_filters(s)
+            s.add_argument("--zuul-web", default=DEFAULT_ZUUL_WEB,
+                           help="The zuul-web url (including the tenant name)")
             path_filters(s)
             s.add_argument("model_file")
             s.add_argument("logs_url", help="The CI logs url or a local dir")
@@ -319,29 +322,28 @@ class Cli:
                     pipeline=pipeline,
                     project=self.project,
                     count=self.count):
-                baselines.append(baseline['log_url'])
+                baselines.append(baseline)
             if baselines:
                 break
         if not baselines:
             print("%s: couldn't find success in pipeline %s" % (
                 self.job, " ".join(pipelines)))
             exit(4)
-        baselines_paths = []
-        url_prefixes = {}
         for baseline in baselines:
-            if baseline[-1] != "/":
-                baseline += "/"
+            if baseline['log_url'][-1] != "/":
+                baseline['log_url'] += "/"
             dest = os.path.join(
-                self.tmp_dir, "_baselines", self.job, baseline.split('/')[-2])
-            self.download_logs(baseline, dest)
-            baselines_paths.append(dest)
-            url_prefixes["%s/" % dest] = baseline
+                self.tmp_dir, "_baselines", self.job,
+                baseline['log_url'].split('/')[-2])
+            self.download_logs(baseline['log_url'], dest)
+            baseline['local_path'] = dest
 
         # Train model
         clf = self._get_classifier()
-        clf.train(baselines_paths, url_prefixes)
+        clf.train(baselines)
         clf.save(model_file)
-        print("%s: built with %s" % (model_file, " ".join(baselines)))
+        print("%s: built with %s" % (
+            model_file, " ".join(map(str, baselines))))
         return clf
 
     def job_run(self, model_file, logs_url):
@@ -350,7 +352,8 @@ class Cli:
             target = logs_url
         else:
             target = self.download_logs(logs_url)
-        self._report(clf, target)
+        build = self._get_build(target)
+        self._report(clf, build)
 
     def job_allinone(self, logs_url):
         if self.job is None:
@@ -369,7 +372,33 @@ class Cli:
             clf = self.job_train(model_file)
 
         target = self.download_logs(logs_url)
-        self._report(clf, target)
+        build = self._get_build(target)
+        self._report(clf, build)
+
+    def _get_build(self, target):
+        build_cache = os.path.join(target, "zuul-info/build.json")
+        if os.path.exists(build_cache):
+            return logreduce.download.ZuulBuild(json.load(open(build_cache)))
+        inv_path = os.path.join(target, "zuul-info/inventory.yaml")
+        try:
+            inv = yaml.safe_load(open(inv_path))
+        except FileNotFoundError:
+            self.log.info("%s: couldn't find file", inv_path)
+            return None
+        try:
+            build_uuid = inv['all']['vars']['zuul']['build']
+        except KeyError:
+            self.log.info("%s: couldn't find build id", inv_path)
+            return None
+        try:
+            build = logreduce.download.ZuulBuilds(self.zuul_web).get(
+                uuid=build_uuid)[0]
+        except IndexError:
+            self.log.warning("%s: couldn't find build", build_uuid)
+            return None
+        build['local_path'] = target
+        json.dump(build, open(build_cache, "w"))
+        return build
 
     # Jounrald usage
     def journal_train(self, model_file):
@@ -418,7 +447,7 @@ class Cli:
 
         os.makedirs(target_dir, exist_ok=True)
 
-        logs_path = ["job-output.txt.gz"]
+        logs_path = ["job-output.txt.gz", "zuul-info/inventory.yaml"]
         if self.include_path:
             logs_path.append(self.include_path)
 
