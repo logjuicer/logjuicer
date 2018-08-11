@@ -146,7 +146,7 @@ def render_result_table(dom, files_sorted):
     ]
     rows = []
     for filename, data in files_sorted:
-        if not data["chunks"]:
+        if not data["scores"]:
             continue
         rows.append((
             len(data["scores"]),
@@ -175,18 +175,16 @@ def render_model_table(dom, model_sorted, links):
 
 def render_logfile(dom, filename, data, source_links, expanded=False):
     lines_dom = []
-    for idx in range(len(data["chunks"])):
-        lines = data["chunks"][idx].split('\n')
-        for line_pos in range(len(lines)):
-            line_score = data["scores"][idx][line_pos]
-            lines_dom.append(
-                "<font color='#%02x0000'>%1.3f | %04d: %s</font><br />" % (
-                    int(255 * line_score),
-                    line_score,
-                    data["line_pos"][idx][line_pos],
-                    html.escape(lines[line_pos])))
-        if idx < len(data["chunks"]) - 1:
+    last_pos = None
+    for idx in range(len(data["scores"])):
+        pos, dist = data["scores"][idx]
+        line = data["lines"][idx]
+        lines_dom.append(
+            "<font color='#%02x0000'>%1.3f | %04d: %s</font><br />" % (
+                int(255 * dist), dist, pos + 1, html.escape(line)))
+        if last_pos and last_pos != pos and pos - last_pos != 1:
             lines_dom.append("<hr class='ls' />")
+        last_pos = pos
 
     expand = " hidden"
     list_expand = ""
@@ -242,7 +240,7 @@ def render_logfile(dom, filename, data, source_links, expanded=False):
         anchor=filename.replace('/', '_'),
         model_name=data['model'],
         model_link="#model_%s" % data['model'],
-        anomaly_count=len(data["chunks"]),
+        anomaly_count=len(data["scores"]),
         filename=filename,
         loglink=data['file_url'],))
     return
@@ -296,7 +294,7 @@ def render_html(output, static_location=None):
     body.append('<div class="list-group list-view-pf list-view-pf-view">')
     first = True
     for filename, data in files_sorted:
-        if not data["chunks"]:
+        if not data["scores"]:
             continue
         render_logfile(body, filename, data, links[data["model"]], first)
         first = False

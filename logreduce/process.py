@@ -330,6 +330,9 @@ class Classifier:
             # Transform and compute distance from the model
             model = self.models[model_name]
             try:
+                # Distances are a list of float list.
+                # The HashingNeighbors vectorizer uses n_neighbors=1 to only
+                # return the closest distance to a known baseline vector.
                 distances = model.test(test_data)
             except (sklearn.utils.validation.NotFittedError,
                     sklearn.exceptions.NotFittedError):
@@ -339,14 +342,15 @@ class Classifier:
             def get_line_info(line_pos):
                 line = data[line_pos]
                 try:
-                    distance = distances[test_data_pos.index(line_pos)]
+                    # Only keep the first distance
+                    distance = distances[test_data_pos.index(line_pos)][0]
                 except ValueError:
                     # Line wasn't in test data
                     try:
-                        distance = distances[dup_pos[line_pos]]
+                        distance = distances[dup_pos[line_pos]][0]
                     except KeyError:
                         # Line wasn't a duplicate
-                        distance = np.array([0.0])
+                        distance = 0.0
                 return (distance, line)
 
             # Store (line_pos, distance, line) in outliers
@@ -414,55 +418,34 @@ class Classifier:
                 'file_url': filename_orig,
                 'test_time': test_time,
                 'model': model.name,
-                'chunks': [],
                 'scores': [],
-                'line_pos': [],
-                'lines_count': 0,
+                'lines': [],
             })
-            current_chunk = []
-            current_score = []
-            current_pos = []
             last_pos = None
             self.log.debug("%s: compared with %s" % (
                 filename, " ".join(list(map(str, model.sources)))))
 
             for pos, distance, outlier in outliers:
-                distance = abs(float(distance))
-                if last_pos and pos - last_pos != 1:
-                    # New chunk
-                    file_info["chunks"].append("\n".join(current_chunk))
-                    file_info["scores"].append(current_score)
-                    file_info["line_pos"].append(current_pos)
-                    file_info["lines_count"] += len(current_chunk)
-                    current_chunk = []
-                    current_score = []
-                    current_pos = []
-                    if last_pos and console_output:
-                        print()
-
-                # Clean ansible one-liner outputs
+                # Expand one-liner outputs (e.g. ansible)
                 for line in outlier[:-1].split(r'\n'):
                     line = line.replace(r'\t', '\t')
-                    current_score.append(distance)
-                    current_chunk.append(line)
-                    current_pos.append(pos)
+                    file_info['scores'].append((pos, distance))
+                    file_info['lines'].append(line)
                     if console_output:
+                        if last_pos and last_pos != pos and \
+                                pos - last_pos != 1:
+                            print()
                         print("%1.3f | %s:%04d:\t%s" % (distance,
                                                         filename,
                                                         pos + 1,
                                                         line))
 
-                last_pos = pos
-            if current_chunk:
-                file_info["chunks"].append("\n".join(current_chunk))
-                file_info["scores"].append(current_score)
-                file_info["line_pos"].append(current_pos)
-                file_info["lines_count"] += len(current_chunk)
-
             # Compute mean distances of outliers
             mean_distance = 0
             if file_info["scores"]:
-                mean_distance = np.mean(np.hstack(file_info["scores"]))
+                # [:, 1] returns an 1d array with the distances only
+                mean_distance = np.mean(np.array(file_info['scores'])[:, 1])
+                # TODO: do not cound sequential lines, only blocks
                 output["anomalies_count"] += len(file_info["scores"])
             file_info["mean_distance"] = mean_distance
 
