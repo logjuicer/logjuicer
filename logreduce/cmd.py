@@ -77,6 +77,8 @@ class Cli:
         parser.set_defaults(func=None)
         parser.add_argument("--debug", action="store_true", help="Print debug")
         parser.add_argument("--tmp-dir", default=os.getcwd())
+        parser.add_argument("--cacheonly", action="store_true",
+                            help="Do not download any logs")
 
         # Common arguments
         def path_filters(s):
@@ -411,6 +413,9 @@ class Cli:
                 self.job = logs_url.split('/')[-3]
             target_dir = os.path.join(
                 self.tmp_dir, "_targets", self.job, logs_url.split('/')[-2])
+        if self.cacheonly:
+            return target_dir
+
         os.makedirs(target_dir, exist_ok=True)
 
         logs_path = ["job-output.txt.gz"]
