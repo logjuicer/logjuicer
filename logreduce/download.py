@@ -56,7 +56,7 @@ def usage():
 
 
 class RecursiveDownload:
-    log = logging.getLogger("RecursiveDownload")
+    log = logging.getLogger("logreduce.RecursiveDownload")
 
     def __init__(self, url, dest, threads=4, trim=None,
                  exclude_files=[], exclude_paths=[], exclude_extensions=[]):
@@ -68,9 +68,14 @@ class RecursiveDownload:
         self.active_worker = 0
         self.trim = trim
 
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         self.queue = asyncio.Queue()
         self.queue.put_nowait(url)
-        loop = asyncio.get_event_loop()
         self.tasks = [loop.create_task(self.handle_task(idx))
                       for idx in range(threads)]
 
@@ -175,7 +180,7 @@ class ZuulBuild(dict):
 
 
 class ZuulBuilds:
-    log = logging.getLogger("ZuulBuilds")
+    log = logging.getLogger("logreduce.ZuulBuilds")
 
     def __init__(self, zuul_url):
         self.zuul_url = zuul_url

@@ -33,7 +33,7 @@ from logreduce.utils import open_file
 
 
 class Classifier:
-    log = logging.getLogger("Classifier")
+    log = logging.getLogger("logreduce.Classifier")
     version = 4
 
     def __init__(self,
@@ -189,7 +189,8 @@ class Classifier:
                 forig = filename
                 for build in self.baselines:
                     if isinstance(build, dict):
-                        build_prefix = "%s/" % build.get('local_path', '')
+                        build_prefix = "%s/" % build.get(
+                            'local_path', '').rstrip('/')
                         if filename.startswith(build_prefix):
                             forig = os.path.join(build.get('log_url'),
                                                  filename[len(build_prefix):])
