@@ -12,7 +12,6 @@
 
 import html
 import os.path
-import sys
 import pkg_resources
 
 LOGO = """
@@ -123,7 +122,9 @@ def table(dom, columns, rows):
 
 def render_result_info(dom, output):
     rows = []
-    rows.append(("Command", " ".join(sys.argv)))
+    if output.get("train_command"):
+        rows.append(("Test command", output["train_command"]))
+    rows.append(("Command", output["test_command"]))
     rows.append(("Targets", "%s" % " ".join(
         map(html.escape, map(str, output["targets"])))))
     rows.append(("Baselines", "%s" % " ".join(

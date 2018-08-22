@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import struct
+import sys
 import time
 import uuid
 
@@ -33,7 +34,7 @@ from logreduce.utils import open_file
 
 class Classifier:
     log = logging.getLogger("Classifier")
-    version = 3
+    version = 4
 
     def __init__(self,
                  model='bag-of-words_nn', exclude_paths=[], exclude_files=[]):
@@ -111,9 +112,10 @@ class Classifier:
         # Remove numbers and symbols
         return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
 
-    def train(self, baselines):
+    def train(self, baselines, command=sys.argv):
         """Train the model, baselines can be path(s) or build dict(s)"""
         start_time = time.monotonic()
+        self.train_command = " ".join(command)
         self.training_lines_count = 0
         self.training_size = 0
         if not isinstance(baselines, list):
@@ -393,8 +395,10 @@ class Classifier:
             raise RuntimeError("No test lines found")
 
     def process(self, path, path_source=None, threshold=0.2, merge_distance=5,
-                before_context=3, after_context=1, console_output=False):
+                before_context=3, after_context=1, console_output=False,
+                command=sys.argv):
         """Process target and create a report"""
+        start_time = time.monotonic()
         self.threshold = threshold
         self.merge_distance = merge_distance
         self.before_context = before_context
@@ -458,4 +462,9 @@ class Classifier:
         output["outlier_lines_count"] = self.outlier_lines_count
         output["reduction"] = 100 - (output["outlier_lines_count"] /
                                      output["testing_lines_count"]) * 100
+        test_command = " ".join(command)
+        if test_command != self.train_command:
+            output["train_command"] = self.train_command
+        output["test_command"] = test_command
+        output["total_time"] = time.monotonic() - start_time
         return output

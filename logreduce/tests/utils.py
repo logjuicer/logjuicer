@@ -40,5 +40,6 @@ fake_result = {
     'testing_lines_count': 34,
     'training_lines_count': 74,
     'total_time': 42,
-    'unknown_files': []
+    'unknown_files': [],
+    "test_command": "logreduce dir test_process.py test_units.py"
 }

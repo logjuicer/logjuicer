@@ -483,7 +483,6 @@ class Cli:
         console_output = True
         if json_file or self.html:
             console_output = False
-        start_time = time.monotonic()
         output = clf.process(path=target_dirs,
                              path_source=target_source,
                              threshold=float(self.threshold),
@@ -493,7 +492,6 @@ class Cli:
                              console_output=console_output)
         if not output.get("anomalies_count"):
             exit(4)
-        output["total_time"] = time.monotonic() - start_time
         if self.html:
             open(self.html, "w").write(
                 render_html(output, self.static_location))
