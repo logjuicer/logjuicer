@@ -65,6 +65,7 @@ class ProcessTests(unittest.TestCase):
         assert result['targets'] == [target]
         assert 'test_units.py' in result['files']
         file_info = result['files']['test_units.py']
+        assert result['models']['test_process.py'].get('uuid') != ''
         assert file_info['mean_distance'] > 0.0
         assert file_info['mean_distance'] < 1.0
         assert isinstance(file_info['lines'][0], str), 'line wrong type'

@@ -16,6 +16,7 @@ import os
 import re
 import struct
 import time
+import uuid
 
 import numpy as np
 import sklearn.utils.validation
@@ -143,6 +144,7 @@ class Classifier:
             model = self.get(model_name)
             model.size = 0
             model.count = 0
+            model.uuid = str(uuid.uuid4())
             # Tokenize and store all lines in train_data
             train_data = []
             for filename in filenames:
@@ -413,6 +415,7 @@ class Classifier:
                 'source_files': list(map(str, model.sources)),
                 'train_time': model.train_time,
                 'info': model.info,
+                'uuid': model.uuid,
             })
             file_info = output['files'].setdefault(filename, {
                 'file_url': filename_orig,
