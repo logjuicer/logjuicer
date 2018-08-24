@@ -28,8 +28,7 @@ except ImportError:
 DEFAULT_IGNORE_PATHS = [
     "zuul-info/",
     '_zuul_ansible/',
-    'ara-.*/',
-    'ara/',
+    'ara[_-]*.*/',
     'etc/hostname',
     'etc/nodepool/provider',
     # sf-ci useless static files
