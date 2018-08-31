@@ -163,6 +163,22 @@ class Api(object):
     @cherrypy.config(**{'tools.cors.on': True})
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out(content_type='application/json; charset=utf-8')
+    def create(self):
+        """Receive a user request to create a report"""
+        request = cherrypy.request.json
+        self.log.info("New request %s" % request)
+        request = model.UserReport.schema(request)
+        try:
+            self.rpc.process(request)
+            return {'message': 'Process scheduled'}
+        except Exception:
+            self.log.exception("oops")
+            return {'message': 'Can not start process'}
+
+    @cherrypy.expose
+    @cherrypy.config(**{'tools.cors.on': True})
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out(content_type='application/json; charset=utf-8')
     def update(self, anomaly_id):
         """Update anomaly status"""
         self.log.info("Updating %s" % anomaly_id)
@@ -290,6 +306,39 @@ class ServerWorker(rpc.Listener):
         except Exception:
             self.log.exception("Download of %s failed", url)
 
+    def process(self, request):
+        """When user create a report, start a thread to wait for results"""
+        if request["uuid"] in self.jobs:
+            raise RuntimeError("Job already running")
+        # Keep track of the job for the status page
+        self.jobs[request["uuid"]] = request
+        threading.Thread(target=self.do_process, args=(request,)).start()
+
+    def do_process(self, request):
+        """Local thread to wait for worker function and import result in db"""
+        self.log.info("DoProcess called with %s", request)
+        # The handle_process is implemented by a worker.
+        # The result object is similar to the Api.report() input.
+        result = self.submitJob("process", {"request": request}, wait=True)
+
+        # Job is no longer running, we can delete its reference
+        del self.jobs[request["uuid"]]
+        if result.get("report"):
+            self.log.info("%s: injesting report" % request["uuid"])
+            try:
+                with self.api.db.session() as session:
+                    aid = self.api.db.import_report(session, result["report"])
+                self.history.appendleft("%s: new report added: %s" % (
+                    request["uuid"], aid))
+            except Exception as e:
+                msg = "%s: import failed (%s)" % (request["uuid"], e)
+                self.history.appendleft(msg)
+                self.log.exception(msg)
+        else:
+            msg = "%s: %s" % (request["uuid"], result)
+            self.history.appendleft(msg)
+            self.log.error(msg)
+
     def archive(self, anomaly):
         """Convert the anomaly object into a dataset object and wait for job"""
         if anomaly.uuid in self.jobs:
@@ -409,6 +458,9 @@ class Server(object):
         route_map.connect('api', '/api/status',
                           controller=self.api, action='status',
                           conditions=dict(method=["GET"]))
+        route_map.connect('api', '/api/anomaly/new',
+                          controller=self.api, action='create',
+                          conditions=dict(method=["PUT"]))
         route_map.connect('api', '/api/anomaly',
                           controller=self.api, action='report',
                           conditions=dict(method=["PUT"]))

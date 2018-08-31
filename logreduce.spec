@@ -44,6 +44,15 @@ Requires:       %{?scl_prefix}python-gear
 The logreduce server
 
 
+%package worker
+Summary:        The logreduce worker
+Requires:       %{?scl_prefix}logreduce
+Requires:       %{?scl_prefix}python-gear
+
+%description worker
+The logreduce worker
+
+
 %prep
 %autosetup -n logreduce-%{version} -p1
 rm -Rf requirements.txt test-requirements.txt *.egg-info
@@ -62,6 +71,7 @@ sed -e 's#/var/log/logreduce#/var/opt/rh/rh-python35/log/logreduce#' -i etc/conf
 PBR_VERSION=%{version} %{__python3} setup.py install -O1 --skip-build --root %{buildroot}
 %{?scl:EOF}
 install -p -D -m 0644 etc/systemd/logreduce-server.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-server.service
+install -p -D -m 0644 etc/systemd/logreduce-worker.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-worker.service
 install -p -D -m 0644 etc/logreduce/config.yaml %{buildroot}%{_sysconfdir}/logreduce/config.yaml
 install -p -D -m 0644 etc/httpd/logreduce.conf %{buildroot}/etc/httpd/conf.d/logreduce.conf
 install -p -d -m 0700 %{buildroot}%{_sharedstatedir}/logreduce
@@ -77,15 +87,28 @@ if ! getent passwd logreduce >/dev/null; then
 fi
 exit 0
 
+%pre worker
+getent group logreduce >/dev/null || groupadd -r logreduce
+if ! getent passwd logreduce >/dev/null; then
+  useradd -r -g logreduce -G logreduce -d %{_sharedstatedir}/logreduce -s /sbin/nologin -c "Logreduce Daemon" logreduce
+fi
+exit 0
+
 
 %post server
 %systemd_post %{?scl_prefix}logreduce-server.service
+%post worker
+%systemd_post %{?scl_prefix}logreduce-worker.service
 
 %preun server
 %systemd_preun %{?scl_prefix}logreduce-server.service
+%preun worker
+%systemd_preun %{?scl_prefix}logreduce-worker.service
 
 %postun server
 %systemd_postun %{?scl_prefix}logreduce-server.service
+%postun worker
+%systemd_postun %{?scl_prefix}logreduce-worker.service
 
 
 %files
@@ -104,6 +127,10 @@ exit 0
 %{_unitdir}/%{?scl_prefix}logreduce-server.service
 %dir %attr(0755, logreduce, logreduce) /var/www/logreduce/logs
 %dir %attr(0755, logreduce, logreduce) /var/www/logreduce/anomalies
+
+%files worker
+%{_bindir}/logreduce-worker
+%{_unitdir}/%{?scl_prefix}logreduce-worker.service
 
 
 %changelog

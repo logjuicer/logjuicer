@@ -167,6 +167,24 @@ class Report:
     schema = v.Schema(report)
 
 
+class UserReport:
+    report = {
+        'name': v.Required(str),
+        # Uuid is a Zuul build id
+        'uuid': v.Required(str),
+        'reporter': v.Required(str),
+        # Url is the zuul api url
+        'url': str,
+        # Path is an optional --include-path parameter
+        'path': str,
+        # logpath and lines are used when receiving report from os-loganalyze
+        'logpath': str,
+        'lines': (int, int),
+    }
+
+    schema = v.Schema(report)
+
+
 def parse_time(build):
     if build["end_time"]:
         build["end_time"] = datetime.datetime.strptime(

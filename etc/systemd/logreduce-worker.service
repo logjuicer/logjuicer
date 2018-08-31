@@ -1,0 +1,14 @@
+[Unit]
+Description=Logreduce Worker Service
+After=network.target
+
+[Service]
+Type=simple
+User=logreduce
+Group=logreduce
+SyslogIdentifier=logreduce-worker
+EnvironmentFile=-/etc/opt/rh/rh-python35/sysconfig/enable-py3
+ExecStart=/opt/rh/rh-python35/root/usr/bin/logreduce-worker -c /etc/opt/rh/rh-python35/logreduce/config.yaml
+
+[Install]
+WantedBy=multi-user.target
