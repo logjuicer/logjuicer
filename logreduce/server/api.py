@@ -13,10 +13,14 @@
 # under the License.
 
 import collections
+import datetime
+import json
 import logging
 import os.path
 import time
+import threading
 import urllib.parse
+import yaml
 
 import sqlalchemy.orm.exc
 import cherrypy
@@ -39,6 +43,7 @@ class Api(object):
         if public_url[-1] == "/":
             public_url = public_url[:-1]
         self.public_url = public_url
+        self.dataset_folder = kwargs.get("dataset_folder", "~/anomalies")
         self.logserver_folder = kwargs.get("logserver_folder", "~/logs")
 
     @cherrypy.expose
@@ -79,6 +84,16 @@ class Api(object):
                 model.Anomaly).filter_by(uuid=anomaly_id).one()
         except sqlalchemy.orm.exc.NoResultFound:
             raise cherrypy.HTTPError(404)
+
+    @cherrypy.expose
+    @cherrypy.config(**{'tools.cors.on': True})
+    @cherrypy.tools.json_out(content_type='application/json; charset=utf-8')
+    def delete(self, anomaly_id):
+        """Delete an anomaly"""
+        with self.db.session() as session:
+            anomaly = self._getAnomaly(session, anomaly_id)
+            session.delete(anomaly)
+            session.commit()
 
     @cherrypy.expose
     @cherrypy.config(**{'tools.cors.on': True})
@@ -144,6 +159,83 @@ class Api(object):
             'url': "%s/#/view/%s" % (self.public_url, anomaly_uuid)
         }
 
+    @cherrypy.expose
+    @cherrypy.config(**{'tools.cors.on': True})
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out(content_type='application/json; charset=utf-8')
+    def update(self, anomaly_id):
+        """Update anomaly status"""
+        self.log.info("Updating %s" % anomaly_id)
+        request = cherrypy.request.json
+        self.log.debug("Updating %s with %s" % (anomaly_id, request))
+        if request.get("status"):
+            if request["status"] not in ("reviewed", "archive"):
+                return {'error': 'status can only be reviewed or archived'}
+        elif request.get("copy"):
+            if not request["copy"].get("name"):
+                return {'error': 'a new name is required'}
+        else:
+            return {'error': 'invalid update request'}
+        with self.db.session() as session:
+            anomaly = self._getAnomaly(session, anomaly_id)
+            if request.get("status"):
+                if request["status"] == "reviewed":
+                    anomaly.status = "reviewed"
+                else:
+                    # When status is 'archive', trigger the archive job first
+                    self.rpc.archive(anomaly)
+                result = {'message': 'Anomaly updated'}
+            elif request.get("copy"):
+                aid = self.db.duplicate(session, anomaly, request["copy"])
+                result = {'anomalyId': aid}
+            session.commit()
+        return result
+
+    def _getLogFile(self, anomaly, logfile_id):
+        for logfile in anomaly.logfiles:
+            if logfile.id == int(logfile_id):
+                return logfile
+        raise cherrypy.HTTPError(404)
+
+    @cherrypy.expose
+    @cherrypy.config(**{'tools.cors.on': True})
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out(content_type='application/json; charset=utf-8')
+    def update_scores(self, anomaly_id, logfile_id):
+        """Update a logfile scores"""
+        self.log.info("Updating %s logfile %s" % (anomaly_id, logfile_id))
+        scores = dict(cherrypy.request.json)
+        with self.db.session() as session:
+            anomaly = self._getAnomaly(session, anomaly_id)
+            to_update = self._getLogFile(anomaly, logfile_id)
+            to_delete = []
+            for line in to_update.lines:
+                if line.nr in scores:
+                    line.confidence = scores[line.nr]
+                else:
+                    to_delete.append(line)
+            for deleted_line in to_delete:
+                to_update.lines.remove(deleted_line)
+                session.delete(deleted_line)
+            anomaly.status = "reviewed"
+            session.commit()
+            return {'msg': 'Logfile %s updated' % (to_update.path)}
+
+    @cherrypy.expose
+    @cherrypy.config(**{'tools.cors.on': True})
+    @cherrypy.tools.json_out(content_type='application/json; charset=utf-8')
+    def delete_logfile(self, anomaly_id, logfile_id):
+        self.log.info("Deleting %s logfile %s" % (anomaly_id, logfile_id))
+        with self.db.session() as session:
+            anomaly = self._getAnomaly(session, anomaly_id)
+            to_delete = self._getLogFile(anomaly, logfile_id)
+            anomaly.logfiles.remove(to_delete)
+            anomaly.status = "reviewed"
+            # todo: delete logfile if it's no longer referenced
+            # session.delete(to_delete)
+            session.commit()
+            return {'msg': 'Logfile %s removed' % (to_delete.path)}
+
 
 class ServerWorker(rpc.Listener):
     """Handle gearman job from api"""
@@ -198,6 +290,111 @@ class ServerWorker(rpc.Listener):
         except Exception:
             self.log.exception("Download of %s failed", url)
 
+    def archive(self, anomaly):
+        """Convert the anomaly object into a dataset object and wait for job"""
+        if anomaly.uuid in self.jobs:
+            raise RuntimeError("Job already running")
+        logfiles = []
+
+        def resolvePath(build, obj):
+            urlsplit = urllib.parse.urlsplit(build.log_url)
+            return os.path.join(
+                self.api.logserver_folder,
+                urlsplit.netloc,
+                urlsplit.path[1:],
+                obj.path)
+
+        baseBuilds = {}
+        for logfile in anomaly.logfiles:
+            baselines = []
+            for baseline in logfile.model.baselines:
+                if baseline.build.uuid not in baseBuilds:
+                    baseBuilds[baseline.build.uuid] = baseline.build.toDict()
+                baselines.append({
+                    'local_path': resolvePath(baseline.build, baseline)
+                })
+            logfiles.append({
+                'name': logfile.path.replace('/', '_'),
+                'local_path': resolvePath(anomaly.build, logfile),
+                'scores': [[l.nr, l.confidence] for l in logfile.lines],
+                'baselines': baselines,
+            })
+
+        archive = {
+            "infos": {
+                "uuid": anomaly.uuid,
+                "name": anomaly.name,
+                "date": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "reporter": anomaly.reporter,
+                "build": anomaly.build.toDict(),
+                "baselines": list(baseBuilds.values()),
+            },
+            "logfiles": logfiles,
+        }
+
+        # Keep track of the job for the status page
+        self.jobs[anomaly.uuid] = "Archiving..."
+        threading.Thread(target=self.do_archive, args=(archive,)).start()
+
+    def do_archive(self, archive):
+        """Local thread to wait for worker function and record result"""
+        uuid = archive["infos"]["uuid"]
+        self.log.info("DoArchive began for %s" % uuid)
+        try:
+            result = self.submitJob("archive", archive, wait=True)
+        except RuntimeError:
+            return
+        finally:
+            del self.jobs[uuid]
+        if not result.get("error"):
+            try:
+                # Mark the anomaly as archived and record the archive date
+                with self.api.db.session() as session:
+                    anomaly = session.query(
+                        model.Anomaly).filter_by(uuid=uuid).one()
+                    anomaly.status = "archived"
+                    anomaly.archive_date = datetime.datetime.strptime(
+                        result["date"], "%Y-%m-%dT%H:%M:%S")
+                    session.commit()
+                msg = "%s: archive completed" % uuid
+            except Exception as e:
+                msg = "%s: archive failed (%s)" % (uuid, e)
+                self.log.exception(msg)
+            self.history.appendleft(msg)
+        else:
+            msg = "%s: %s" % (uuid, result)
+            self.log.error(msg)
+            self.history.appendleft(msg)
+
+    def handle_archive(self, infos, logfiles):
+        """Handle archive job: create dirs, dump info and symlink logs"""
+        self.log.info("Archiving %s" % infos["uuid"])
+        base_dir = os.path.join(
+            self.api.dataset_folder, infos["uuid"][:2], infos["uuid"])
+
+        def xsymlink(src, dest):
+            if not os.path.exists(dest):
+                os.symlink(src, dest)
+        for logfile in logfiles:
+            folder = os.path.join(base_dir, logfile['name'])
+            baseline_folder = os.path.join(folder, "baselines")
+            os.makedirs(baseline_folder, 0o755, exist_ok=True)
+            json.dump(logfile['scores'], open(
+                os.path.join(folder, "scores.json"), "w"))
+            xsymlink(logfile['local_path'],
+                     os.path.join(folder, "targetlog.txt"))
+            idx = 1
+            for baseline in logfile["baselines"]:
+                xsymlink(baseline['local_path'],
+                         os.path.join(baseline_folder, "%03d.txt" % idx))
+                idx += 1
+        yaml.safe_dump(
+            infos,
+            open(os.path.join(base_dir, "infos.yaml"), "w"),
+            default_flow_style=False)
+        self.log.info("Archive completed %s" % infos["uuid"])
+        return {"date": infos["date"]}
+
 
 class Server(object):
     log = logging.getLogger("logreduce.Server")
@@ -218,6 +415,20 @@ class Server(object):
         route_map.connect('api', '/api/anomaly/{anomaly_id}',
                           controller=self.api, action='get',
                           conditions=dict(method=["GET"]))
+        route_map.connect('api', '/api/anomaly/{anomaly_id}',
+                          controller=self.api, action='delete',
+                          conditions=dict(method=["DELETE"]))
+        route_map.connect('api', '/api/anomaly/{anomaly_id}',
+                          controller=self.api, action='update',
+                          conditions=dict(method=["POST"]))
+        route_map.connect('api',
+                          '/api/anomaly/{anomaly_id}/logfile/{logfile_id}',
+                          controller=self.api, action='update_scores',
+                          conditions=dict(method=["POST"]))
+        route_map.connect('api',
+                          '/api/anomaly/{anomaly_id}/logfile/{logfile_id}',
+                          controller=self.api, action='delete_logfile',
+                          conditions=dict(method=["DELETE"]))
         route_map.connect('api', '/api/anomalies',
                           controller=self.api, action='list',
                           conditions=dict(method=["GET"]))

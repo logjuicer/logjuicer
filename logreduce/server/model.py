@@ -205,6 +205,36 @@ class Db(object):
             session.remove()
         return autoclose()
 
+    def duplicate(self, session, old_anomaly, copyInfo):
+        anomaly = Anomaly(
+            uuid=str(uuid.uuid4()),
+            name=old_anomaly.name,
+            reporter=old_anomaly.reporter,
+            status='reviewed',
+            report_date=old_anomaly.report_date,
+            archive_date=old_anomaly.archive_date,
+            test_command=old_anomaly.test_command,
+            train_command=old_anomaly.train_command,
+            build=old_anomaly.build
+        )
+        if copyInfo.get("name"):
+            anomaly.name = copyInfo["name"]
+        if copyInfo.get("reporter"):
+            anomaly.reporter = copyInfo["reporter"]
+        logfileFilter = copyInfo.get('logfiles', None)
+        for logfile in old_anomaly.logfiles:
+            if logfileFilter and logfile.id not in logfileFilter:
+                continue
+            anomaly.logfiles.append(LogFile(
+                model=logfile.model,
+                path=logfile.path,
+                test_time=logfile.test_time,
+                lines=list(map(
+                    lambda x: Line(nr=x.nr, confidence=x.confidence),
+                    logfile.lines))))
+        session.add(anomaly)
+        return anomaly.uuid
+
     def export(self, anomaly):
         baselines = {}
         logfiles = []

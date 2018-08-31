@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import copy
 import json
 import logging
 import os
@@ -96,3 +97,36 @@ class APITest(helper.CPWebCase):
         self.assertStatus('200 OK')
         assert 'check' == res['build']['pipeline']
         assert 2 == len(res["models"])
+
+        # Remove a file
+        logfile_id = res['logfiles'][0]['id']
+        self.postData(
+            '/api/anomaly/' + anomaly_uuid + '/logfile/' + str(logfile_id),
+            method='DELETE')
+        self.assertStatus('200 OK')
+
+        # Check the file got deleted
+        res = self.getData('/api/anomaly/' + anomaly_uuid)
+        self.assertStatus('200 OK')
+        assert logfile_id != res['logfiles'][0]['id']
+        assert 1 == len(res["models"])
+
+        # Update scores
+        logfile_id = res['logfiles'][0]['id']
+        original_scores = res['logfiles'][0]['scores']
+        scores = copy.deepcopy(original_scores[2:])
+        scores[-1][1] = 0.99
+        self.postData(
+            '/api/anomaly/' + anomaly_uuid + '/logfile/' + str(logfile_id),
+            data=scores,
+            method='POST')
+        self.assertStatus('200 OK')
+
+        # Check score got updated
+        res = self.getData('/api/anomaly/' + anomaly_uuid)
+        self.assertStatus('200 OK')
+        assert original_scores != res['logfiles'][0]['scores']
+        assert 0.99 == res['logfiles'][0]['scores'][-1][1]
+
+        # Check download job was triggered
+        assert 0 < len(self.downloadLog)
