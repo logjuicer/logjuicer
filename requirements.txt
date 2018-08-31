@@ -1,5 +1,14 @@
 aiohttp
+requests
 numpy
 scipy
 scikit-learn
 PyYAML
+
+gear
+
+voluptuous
+alembic
+sqlalchemy
+cherrypy
+routes

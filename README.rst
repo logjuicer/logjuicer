@@ -138,6 +138,24 @@ to the previous one:
   $ logreduce journal-run --range week good-journal.clf
 
 
+Server component
+----------------
+
+A server component may be deployed to build an anomaly database and produce
+dataset. This initial implementation is focused on Zuul builds and it
+doesn't support importing arbritary files yet.
+More details in this specification https://review.openstack.org/#/c/581214:
+
+Components list:
+
+* logreduce-server: the REST and Gearman server
+
+API
+...
+
+* GET /status: return the list of worker jobs
+
+
 logreduce-tests
 ---------------
 

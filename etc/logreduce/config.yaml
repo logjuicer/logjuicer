@@ -1,0 +1,54 @@
+gearman:
+  addr: 0.0.0.0
+  port: 4732
+  start: yes
+server:
+  addr: 0.0.0.0
+  port: 20004
+  dburi: sqlite:////var/lib/logreduce/db.sqlite
+  # Default optional Zuul url to be used by Worker
+  # zuul_url: http://localhost:9000/api/tenant/local
+  # The base url to use for link returned to remote user
+  public_url: https://example.com/log-classify
+  # Where the models are saved locally
+  models_folder: /var/lib/logreduce/models
+  # Where the archived dataset are stored locally
+  dataset_folder: /var/www/logreduce/anomalies
+  # Where the logs are expected or downloaded
+  logserver_folder: /var/www/logreduce/logs
+logging:
+  loggers:
+    logreduce:
+      handlers: ['file', 'console']
+      level: INFO
+      propagate: 0
+    gear:
+      handlers: ['file', 'console']
+      level: WARN
+      propagate: 0
+    sqlalchemy.engine:
+      handlers: ['file', 'console']
+      level: WARN
+      propagate: 0
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: console
+      level: INFO
+      stream: ext://sys.stdout
+    file:
+      class: logging.handlers.TimedRotatingFileHandler
+      formatter: file
+      level: DEBUG
+      filename: '/var/log/logreduce/{service}.log'
+      when: 'midnight'
+      interval: 1
+      backupCount: 30
+  formatters:
+    file:
+      format: '%(asctime)s %(levelname)s %(name)s: %(message)s'
+    console:
+      format: '%(levelname)7s %(name)s: %(message)s'
+  root:
+    handlers: ['file', 'console']
+    level: INFO

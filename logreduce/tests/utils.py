@@ -31,7 +31,8 @@ fake_result = {
         'test_process.py': {
             'info': '65 samples, 108 features',
             'source_files': ['test_process.py'],
-            'train_time': 0.012661808999837376
+            'train_time': 0.012661808999837376,
+            'uuid': '42'
         }
     },
     'outlier_lines_count': 1,
