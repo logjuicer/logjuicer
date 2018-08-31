@@ -1,0 +1,38 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+a.refresh {
+  cursor: pointer;
+  border-bottom-style: none;
+  text-decoration: none;
+}
+
+.striked {
+  text-decoration: line-through;
+}
+
+span.LogLine {
+  text-align: left;
+  margin: 0px;
+  padding: 0px;
+  font-family: monospace, monospace;
+}
+
+input.LogSlider {
+  width: 50px;
+  margin-right: 10px;
+  border: 0px;
+  cursor: pointer;
+}
+
+span.LogControl {
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.ModelModal {
+  min-width: 900px;
+}

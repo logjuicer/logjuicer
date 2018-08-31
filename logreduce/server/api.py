@@ -253,6 +253,24 @@ class Api(object):
             return {'msg': 'Logfile %s removed' % (to_delete.path)}
 
 
+class StaticHandler(object):
+    """Special Api object to handle static files and html5 path"""
+    def __init__(self, root):
+        self.root = root
+
+    def default(self, path):
+        # Try to handle static file first
+        handled = cherrypy.lib.static.staticdir(
+            section="",
+            dir=self.root,
+            index='index.html')
+        if not handled:
+            # When not found, serve the index.html
+            return cherrypy.lib.static.serve_file(
+                path=os.path.join(self.root, "index.html"),
+                content_type="text/html")
+
+
 class ServerWorker(rpc.Listener):
     """Handle gearman job from api"""
     log = logging.getLogger("logreduce.ServerWorker")
@@ -484,6 +502,12 @@ class Server(object):
         route_map.connect('api', '/api/anomalies',
                           controller=self.api, action='list',
                           conditions=dict(method=["GET"]))
+
+        # Add fallthrough routes at the end for the static html/js files
+        route_map.connect(
+            'root_static', '/{path:.*}',
+            controller=os.path.join(os.path.dirname(__file__), 'web'),
+            action='default')
 
         def CORS():
             if cherrypy.request.method == 'OPTIONS':

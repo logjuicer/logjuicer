@@ -151,6 +151,7 @@ Components list:
 * logreduce-server: the REST and Gearman server
 * logreduce-worker: job executor
 * logreduce-client: client cli
+* logreduce-ui: web ui
 
 API
 ...
