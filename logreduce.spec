@@ -93,6 +93,7 @@ exit 0
 %doc README.rst
 %{python3_sitelib}/logreduce*
 %{_bindir}/logreduce
+%{_bindir}/logreduce-client
 %config(noreplace) %attr(0640, root, logreduce) %{_sysconfdir}/logreduce/config.yaml
 %dir %attr(0750, logreduce, logreduce) %{_sharedstatedir}/logreduce
 %dir %attr(0750, logreduce, logreduce) %{_localstatedir}/log/logreduce

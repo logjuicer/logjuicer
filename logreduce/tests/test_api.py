@@ -18,7 +18,10 @@ import tempfile
 from cherrypy.test import helper
 
 import logreduce.server.api as api
+import logreduce.server.client
 import logreduce.server.rpc as rpc
+
+from . utils import fake_build_result
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -74,3 +77,22 @@ class APITest(helper.CPWebCase):
         res = self.getData('/api/status')
         self.assertStatus('200 OK')
         assert "functions" in res
+
+        report = logreduce.server.client.prepare_report(fake_build_result)
+        self.postData('/api/anomaly', data=report, method='PUT')
+        self.assertStatus('200 OK')
+        res = json.loads(self.body.decode('utf-8'))
+        assert 'uuid' in res
+        anomaly_uuid = res['uuid']
+
+        # List
+        res = self.getData('/api/anomalies')
+        self.assertStatus('200 OK')
+        assert anomaly_uuid == res[0]['uuid']
+        assert 'processed' == res[0]['status']
+
+        # Get
+        res = self.getData('/api/anomaly/' + anomaly_uuid)
+        self.assertStatus('200 OK')
+        assert 'check' == res['build']['pipeline']
+        assert 2 == len(res["models"])
