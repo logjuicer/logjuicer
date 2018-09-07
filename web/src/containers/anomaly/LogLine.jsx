@@ -146,7 +146,8 @@ class LogLine extends React.Component {
           type='pf'
           name={removed ? 'enhancement' : 'delete'}
           className='LogControl'
-          onClick={this.toggleLine}
+          onClick={() => {this.toggle([this.props.idx])}}
+          title='Toggle line'
           />
 
         )}

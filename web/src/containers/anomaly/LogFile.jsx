@@ -23,6 +23,7 @@ import {
   ListView,
   Modal
 } from 'patternfly-react'
+import * as moment from 'moment'
 
 
 import {
@@ -119,6 +120,16 @@ class LogFile extends React.Component {
         </a>
       </ListView.InfoItem>
     )]
+    if (logfile.test_time > 60) {
+      AdditionalInfo.push((
+      <ListView.InfoItem key={2}>
+        <Icon type='fa' name='clock-o' />
+        <strong>
+          tested {moment.duration(logfile.test_time, 'seconds').humanize(true)}
+        </strong>
+      </ListView.InfoItem>
+      ))
+    }
     const model = anomaly.props.anomaly.models[logfile.model]
     const modelInfo = (
       <Modal
