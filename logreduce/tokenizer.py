@@ -98,7 +98,7 @@ class Tokenizer:
     comments = re.compile(r'([\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
     gitver_re = re.compile(r'git[a-z0-9]+', re.I)
-    digits_re = re.compile(r'[0-9]')
+    digits_re = re.compile(r'(0x[0-9a-f]+|[0-9])', re.I)
     randpath_re = re.compile(r'('
                              r'/tmp/ansible\.[a-z0-9_]{8}'
                              r'|/tmp/tmp[a-z0-9_]{6}'

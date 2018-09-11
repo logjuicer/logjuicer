@@ -20,6 +20,8 @@ class TokenizerTests(unittest.TestCase):
     def test_random_words(self):
         tokens = Tokenizer.process("Created interface: br-42")
         self.assertNotIn("br-42", tokens)
+        tokens = Tokenizer.process("Instance 0xdeadbeef42 created")
+        self.assertEquals("Instance created", tokens)
 
     def test_filename2modelname(self):
         for fname, modelname in (
