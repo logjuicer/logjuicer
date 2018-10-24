@@ -53,6 +53,14 @@ Requires:       %{?scl_prefix}python-gear
 The logreduce worker
 
 
+%package webui
+Summary:        The logreduce web interface
+BuildRequires:  patternfly-react-ui-deps
+
+%description webui
+The logreduce web interface
+
+
 %prep
 %autosetup -n logreduce-%{version} -p1
 rm -Rf requirements.txt test-requirements.txt *.egg-info
@@ -62,11 +70,20 @@ rm -Rf requirements.txt test-requirements.txt *.egg-info
 %{?scl:scl enable %{scl} - << \EOF}
 PBR_VERSION=%{version} %{__python3} setup.py build
 %{?scl:EOF}
-sed -e 's#/var/lib/logreduce#/var/opt/rh/rh-python35/lib/logreduce#' -i etc/config.yaml
-sed -e 's#/var/log/logreduce#/var/opt/rh/rh-python35/log/logreduce#' -i etc/config.yaml
+sed -e 's#/var/lib/logreduce#/var/opt/rh/rh-python35/lib/logreduce#' \
+    -e 's#/var/log/logreduce#/var/opt/rh/rh-python35/log/logreduce#' \
+    -i etc/logreduce/config.yaml
+sed -e 's#/usr/share/#/opt/rh/rh-python35/root/usr/share/#' \
+    -i etc/httpd/logreduce.conf
+pushd web
+ln -s /opt/patternfly-react-ui-deps/node_modules/ node_modules
+PUBLIC_URL="/log-classify/" ./node_modules/.bin/yarn build
+popd
 
 
 %install
+install -p -d -m 0755 %{buildroot}/%{_datadir}/log-classify
+mv web/build/* %{buildroot}/%{_datadir}/log-classify
 %{?scl:scl enable %{scl} - << \EOF}
 PBR_VERSION=%{version} %{__python3} setup.py install -O1 --skip-build --root %{buildroot}
 %{?scl:EOF}
@@ -132,6 +149,8 @@ exit 0
 %{_bindir}/logreduce-worker
 %{_unitdir}/%{?scl_prefix}logreduce-worker.service
 
+%files webui
+%{_datadir}/log-classify
 
 %changelog
 * Mon Jul  9 2018 Tristan Cacqueray <tdecacqu@redhat.com> - 0.1.0-2
