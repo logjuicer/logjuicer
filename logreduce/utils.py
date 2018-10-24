@@ -15,6 +15,9 @@ import lzma
 import os
 import re
 import logging
+import sqlite3
+import zlib
+import json
 try:
     from systemd import journal
     import datetime
@@ -207,8 +210,92 @@ class Journal:
         return "Journal of %s" % self.name
 
 
+class AraReport:
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.lines = []
+        self.idx = 0
+
+    def readline(self):
+        if self.idx >= len(self.lines):
+            return b''
+        self.idx += 1
+        return self.lines[self.idx - 1].encode('utf-8')
+
+    def open(self):
+        con = sqlite3.connect(self.db_path)
+        c = con.cursor()
+        c.execute("SELECT playbooks.path, tasks.name, task_results.status, "
+                  "task_results.result"
+                  " FROM task_results"
+                  " INNER JOIN tasks ON tasks.id == task_results.task_id"
+                  " INNER JOIN playbooks ON tasks.playbook_id == playbooks.id")
+        result_ignores = (
+            "src", "ansible_facts", "stdout_lines", "stderr_lines")
+        for row in c:
+            path, name, status, res = row
+            res_dec = zlib.decompress(res).decode('utf-8', errors='ignore')
+            stdout, stderr = None, None
+            try:
+                obj = json.loads(res_dec)
+                if "cmd" in obj:
+                    obj["cmd"] = " ".join(obj["cmd"])
+                for ignore in result_ignores:
+                    if ignore in obj:
+                        del obj[ignore]
+                if "stdout" in obj:
+                    stdout = obj["stdout"]
+                    del obj["stdout"]
+                if "stderr" in obj:
+                    stderr = obj["stderr"]
+                    del obj["stderr"]
+                result = []
+                for k, v in sorted(obj.items()):
+                    result.append(" -- %s: %s" % (k, v))
+            except Exception:
+                result = res_dec
+            playbook_path = os.path.join(
+                os.path.basename(os.path.dirname(path)),
+                os.path.basename(path))
+            self.lines.append("PLAYBOOK [%s] TASK [%s]: %s\n" % (
+                playbook_path, name.replace(' ', '_'), status
+            ))
+            for line in result:
+                self.lines.append("%s\n" % (line))
+            if stdout:
+                self.lines.append(" -- STDOUT:\n")
+                for line in stdout.split('\n'):
+                    self.lines.append("%s\n" % line)
+            if stderr:
+                self.lines.append(" -- STDERR:\n")
+                for line in stderr.split('\n'):
+                    self.lines.append("%s\n" % line)
+            self.lines.append("\n")
+        c.close()
+        con.close()
+
+    def __str__(self):
+        return "ARA Report %s" % self.db_path
+
+    # Fake string interface
+    def rfind(self, *args):
+        return -1
+
+    def startswith(self, *args):
+        return False
+
+    def __getitem__(self, *args):
+        return self.db_path
+
+    def close(self):
+        pass
+
+
 def open_file(p):
     if isinstance(p, Journal):
+        p.open()
+        return p
+    if isinstance(p, AraReport):
         p.open()
         return p
     if p.endswith(".gz"):
@@ -234,7 +321,10 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
         if isinstance(path, Journal):
             yield (path, "")
         elif os.path.isfile(path):
-            yield (path, os.path.basename(path))
+            if path.endswith("ara-report/ansible.sqlite"):
+                yield(AraReport(path), "report/ansible.sqlite")
+            else:
+                yield (path, os.path.basename(path))
         elif os.path.isdir(path):
             if path[-1] != "/":
                 path = "%s/" % path
@@ -242,7 +332,8 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
                 for fname in fnames:
                     if [True for ign in ign_files if re.match(ign, fname)]:
                         continue
-                    if [True for skip in BLACKLIST_EXTENSIONS if
+                    if fname != "ansible.sqlite" and \
+                       [True for skip in BLACKLIST_EXTENSIONS if
                             fname.endswith("%s" % skip) or
                             fname.endswith("%s.gz" % skip) or
                             fname.endswith("%s.txt.gz" % skip) or
@@ -264,7 +355,10 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
                     rel_path = fpath[len(path):]
                     if [True for ign in ign_paths if re.search(ign, rel_path)]:
                         continue
-                    yield (fpath, rel_path)
+                    if fname == "ansible.sqlite":
+                        yield(AraReport(fpath), "report/ansible.sqlite")
+                    else:
+                        yield (fpath, rel_path)
         else:
             raise RuntimeError("%s: unknown uri" % path)
 
@@ -287,3 +381,16 @@ def format_speed(count, size, elapsed_time):
         (size / (1024 * 1024)),
         (count / 1000),
     )
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) == 2:
+        if os.path.basename(sys.argv[1]) == "ansible.sqlite":
+            report = AraReport(sys.argv[1])
+            report.open()
+            while True:
+                line = report.readline()
+                if not line:
+                    break
+                print(line[:-1].decode('utf-8'))

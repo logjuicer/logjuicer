@@ -49,6 +49,7 @@
       {% if logclassify_model_pipeline %}--pipeline {{ logclassify_model_pipeline }}{% endif %}
       --count {{ logclassify_model_job_count }}
       --zuul-web {{ logclassify_zuul_web }}
+      {% if logclassify_ara_database %}--ara-database {% endif %}
       {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
       {% for _path in logclassify_exclude_paths %}--exclude-path {{ _path }}{% endfor %}
       {% for _path in logclassify_exclude_files %}--exclude-file {{ _path }}{% endfor %}
@@ -73,16 +74,19 @@
       --after-context {{ logclassify_after_context }}
       {% if logclassify_local_dir != zuul.executor.log_root %}
         {# Running on test instance directly #}
-        {% if logclassify_console %}
-            {{ logclassify_tmp_dir }}/job-output.txt
-        {% endif %}
-        {% if logclassify_local_dir %}
+        {% if logclassify_ara_database %}
+            {{ logclassify_tmp_dir }}/ara-report/ansible.sqlite
+        {% elif logclassify_local_dir %}
             {{ logclassify_local_dir }}
             --test-prefix {{ logclassify_logserver_dir }}
+        {% else %}
+            {{ logclassify_tmp_dir }}/job-output.txt
         {% endif %}
       {% else %}
         {# Running on executor #}
-        {% if logclassify_logserver_dir %}
+        {% if logclassify_ara_database %}
+            {{ logclassify_local_dir }}/ara-report/ansible.sqlite
+        {% elif logclassify_logserver_dir %}
             {{ logclassify_local_dir }}
         {% else %}
             {{ logclassify_local_dir }}/job-output.txt

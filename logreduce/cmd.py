@@ -47,6 +47,7 @@ class Cli:
         self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
         self.include_path = []
         self.test_prefix = None
+        self.ara_database = False
         kwargs = {}
         for k, v in args.__dict__.items():
             if k == "exclude_file":
@@ -66,6 +67,12 @@ class Cli:
         if "logs.rdoproject.org" in kwargs.get('logs_url', ""):
             self.zuul_web = "https://softwarefactory-project.io/zuul/api/" \
                             "tenant/rdoproject.org"
+        # Remove ara-report exclude
+        if self.ara_database:
+            try:
+                self.exclude_path.remove("ara[_-]*.*/")
+            except ValueError:
+                pass
 
         try:
             args.func(**kwargs)
@@ -186,6 +193,8 @@ class Cli:
         # Zuul integration
         def job_train_usage(sub):
             s = sub.add_parser("job-train", help="Build a model for a CI job")
+            s.add_argument("--ara-database", action="store_true",
+                           help="Train on ara database")
             s.set_defaults(func=self.job_train)
             model_filters(s)
             job_filters(s)
@@ -448,6 +457,8 @@ class Cli:
         os.makedirs(target_dir, exist_ok=True)
 
         logs_path = ["job-output.txt.gz", "zuul-info/inventory.yaml"]
+        if self.ara_database:
+            logs_path.append("ara-report/ansible.sqlite")
         if self.include_path:
             logs_path.append(self.include_path)
 

@@ -27,6 +27,8 @@ logclassify_model_dir: "{{ logclassify_tmp_dir }}"
 
 # Process console-log
 logclassify_console: true
+# Process ara ansible.sqlite
+logclassify_ara_databae: false
 
 # Include paths from baseline logs
 logclassify_logserver_dir: ""
