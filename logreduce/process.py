@@ -34,7 +34,9 @@ from logreduce.utils import open_file
 
 class Classifier:
     log = logging.getLogger("logreduce.Classifier")
-    version = 4
+    # Bump this version when models created with earlier versions
+    # should be rejected
+    version = 5
 
     def __init__(self,
                  model='bag-of-words_nn', exclude_paths=[], exclude_files=[]):
