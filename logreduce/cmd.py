@@ -158,7 +158,7 @@ class Cli:
             s.set_defaults(func=self.model_run)
             path_filters(s)
             report_filters(s)
-            s.add_argument("model_file", metavar="FILE")
+            s.add_argument("model_file")
             s.add_argument("target", nargs='+')
 
         # Local directory
