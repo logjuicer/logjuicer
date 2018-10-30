@@ -44,6 +44,18 @@ Install
   python3 setup.py develop --user
   popd
 
+
+* openSUSE:
+
+.. code-block:: console
+
+  sudo zypper install python3-scikit-learn
+  git clone https://softwarefactory-project.io/r/logreduce
+  pushd logreduce
+  python3 setup.py develop --user
+  popd
+
+
 * Pip:
 
 .. code-block:: console
@@ -151,7 +163,7 @@ Components list:
 * logreduce-server: the REST and Gearman server
 * logreduce-worker: job executor
 * logreduce-client: client cli
-* logreduce-ui: web ui
+* logreduce-webui: logreduce web interface
 
 API
 ...
