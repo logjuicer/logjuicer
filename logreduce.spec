@@ -2,7 +2,7 @@
 %{!?scl:%global pkg_name %{name}}
 
 Name:           %{?scl_prefix}logreduce
-Version:        0.1.0
+Version:        0.3.0
 Release:        2%{?dist}
 Summary:        Extract anomalies from log files
 
@@ -32,7 +32,7 @@ Extract anomalies from log files
 
 %package server
 Summary:        The logreduce server
-Requires:       %{?scl_prefix}logreduce
+Requires:       %{?scl_prefix}logreduce = %version
 Requires:       %{?scl_prefix}python-alembic
 Requires:       %{?scl_prefix}python-sqlalchemy
 Requires:       %{?scl_prefix}python-cherrypy
@@ -46,7 +46,7 @@ The logreduce server
 
 %package worker
 Summary:        The logreduce worker
-Requires:       %{?scl_prefix}logreduce
+Requires:       %{?scl_prefix}logreduce = %version
 Requires:       %{?scl_prefix}python-gear
 
 %description worker
@@ -97,20 +97,15 @@ install -p -d -m 0755 %{buildroot}/var/www/logreduce/anomalies
 install -p -d -m 0755 %{buildroot}/var/www/logreduce/logs
 
 
-%pre server
+%pre
 getent group logreduce >/dev/null || groupadd -r logreduce
-if ! getent passwd logreduce >/dev/null; then
+getent passwd logreduce >/dev/null || \
   useradd -r -g logreduce -G logreduce -d %{_sharedstatedir}/logreduce -s /sbin/nologin -c "Logreduce Daemon" logreduce
-fi
-exit 0
 
-%pre worker
+%pre
 getent group logreduce >/dev/null || groupadd -r logreduce
-if ! getent passwd logreduce >/dev/null; then
+getent passwd logreduce >/dev/null || \
   useradd -r -g logreduce -G logreduce -d %{_sharedstatedir}/logreduce -s /sbin/nologin -c "Logreduce Daemon" logreduce
-fi
-exit 0
-
 
 %post server
 %systemd_post %{?scl_prefix}logreduce-server.service
@@ -126,7 +121,6 @@ exit 0
 %systemd_postun %{?scl_prefix}logreduce-server.service
 %postun worker
 %systemd_postun %{?scl_prefix}logreduce-worker.service
-
 
 %files
 %license LICENSE
