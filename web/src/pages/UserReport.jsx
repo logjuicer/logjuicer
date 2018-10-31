@@ -97,7 +97,7 @@ class UserReportPage extends React.Component {
       <Grid>
         <h2>Report a new build to be analyzed</h2>
         <p>Use the form bellow to report a Zuul build and trigger an automated
-        analyzis</p>
+        analyzes</p>
         <hr />
         <Form horizontal>
           <FormGroup controlId='name'>
@@ -118,7 +118,7 @@ class UserReportPage extends React.Component {
             <Col sm={9}>
               <FormControl type='text' inputRef={i => this.reporter = i}/>
               <HelpBlock>
-                {'Enter your name like "irc-name" or "email address"'}
+                {'Enter your name like "IRC nick" or "Email address"'}
               </HelpBlock>
             </Col>
           </FormGroup>
@@ -157,7 +157,7 @@ class UserReportPage extends React.Component {
                 ))}
               </FormControl>
               <HelpBlock>
-                Those are known Zuul API endpoints to query build informations.
+                Those are known Zuul API endpoints to query build information.
               </HelpBlock>
             </Col>
           </FormGroup>
