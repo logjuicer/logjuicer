@@ -74,7 +74,7 @@ sed -e 's#/var/lib/logreduce#/var/opt/rh/rh-python35/lib/logreduce#' \
     -e 's#/var/log/logreduce#/var/opt/rh/rh-python35/log/logreduce#' \
     -i etc/logreduce/config.yaml
 sed -e 's#/usr/share/#/opt/rh/rh-python35/root/usr/share/#' \
-    -i etc/httpd/logreduce.conf
+    -i etc/httpd/log-classify.conf
 pushd web
 ln -s /opt/patternfly-react-ui-deps/node_modules/ node_modules
 PUBLIC_URL="/log-classify/" ./node_modules/.bin/yarn build
@@ -90,11 +90,11 @@ PBR_VERSION=%{version} %{__python3} setup.py install -O1 --skip-build --root %{b
 install -p -D -m 0644 etc/systemd/logreduce-server.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-server.service
 install -p -D -m 0644 etc/systemd/logreduce-worker.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-worker.service
 install -p -D -m 0644 etc/logreduce/config.yaml %{buildroot}%{_sysconfdir}/logreduce/config.yaml
-install -p -D -m 0644 etc/httpd/logreduce.conf %{buildroot}/etc/httpd/conf.d/logreduce.conf
+install -p -D -m 0644 etc/httpd/log-classify.conf %{buildroot}/etc/httpd/conf.d/log-classify.conf
 install -p -d -m 0700 %{buildroot}%{_sharedstatedir}/logreduce
 install -p -d -m 0700 %{buildroot}%{_localstatedir}/log/logreduce
-install -p -d -m 0755 %{buildroot}/var/www/logreduce/anomalies
-install -p -d -m 0755 %{buildroot}/var/www/logreduce/logs
+install -p -d -m 0755 %{buildroot}/var/www/log-classify/anomalies
+install -p -d -m 0755 %{buildroot}/var/www/log-classify/logs
 
 
 %pre
@@ -134,10 +134,10 @@ getent passwd logreduce >/dev/null || \
 
 %files server
 %{_bindir}/logreduce-server
-%config(noreplace) /etc/httpd/conf.d/logreduce.conf
+%config(noreplace) /etc/httpd/conf.d/log-classify.conf
 %{_unitdir}/%{?scl_prefix}logreduce-server.service
-%dir %attr(0755, logreduce, logreduce) /var/www/logreduce/logs
-%dir %attr(0755, logreduce, logreduce) /var/www/logreduce/anomalies
+%dir %attr(0755, logreduce, logreduce) /var/www/log-classify/logs
+%dir %attr(0755, logreduce, logreduce) /var/www/log-classify/anomalies
 
 %files worker
 %{_bindir}/logreduce-worker
