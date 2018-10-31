@@ -65,7 +65,7 @@ class Tokenizer:
     uuid_re = re.compile(r'(?:%s|tx[^ ]{32})' % UUID_RE, re.I)
     date_re = re.compile('\b(?:%s|%s|%s|%s)\b' % (DAYS, SHORT_DAYS,
                                                   SHORT_MONTHS, MONTHS), re.I)
-    heat_re = re.compile("-[^ -]{12}[- $]")
+    heat_re = re.compile("-[^ -]{12}[- \"$]")
     comments = re.compile(r'(?:[\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
     gitver_re = re.compile(r'git\w+')
@@ -85,16 +85,18 @@ class Tokenizer:
         # Remove words that are exactly 32, 64 or 128 character longs
         strip = Tokenizer.power2_re.sub("RNGN", strip)
         # Remove uuid
-        strip = Tokenizer.heat_re.sub(" HEAT ", strip)
         strip = Tokenizer.uuid_re.sub("RNGU", strip)
+        # Remove heat short uuid but keep spacing
+        #   ObjectName-2kbhkd45kcs3-ServiceName -> ObjectName-HEATID-ServiceName
+        strip = Tokenizer.heat_re.sub(" HEATID ", strip)
         # Remove git sha
         strip = Tokenizer.gitsha_re.sub("RNGG", strip)
         # Remove hashes
         strip = Tokenizer.hash_re.sub("RNGH", strip)
-        # Remove date
-        strip = Tokenizer.date_re.sub("DATE", strip)
         # Remove random path
         strip = Tokenizer.randpath_re.sub("RNGP", strip)
+        # Remove date
+        strip = Tokenizer.date_re.sub("DATE", strip)
         # Remove ip/addr
         strip = Tokenizer.ip_re.sub("RNGI", strip)
         # Remove numbers

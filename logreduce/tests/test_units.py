@@ -63,6 +63,18 @@ class TokenizerTests(unittest.TestCase):
             self.assertEqual(
                 tokens_out, Tokenizer.process(raw_line))
 
+    def test_uuid_words(self):
+        tests = {
+            '| 0473427f-f505-4b50-bc70-72fb6d74568a | vmname | SHUTOFF | -   '
+            '       | Shutdown    | fixed=192.168.123.3 |':
+            'RNGU vmname SHUTOFF Shutdown fixed RNGI',
+            '"UndercloudServiceChain-2kbhkd45kcs3-ServiceChain-54rklv3rnxhe" ':
+            'UndercloudServiceChain HEATID ServiceChain HEATID'
+        }
+        for raw_line, tokens_out in tests.items():
+            self.assertEqual(
+                tokens_out, Tokenizer.process(raw_line))
+
     def test_filename2modelname(self):
         for fname, modelname in (
                 ("builds/2/log", "log"),
