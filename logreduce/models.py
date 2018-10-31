@@ -117,7 +117,7 @@ class SimpleNeighbors(Model):
 
 
 class HashingNeighbors(Model):
-    """Simple NN model"""
+    """HashingVectorized NN model"""
     # True random words
     def __init__(self, name=""):
         super().__init__(name)

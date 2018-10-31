@@ -21,45 +21,14 @@ SHORT_DAYS = "mon|tue|wed|thu|fri|sat|sun"
 
 UUID_RE = r'[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-' \
           '?[0-9a-f]{12}'
-
 IPV4_RE = r'(([01]?[0-9]?[0-9]|2[0-4][0-9]|2[5][0-5])\.){3}' \
           r'([01]?[0-9]?[0-9]|2[0-4][0-9]|2[5][0-5])'
-# TODO: simplify this if possible...
-IPV6_RE = (r'(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
-           r'(?:(?:[0-9]|[1-9][0-9]|'
-           r'1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|'
-           r'1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
-           r'::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
-           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
-           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
-           r'(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}'
-           r'(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
-           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
-           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
-           r'(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}'
-           r'(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
-           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
-           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
-           r'(?:(?:[0-9A-Fa-f]{1,4}:){,2}[0-9A-Fa-f]{1,4})?::'
-           r'(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
-           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
-           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
-           r'(?:(?:[0-9A-Fa-f]{1,4}:){,3}[0-9A-Fa-f]{1,4})?::'
-           r'[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
-           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
-           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
-           r'(?:(?:[0-9A-Fa-f]{1,4}:){,4}[0-9A-Fa-f]{1,4})?::'
-           r'(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|'
-           r'(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}'
-           r'(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|'
-           r'(?:(?:[0-9A-Fa-f]{1,4}:){,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|'
-           r'(?:(?:[0-9A-Fa-f]{1,4}:){,6}[0-9A-Fa-f]{1,4})?::)')
-MAC_RE = r'([0-9A-F]{2}[:-]){5}([0-9A-F]{2})'
+IPV6_RE = r'([0-9A-Fa-f]{0,4}:){2,6}(\d{1,3}\.){0,3}\d{1,3}'
+MAC_RE = r'([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})'
 
 
 class Tokenizer:
     rawline_re = re.compile(
-        r'('
         # useless http GET
         r'"GET / HTTP/1.1"'
         r'|"OPTIONS * HTTP/1.0" 200'
@@ -87,29 +56,23 @@ class Tokenizer:
         # useless debug statement
         r'|ovs-ofctl .* (dump-ports|dump-flows|show)\b'
         r'|(ip|eb)tables .* -L\b'
-        r')')
-    ip_re = re.compile(r'(%s|%s|%s)' % (IPV4_RE, IPV6_RE, MAC_RE), re.I)
-    power2_re = re.compile(r'([0-9a-f]{128}|[0-9a-f+/]{64}|'
-                           '[0-9a-f]{40}|[0-9a-f]{32})', re.I)
-    uuid_re = re.compile(r'(%s|tx[^ ]{32})' % UUID_RE, re.I)
-    date_re = re.compile('(%s|%s|%s|%s)' % (DAYS, SHORT_DAYS,
-                                            SHORT_MONTHS, MONTHS), re.I)
-    heat_re = re.compile("-[^ -]{12}[- $]", re.I)
-    comments = re.compile(r'([\s]*# |^%% |^#|^[\s]*id = ").*')
+    )
+    ip_re = re.compile(r'%s|%s|%s' % (IPV4_RE, IPV6_RE, MAC_RE))
+    power2_re = re.compile(r'(?:[0-9a-fA-F]{128}|[0-9a-fA-F+/]{64}|'
+                           '[0-9a-fA-F]{40}|[0-9a-fA-F]{32})')
+    uuid_re = re.compile(r'(?:%s|tx[^ ]{32})' % UUID_RE, re.I)
+    date_re = re.compile('(?:%s|%s|%s|%s)' % (DAYS, SHORT_DAYS,
+                                              SHORT_MONTHS, MONTHS), re.I)
+    heat_re = re.compile("-[^ -]{12}[- $]")
+    comments = re.compile(r'(?:[\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
-    gitver_re = re.compile(r'git[a-z0-9]+', re.I)
-    digits_re = re.compile(r'(0x[0-9a-f]+|[0-9])', re.I)
-    randpath_re = re.compile(r'('
-                             r'/tmp/ansible\.[a-z0-9_]{8}'
-                             r'|/tmp/tmp[a-z0-9_]{6}'
-                             r'|/tmp/tmp.[a-z0-9]{10}'
-                             r')', re.I)
-    gitsha_re = re.compile(r'('
-                           r'[a-z0-9]{7}\.\.[a-z0-9]{7}'
-                           r')', re.I)
-    hash_re = re.compile(r'('
-                         r'SHA256:[a-z0-9+/]{43} '
-                         r')', re.I)
+    gitver_re = re.compile(r'git\w+')
+    digits_re = re.compile(r'(?:0x[0-9a-fA-F]+|[0-9])')
+    randpath_re = re.compile(r'/tmp/ansible\.\w{8}'
+                             r'|/tmp/tmp\w{6}'
+                             r'|/tmp/tmp\.\w{10}')
+    gitsha_re = re.compile(r'\w{7}\.\.\w{7}')
+    hash_re = re.compile(r'SHA256:[\w+/]{43} ')
 
     @staticmethod
     def process(line):
@@ -118,24 +81,24 @@ class Tokenizer:
             return ''
         strip = line
         # Remove words that are exactly 32, 64 or 128 character longs
-        strip = Tokenizer.power2_re.subn("RNGN", strip)[0]
+        strip = Tokenizer.power2_re.sub("RNGN", strip)
         # Remove uuid
-        strip = Tokenizer.heat_re.subn(" HEAT ", strip)[0]
-        strip = Tokenizer.uuid_re.subn("RNGU", strip)[0]
+        strip = Tokenizer.heat_re.sub(" HEAT ", strip)
+        strip = Tokenizer.uuid_re.sub("RNGU", strip)
         # Remove date
-        strip = Tokenizer.date_re.subn("DATE", strip)[0]
+        strip = Tokenizer.date_re.sub("DATE", strip)
         # Remove git sha
-        strip = Tokenizer.gitsha_re.subn("RNGG", strip)[0]
+        strip = Tokenizer.gitsha_re.sub("RNGG", strip)
         # Remove hashes
-        strip = Tokenizer.hash_re.subn("RNGH", strip)[0]
+        strip = Tokenizer.hash_re.sub("RNGH", strip)
         # Remove random path
-        strip = Tokenizer.randpath_re.subn("RNGP", strip)[0]
+        strip = Tokenizer.randpath_re.sub("RNGP", strip)
         # Remove ip/addr
-        strip = Tokenizer.ip_re.subn("RNGI", strip)[0]
+        strip = Tokenizer.ip_re.sub("RNGI", strip)
         # Remove numbers
-        strip = Tokenizer.digits_re.subn("", strip)[0]
+        strip = Tokenizer.digits_re.sub("", strip)
         # Only keep characters
-        strip = Tokenizer.alpha_re.subn(" ", strip)[0]
+        strip = Tokenizer.alpha_re.sub(" ", strip)
         # Remove tiny words
         strip = " ".join(filter(lambda x: len(x) > 3, strip.split()))
         # Weight failure token

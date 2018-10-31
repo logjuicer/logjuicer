@@ -21,7 +21,22 @@ class TokenizerTests(unittest.TestCase):
         tokens = Tokenizer.process("Created interface: br-42")
         self.assertNotIn("br-42", tokens)
         tokens = Tokenizer.process("Instance 0xdeadbeef42 created")
-        self.assertEquals("Instance created", tokens)
+        self.assertEqual("Instance created", tokens)
+
+    def test_ipv6_tokenizing(self):
+        tests = {
+            'mysql+pymysql://root:secretdatabase@[::1]/cinder?"':
+            'mysql pymysql //root secretdatabase RNGI /cinder',
+            'listen_port fe80::f816:3eff:fe47:5142':
+            'listen_port RNGI',
+            'listen_port FE80::F816:3eff:fe47:5142':
+            'listen_port RNGI',
+            'listen_port ::8888':
+            'listen_port RNGI'
+        }
+        for raw_line, tokens_out in tests.items():
+            self.assertEqual(
+                tokens_out, Tokenizer.process(raw_line))
 
     def test_filename2modelname(self):
         for fname, modelname in (
