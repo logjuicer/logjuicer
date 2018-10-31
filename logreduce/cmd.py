@@ -117,6 +117,8 @@ class Cli:
 
         def report_filters(s):
             s.add_argument("--html", metavar="FILE", help="Render html result")
+            s.add_argument("--json", metavar="FILE",
+                           help="Optional json output")
             s.add_argument("--static-location",
                            help="The js/css static directory location")
             s.add_argument("--threshold", default=0.2, type=float,
@@ -256,8 +258,6 @@ class Cli:
             s = sub.add_parser("diff", help="Compare directories/files")
             s.set_defaults(func=self.diff)
             report_filters(s)
-            s.add_argument("--json", metavar="FILE",
-                           help="Optional json output")
             s.add_argument("baseline", nargs='+')
             s.add_argument("target")
 
@@ -439,7 +439,7 @@ class Cli:
     def diff(self, baseline, target):
         clf = self._get_classifier()
         clf.train(baseline)
-        self._report(clf, target, json_file=self.json)
+        self._report(clf, target)
 
     def download_logs(self, logs_url, target_dir=None):
         if logs_url.endswith("/job-output.txt.gz"):
@@ -486,13 +486,13 @@ class Cli:
         clf.include_path = self.include_path
         return clf
 
-    def _report(self, clf, target_dirs, target_source=None, json_file=None):
+    def _report(self, clf, target_dirs, target_source=None):
         if self.context_length is not None:
             self.before_context = self.context_length
             self.after_context = self.context_length
 
         console_output = True
-        if json_file or self.html:
+        if self.json or self.html:
             console_output = False
         output = clf.process(path=target_dirs,
                              path_source=target_source,
@@ -508,8 +508,8 @@ class Cli:
                 render_html(output, self.static_location))
             open(self.html.replace(".html", ".json"), "w").write(
                 json.dumps(output))
-        if json_file is not None:
-            open(json_file, "w").write(json.dumps(output))
+        if self.json:
+            open(self.json, "w").write(json.dumps(output))
         else:
             print("%02.2f%% reduction (from %d lines to %d)" % (
                 output["reduction"],
