@@ -70,11 +70,17 @@ rm -Rf requirements.txt test-requirements.txt *.egg-info
 %{?scl:scl enable %{scl} - << \EOF}
 PBR_VERSION=%{version} %{__python3} setup.py build
 %{?scl:EOF}
+# TODO: make this replace conditional only when SCL is enabled
 sed -e 's#/var/lib/logreduce#/var/opt/rh/rh-python35/lib/logreduce#' \
     -e 's#/var/log/logreduce#/var/opt/rh/rh-python35/log/logreduce#' \
     -i etc/logreduce/config.yaml
 sed -e 's#/usr/share/#/opt/rh/rh-python35/root/usr/share/#' \
     -i etc/httpd/log-classify.conf
+sed -e 's#/usr/bin/#/opt/rh/rh-python35/root/usr/bin/#'        \
+    -e 's#/etc/logreduce/#/etc/opt/rh/rh-python35/logreduce/#' \
+    -e 's#^ExecStart#EnvironmentFile=-/etc/opt/rh/rh-python35/sysconfig/enable-py3\nExecStart#' \
+    -i etc/systemd/logreduce-server.service etc/systemd/logreduce-worker.service
+
 pushd web
 ln -s /opt/patternfly-react-ui-deps/node_modules/ node_modules
 PUBLIC_URL="/log-classify/" ./node_modules/.bin/yarn build
@@ -96,11 +102,6 @@ install -p -d -m 0700 %{buildroot}%{_localstatedir}/log/logreduce
 install -p -d -m 0755 %{buildroot}/var/www/log-classify/anomalies
 install -p -d -m 0755 %{buildroot}/var/www/log-classify/logs
 
-
-%pre
-getent group logreduce >/dev/null || groupadd -r logreduce
-getent passwd logreduce >/dev/null || \
-  useradd -r -g logreduce -G logreduce -d %{_sharedstatedir}/logreduce -s /sbin/nologin -c "Logreduce Daemon" logreduce
 
 %pre
 getent group logreduce >/dev/null || groupadd -r logreduce
