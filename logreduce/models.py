@@ -144,9 +144,6 @@ class HashingNeighbors(Model):
                 all_distances.extend(distances)
         return all_distances
 
-    def process_line(self, line):
-        return Tokenizer.process(line)
-
 
 models = {
     'bag-of-words_lshf': LSHF,
