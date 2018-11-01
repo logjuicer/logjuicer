@@ -67,9 +67,9 @@ class Tokenizer:
                                                   SHORT_MONTHS, MONTHS), re.I)
     heat_re = re.compile("-[^ -]{12}[- \"$]")
     comments = re.compile(r'(?:[\s]*# |^%% |^#|^[\s]*id = ").*')
-    alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
+    alpha_re = re.compile(r'[^a-zA-Z_\/\s]+')
     gitver_re = re.compile(r'git\w+')
-    digits_re = re.compile(r'(?:0x[0-9a-fA-F]+|[0-9])')
+    digits_re = re.compile(r'(?:0x[0-9a-fA-F]+|[0-9]+)')
     randpath_re = re.compile(r'/tmp/ansible\.\w{8}'
                              r'|/tmp/tmp\w{6}'
                              r'|/tmp/tmp\.\w{10}')

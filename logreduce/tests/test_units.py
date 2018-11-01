@@ -75,6 +75,19 @@ class TokenizerTests(unittest.TestCase):
             self.assertEqual(
                 tokens_out, Tokenizer.process(raw_line))
 
+    def test_digits_tokenizing(self):
+        tests = {
+            'Started Session 2677 of user root':
+            'Started Session user root',
+            'Instance 0xdeadbeef42 created':
+            'Instance created',
+            'systemd[4552]: Startup finished in 28ms.':
+            'systemd Startup finished'
+        }
+        for raw_line, tokens_out in tests.items():
+            self.assertEqual(
+                tokens_out, Tokenizer.process(raw_line))
+
     def test_filename2modelname(self):
         for fname, modelname in (
                 ("builds/2/log", "log"),
