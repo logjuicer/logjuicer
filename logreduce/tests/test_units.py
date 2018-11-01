@@ -28,6 +28,9 @@ class TokenizerTests(unittest.TestCase):
             'Accepted publickey: RSA '
             'SHA256:UkrwIX8QHA4B2Bny0XHyqgSXM7wFMQTEDtT+PpY9Ep4':
             'Accepted publickey RNGH',
+            # This used to match 'jan' -> DATE
+            'SHA256:FePTgARR5A3kxb2GJa0QAWjanaI2q+TvneBxzHNqbTA zuul@ze03':
+            'RNGH zuul'
         }
         for raw_line, tokens_out in tests.items():
             self.assertEqual(
@@ -43,6 +46,18 @@ class TokenizerTests(unittest.TestCase):
             'listen_port RNGI',
             'listen_port ::8888':
             'listen_port RNGI'
+        }
+        for raw_line, tokens_out in tests.items():
+            self.assertEqual(
+                tokens_out, Tokenizer.process(raw_line))
+
+    def test_date_non_tokenizing(self):
+        """Tests that should not match the DATE verb"""
+        tests = {
+            'keys randomart image':
+            'keys randomart image',
+            'Start zuul_console daemon':
+            'Start zuul_console daemon',
         }
         for raw_line, tokens_out in tests.items():
             self.assertEqual(

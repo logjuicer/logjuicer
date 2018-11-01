@@ -1,3 +1,5 @@
+# Copyright 2018 Red Hat, Inc.
+# Copyright 2018 SUSE Linux GmbH.
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -61,8 +63,8 @@ class Tokenizer:
     power2_re = re.compile(r'(?:[0-9a-fA-F]{128}|[0-9a-fA-F+/]{64}|'
                            '[0-9a-fA-F]{40}|[0-9a-fA-F]{32})')
     uuid_re = re.compile(r'(?:%s|tx[^ ]{32})' % UUID_RE, re.I)
-    date_re = re.compile('(?:%s|%s|%s|%s)' % (DAYS, SHORT_DAYS,
-                                              SHORT_MONTHS, MONTHS), re.I)
+    date_re = re.compile('\b(?:%s|%s|%s|%s)\b' % (DAYS, SHORT_DAYS,
+                                                  SHORT_MONTHS, MONTHS), re.I)
     heat_re = re.compile("-[^ -]{12}[- $]")
     comments = re.compile(r'(?:[\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]')
@@ -85,12 +87,12 @@ class Tokenizer:
         # Remove uuid
         strip = Tokenizer.heat_re.sub(" HEAT ", strip)
         strip = Tokenizer.uuid_re.sub("RNGU", strip)
-        # Remove date
-        strip = Tokenizer.date_re.sub("DATE", strip)
         # Remove git sha
         strip = Tokenizer.gitsha_re.sub("RNGG", strip)
         # Remove hashes
         strip = Tokenizer.hash_re.sub("RNGH", strip)
+        # Remove date
+        strip = Tokenizer.date_re.sub("DATE", strip)
         # Remove random path
         strip = Tokenizer.randpath_re.sub("RNGP", strip)
         # Remove ip/addr
