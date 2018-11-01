@@ -79,4 +79,4 @@ class DBTests(unittest.TestCase):
             anomaly_uuid = self.db.import_report(session, report)
 
             anomaly = session.query(model.Anomaly).get(anomaly_uuid)
-            self.assertEquals("check", anomaly.build.pipeline)
+            self.assertEqual("check", anomaly.build.pipeline)

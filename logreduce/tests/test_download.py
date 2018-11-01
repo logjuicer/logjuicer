@@ -44,4 +44,4 @@ class DownloadTests(unittest.TestCase):
             })
         mock_request.return_value = MockResponse(json.dumps(fake_builds))
         zb = logreduce.download.ZuulBuilds("http://zuul.example.com/api")
-        self.assertEquals(3, len(zb.get(result="SUCCESS")))
+        self.assertEqual(3, len(zb.get(result="SUCCESS")))
