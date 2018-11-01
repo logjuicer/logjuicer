@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -23,6 +23,6 @@ except IndexError:
     print("usage: %s file" % sys.argv[0])
     exit(1)
 
-for line in open(path).readlines():
+for line in open(path):
     print(line[:-1])
     print("-> %s" % Tokenizer.process(line))
