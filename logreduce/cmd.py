@@ -507,9 +507,9 @@ class Cli:
             open(self.html, "w").write(
                 render_html(output, self.static_location))
             open(self.html.replace(".html", ".json"), "w").write(
-                json.dumps(output))
+                logreduce.utils.json_dumps(output))
         if self.json:
-            open(self.json, "w").write(json.dumps(output))
+            open(self.json, "w").write(logreduce.utils.json_dumps(output))
         else:
             print("%02.2f%% reduction (from %d lines to %d)" % (
                 output["reduction"],
