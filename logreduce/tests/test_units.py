@@ -23,6 +23,16 @@ class TokenizerTests(unittest.TestCase):
         tokens = Tokenizer.process("Instance 0xdeadbeef42 created")
         self.assertEqual("Instance created", tokens)
 
+    def test_hash_tokenizing(self):
+        tests = {
+            'Accepted publickey: RSA '
+            'SHA256:UkrwIX8QHA4B2Bny0XHyqgSXM7wFMQTEDtT+PpY9Ep4':
+            'Accepted publickey RNGH',
+        }
+        for raw_line, tokens_out in tests.items():
+            self.assertEqual(
+                tokens_out, Tokenizer.process(raw_line))
+
     def test_ipv6_tokenizing(self):
         tests = {
             'mysql+pymysql://root:secretdatabase@[::1]/cinder?"':

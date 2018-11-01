@@ -72,7 +72,7 @@ class Tokenizer:
                              r'|/tmp/tmp\w{6}'
                              r'|/tmp/tmp\.\w{10}')
     gitsha_re = re.compile(r'\w{7}\.\.\w{7}')
-    hash_re = re.compile(r'SHA256:[\w+/]{43} ')
+    hash_re = re.compile(r'SHA256:[\w+/]{43}\b')
 
     @staticmethod
     def process(line):
