@@ -65,7 +65,8 @@ class Api(object):
         """Return the anomalies list"""
         results = []
         with self.db.session() as session:
-            for anomaly in session.query(model.Anomaly):
+            for anomaly in (session.query(model.Anomaly)
+                            .order_by(model.Anomaly.report_date.desc())):
                 results.append({
                     'uuid': anomaly.uuid,
                     'name': anomaly.name,
@@ -75,7 +76,6 @@ class Api(object):
                     'build': anomaly.build.toDict()
                 })
         cherrypy.response.headers['Access-Control-Allow-Origin'] = '*'
-        results.reverse()
         return results
 
     def _getAnomaly(self, session, anomaly_id):
