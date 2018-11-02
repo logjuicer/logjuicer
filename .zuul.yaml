@@ -10,7 +10,7 @@
     nodeset:
       nodes:
         - name: container
-          label: f27-oci
+          label: runc-fedora
 
 - project:
     name: logreduce
@@ -21,15 +21,25 @@
             nodeset:
               nodes:
                 - name: testrunner
-                  label: fedora-oci
+                  label: runc-fedora
         - tox-py35:
             nodeset:
               nodes:
                 - name: testrunner
-                  label: fedora-oci
+                  label: runc-fedora
     gate:
       jobs:
-        - noop
+        - logreduce-tests
+        - tox-pep8:
+            nodeset:
+              nodes:
+                - name: testrunner
+                  label: runc-fedora
+        - tox-py35:
+            nodeset:
+              nodes:
+                - name: testrunner
+                  label: runc-fedora
     release:
       jobs:
         - upload-pypi
