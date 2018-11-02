@@ -203,14 +203,19 @@ class Classifier:
 
             self.training_lines_count += model.count
             self.training_size += model.size
+            train_data_time = time.monotonic() - model_start_time
+            self.log.debug(
+                "%s: Parsing took %s", model_name,
+                format_speed(model.count, model.size, train_data_time))
             try:
                 # Transform and fit the model data
+                train_start_time = time.monotonic()
                 model = self.get(model_name)
                 model.train(train_data)
-                model.train_time = time.monotonic() - model_start_time
+                model.train_time = time.monotonic() - train_start_time
 
-                self.log.debug("%s: %s %s" % (
-                    model_name, model.info,
+                self.log.debug("%s: Fitting took %s" % (
+                    model_name,
                     format_speed(model.count, model.size, model.train_time)))
             except ValueError:
                 self.log.exception("%s: couldn't train with %s" % (model_name,
