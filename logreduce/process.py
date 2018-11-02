@@ -357,8 +357,7 @@ class Classifier:
             outliers = []
             last_outlier = 0
             remaining_after_context = 0
-            line_pos = 0
-            while line_pos < len(data):
+            for line_pos in range(len(data)):
                 distance, line = get_line_info(line_pos)
                 if distance >= self.threshold:
                     if line_pos - last_outlier >= self.merge_distance:
@@ -378,7 +377,6 @@ class Classifier:
                     outliers.append((line_pos, distance, line))
                     remaining_after_context -= 1
                     last_outlier = line_pos
-                line_pos += 1
 
             # Yield result
             yield (filename_rel, filename_orig, model, outliers,
