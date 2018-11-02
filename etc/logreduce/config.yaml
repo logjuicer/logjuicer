@@ -13,9 +13,9 @@ server:
   # Where the models are saved locally
   models_folder: /var/lib/logreduce/models
   # Where the archived dataset are stored locally
-  dataset_folder: /var/www/logreduce/anomalies
+  dataset_folder: /var/www/log-classify/anomalies
   # Where the logs are expected or downloaded
-  logserver_folder: /var/www/logreduce/logs
+  logserver_folder: /var/www/log-classify/logs
 logging:
   loggers:
     logreduce:
