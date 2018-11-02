@@ -60,7 +60,7 @@ class LSHF(Model):
     def __init__(self, name=""):
         super().__init__(name)
         self.vectorizer = TfidfVectorizer(
-            analyzer='word', lowercase=False, tokenizer=None,
+            analyzer=str.split, lowercase=False, tokenizer=None,
             preprocessor=None, stop_words=None)
 
         self.lshf = LSHForest(
@@ -92,7 +92,7 @@ class SimpleNeighbors(Model):
     def __init__(self, name=""):
         super().__init__(name)
         self.vectorizer = TfidfVectorizer(
-            analyzer='word', lowercase=False, tokenizer=None,
+            analyzer=str.split, lowercase=False, tokenizer=None,
             preprocessor=None, stop_words=None)
         self.nn = NearestNeighbors(
             algorithm='brute',
@@ -123,7 +123,7 @@ class HashingNeighbors(Model):
         super().__init__(name)
         self.vectorizer = HashingVectorizer(
             binary=True,
-            analyzer='word', lowercase=False, tokenizer=None,
+            analyzer=str.split, lowercase=False, tokenizer=None,
             preprocessor=None, stop_words=None)
         self.nn = NearestNeighbors(algorithm='brute', metric='cosine')
 
