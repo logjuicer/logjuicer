@@ -66,7 +66,7 @@ class Tokenizer:
     uuid_re = re.compile(r'\b(?:%s|tx[^ ]{32})\b' % UUID_RE, re.I)
     date_re = re.compile(r'\b(?:%s|%s|%s|%s)\b' % (DAYS, SHORT_DAYS,
                                                    SHORT_MONTHS, MONTHS), re.I)
-    heat_re = re.compile("-\w{12}[- \"$]")
+    heat_re = re.compile(r'-\w{12}[- \"$]')
     comments = re.compile(r'(?:[\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]+')
     gitver_re = re.compile(r'git\w+')
