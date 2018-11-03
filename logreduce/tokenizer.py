@@ -61,20 +61,20 @@ class Tokenizer:
         r'|(ip|eb)tables .* -L\b'
     )
     ip_re = re.compile(r'%s|%s|%s' % (IPV4_RE, IPV6_RE, MAC_RE))
-    power2_re = re.compile(r'(?:[0-9a-fA-F]{128}|[0-9a-fA-F+/]{64}|'
-                           '[0-9a-fA-F]{40}|[0-9a-fA-F]{32})')
-    uuid_re = re.compile(r'(?:%s|tx[^ ]{32})' % UUID_RE, re.I)
-    date_re = re.compile('\b(?:%s|%s|%s|%s)\b' % (DAYS, SHORT_DAYS,
-                                                  SHORT_MONTHS, MONTHS), re.I)
+    power2_re = re.compile(r'\b(?:[\w+/]{128}|[\w+/]{64}|'
+                           r'[0-9a-fA-F]{40}|[0-9a-fA-F]{32})\b')
+    uuid_re = re.compile(r'\b(?:%s|tx[^ ]{32})\b' % UUID_RE, re.I)
+    date_re = re.compile(r'\b(?:%s|%s|%s|%s)\b' % (DAYS, SHORT_DAYS,
+                                                   SHORT_MONTHS, MONTHS), re.I)
     heat_re = re.compile("-[^ -]{12}[- \"$]")
     comments = re.compile(r'(?:[\s]*# |^%% |^#|^[\s]*id = ").*')
     alpha_re = re.compile(r'[^a-zA-Z_\/\s]+')
     gitver_re = re.compile(r'git\w+')
-    digits_re = re.compile(r'(?:0x[0-9a-fA-F]+|[0-9]+)')
-    randpath_re = re.compile(r'/tmp/ansible\.\w{8}'
+    digits_re = re.compile(r'\b(?:0x[0-9a-fA-F]+|[0-9]+)\b')
+    randpath_re = re.compile(r'(?:/tmp/ansible\.\w{8}'
                              r'|/tmp/tmp\w{6}'
-                             r'|/tmp/tmp\.\w{10}')
-    gitsha_re = re.compile(r'\w{7}\.\.\w{7}')
+                             r'|/tmp/tmp\.\w{10})\b')
+    gitsha_re = re.compile(r'\b\w{7}\.\.\w{7}\b')
     hash_re = re.compile(r'SHA256:[\w+/]{43}\b')
 
     @staticmethod
@@ -88,7 +88,7 @@ class Tokenizer:
         # Remove uuid
         strip = Tokenizer.uuid_re.sub("RNGU", strip)
         # Remove heat short uuid but keep spacing
-        #   ObjectName-2kbhkd45kcs3-ServiceName -> ObjectName-HEATID-ServiceName
+        #  ObjectName-2kbhkd45kcs3-ServiceName -> ObjectName-HEATID-ServiceName
         strip = Tokenizer.heat_re.sub(" HEATID ", strip)
         # Remove git sha
         strip = Tokenizer.gitsha_re.sub("RNGG", strip)
