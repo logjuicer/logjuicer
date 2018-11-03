@@ -154,8 +154,8 @@ class Classifier:
             model.size = 0
             model.count = 0
             model.uuid = str(uuid.uuid4())
-            # Tokenize and store all lines in train_data
-            train_data = []
+            # Tokenize and store all de-duplicated lines in train_data
+            train_data = set()
             for filename in filenames:
                 self.log.debug("%s: Loading %s" % (model_name, filename))
                 fobj = None
@@ -171,7 +171,7 @@ class Classifier:
                         for sub_line in line.split(r'\r'):
                             sub_line = model.process_line(sub_line)
                             if sub_line:
-                                train_data.append(sub_line)
+                                train_data.add(sub_line)
                         model.count += 1
                     try:
                         model.size += os.stat(filename).st_size

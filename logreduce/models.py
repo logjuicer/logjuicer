@@ -122,10 +122,15 @@ class HashingNeighbors(Model):
     def __init__(self, name=""):
         super().__init__(name)
         self.vectorizer = HashingVectorizer(
-            binary=True,
+            binary=True, n_features=2**18,
             analyzer=str.split, lowercase=False, tokenizer=None,
             preprocessor=None, stop_words=None)
-        self.nn = NearestNeighbors(algorithm='brute', metric='cosine')
+        # HashingVectorizer produces sparse vectors, and
+        # sorted(sklearn.neighbors.VALID_METRICS_SPARSE['algorithm']) is
+        # empty for anything != brute
+        self.nn = NearestNeighbors(
+            algorithm='brute', metric='cosine',
+            n_jobs=1, n_neighbors=1)
 
     def train(self, train_data):
         dat = self.vectorizer.transform(train_data)
@@ -140,7 +145,7 @@ class HashingNeighbors(Model):
                 chunk = test_data[chunk_pos:min(len(test_data),
                                                 chunk_pos + CHUNK_SIZE)]
                 dat = self.vectorizer.transform(chunk)
-                distances, _ = self.nn.kneighbors(dat, n_neighbors=1)
+                distances, _ = self.nn.kneighbors(dat)
                 all_distances.extend(distances)
         return all_distances
 
