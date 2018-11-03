@@ -75,6 +75,15 @@ class TokenizerTests(unittest.TestCase):
             self.assertEqual(
                 tokens_out, Tokenizer.process(raw_line))
 
+    def test_non_uuid_words(self):
+        tests = {
+            'dnsmasq-dhcp[31216]: DHCPRELEASE':
+            'dnsmasq dhcp DHCPRELEASE',
+        }
+        for raw_line, tokens_out in tests.items():
+            self.assertEqual(
+                tokens_out, Tokenizer.process(raw_line))
+
     def test_digits_tokenizing(self):
         tests = {
             'Started Session 2677 of user root':
