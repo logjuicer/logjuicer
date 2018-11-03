@@ -52,6 +52,7 @@ class Tokenizer:
         r'|unix_chkpwd.*: password check failed for user'
         r'|sshd.*: authentication failure'
         r'|sshd.*: Failed password for'
+        r'|sshd.*- POSSIBLE BREAK-IN ATTEMPT'
         # zuul random test
         r'|zuul.*echo BECOME-SUCCESS-'
         r'|^[^ ]{64}$'

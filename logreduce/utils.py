@@ -42,6 +42,7 @@ DEFAULT_IGNORE_PATHS = [
     "etc/systemd/",
     "etc/polkit-1/",
     "etc/pki/",
+    "etc/swift/.*\.builder",
     "group_vars/all.yaml",
     "keystone/credential-keys",
     "keystone/fernet-keys",
