@@ -41,7 +41,6 @@ class Cli:
             parser.print_help()
             exit(4)
         logreduce.utils.setup_logging(args.debug)
-        self.model_type = "hashing_nn"
         self.job = None
         self.exclude_file = logreduce.utils.DEFAULT_IGNORE_FILES
         self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
@@ -87,6 +86,9 @@ class Cli:
         parser.add_argument("--tmp-dir", default=os.getcwd())
         parser.add_argument("--cacheonly", action="store_true",
                             help="Do not download any logs")
+        parser.add_argument("--model-type", default="hashing_nn",
+                            choices=list(models.keys()),
+                            help="The model type")
 
         # Common arguments
         def path_filters(s):
@@ -139,9 +141,6 @@ class Cli:
         def model_filters(s):
             s.add_argument("--max-age", type=int, default=7,
                            help="Maximum age of a model")
-            s.add_argument("--model-type", default="hashing_nn",
-                           choices=list(models.keys()),
-                           help="The model type")
 
         def journal_filters(s):
             s.add_argument("--range", choices=("day", "week", "month"),
