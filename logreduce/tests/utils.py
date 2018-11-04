@@ -10,6 +10,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import socket
+from contextlib import closing
+
+
+def find_free_port():
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
+
+
 fake_result = {
     'anomalies_count': 18,
     'baselines': ['test_process.py'],

@@ -22,7 +22,7 @@ import logreduce.server.api as api
 import logreduce.server.client
 import logreduce.server.rpc as rpc
 
-from . utils import fake_build_result
+from . utils import fake_build_result, find_free_port
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -31,7 +31,7 @@ class APITest(helper.CPWebCase):
     @classmethod
     def setup_class(cls):
         cls.tmpfile = tempfile.mkstemp()[1]
-        cls.gearman = {'addr': '0.0.0.0', 'port': 4742}
+        cls.gearman = {'addr': '0.0.0.0', 'port': find_free_port()}
         cls.gear = rpc.Server(**cls.gearman)
         cls.gear.start()
         cls.downloadLog = []
