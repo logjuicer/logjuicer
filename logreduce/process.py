@@ -112,6 +112,13 @@ class Classifier:
         # Remove numbers and symbols
         return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
 
+    @staticmethod
+    def _is_log_classify_invocation(model_name, line):
+        """ Returns True if the line is related to log-classify"""
+        return model_name == "job-output.txt" and (
+            "TASK [log-classify " in line or
+            "TASK [Generate ara report]" in line)
+
     def train(self, baselines, command=sys.argv):
         """Train the model, baselines can be path(s) or build dict(s)"""
         start_time = time.monotonic()
@@ -154,16 +161,10 @@ class Classifier:
                 fobj = None
                 try:
                     fobj = open_file(filename)
-                    idx = 0
-                    while True:
-                        line = fobj.readline()
-                        if line == b'':
-                            break
+                    for line in fobj:
                         line = line.decode('ascii', errors='ignore')
                         # Special case to not train ourself
-                        if model_name == "job-output.txt" and (
-                                "TASK [log-classify " in line or
-                                "TASK [Generate ara report]" in line):
+                        if self._is_log_classify_invocation(model_name, line):
                             break
                         # Remove ansible std_lines list now
                         line = remove_ansible_std_lines_lists(line)
@@ -171,12 +172,11 @@ class Classifier:
                             sub_line = model.process_line(sub_line)
                             if sub_line:
                                 train_data.append(sub_line)
-                        idx += 1
+                        model.count += 1
                     try:
                         model.size += os.stat(filename).st_size
                     except TypeError:
                         pass
-                    model.count += idx
                 except KeyboardInterrupt:
                     exit(1)
                 except Exception:
@@ -291,15 +291,10 @@ class Classifier:
             try:
                 fobj = open_file(filename)
                 idx = 0
-                while True:
-                    line = fobj.readline()
-                    if line == b'':
-                        break
+                for line in fobj:
                     line = line.decode('ascii', errors='ignore')
                     # Special case to not test ourself
-                    if model_name == "job-output.txt" and (
-                            "TASK [log-classify " in line or
-                            "TASK [Generate ara report]" in line):
+                    if self._is_log_classify_invocation(model_name, line):
                         break
                     # Remove ansible std_lines list now
                     line = remove_ansible_std_lines_lists(line)
