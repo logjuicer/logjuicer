@@ -117,8 +117,54 @@ class HashingNeighbors(Model):
         return all_distances
 
 
+class HashingApproximateNeighbors(Model):
+    """ Approximate Nearest Neighbor Search.
+    This implementation is rather slow, logreduce-tests benchmark goes from
+    12sec to 60sec.
+    The code may be optimized to not record training data since we don't care
+    what the actual neighbor is, and it should simply return distance as float
+    and not str.
+
+    TODO: benchmark with higher sample size.
+    """
+    def __init__(self, name=""):
+        super().__init__(name)
+        self.vectorizer = HashingVectorizer(
+            binary=True,
+            analyzer=str.split, lowercase=False, tokenizer=None,
+            preprocessor=None, stop_words=None)
+
+    def train(self, train_data):
+        try:
+            import pysparnn.cluster_index as ci
+        except ImportError:
+            raise RuntimeError("Install this dependency to use this model: "
+                               "https://github.com/facebookresearch/pysparnn")
+        train_data = list(train_data)
+        dat = self.vectorizer.transform(train_data)
+        self.nn = ci.MultiClusterIndex(dat, train_data)
+        self.info = ''
+
+    def test(self, test_data):
+        all_distances = []
+        for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
+            chunk = test_data[chunk_pos:min(len(test_data),
+                                            chunk_pos + CHUNK_SIZE)]
+            dat = self.vectorizer.transform(chunk)
+            distances = self.nn.search(
+                dat, k=1, k_clusters=2, return_distance=True)
+            # Work around str format of distance...
+            for distance in distances:
+                if distance[0][0].startswith('-'):
+                    all_distances.append([0.0])
+                    continue
+                all_distances.append([float(distance[0][0])])
+        return all_distances
+
+
 models = {
     'bag-of-words_nn': SimpleNeighbors,
     'hashing_nn': HashingNeighbors,
+    'hashing_ann': HashingApproximateNeighbors,
     'noop': Noop,
 }
