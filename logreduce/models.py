@@ -14,7 +14,6 @@ import os
 import warnings
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.neighbors import LSHForest
 from sklearn.neighbors import NearestNeighbors
 from sklearn.feature_extraction.text import HashingVectorizer
 # from sklearn import svm
@@ -53,38 +52,6 @@ class Noop(Model):
     """Benchmark model"""
     def test(self, test_data):
         return [0.5] * len(test_data)
-
-
-class LSHF(Model):
-    """Forest model, faster for on large index (>20000 samples)"""
-    def __init__(self, name=""):
-        super().__init__(name)
-        self.vectorizer = TfidfVectorizer(
-            analyzer=str.split, lowercase=False, tokenizer=None,
-            preprocessor=None, stop_words=None)
-
-        self.lshf = LSHForest(
-            random_state=int(os.environ.get("LR_RANDOM_STATE", 42)),
-            n_estimators=int(os.environ.get("LR_N_ESTIMATORS", 23)))
-
-    def train(self, train_data):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            dat = self.vectorizer.fit_transform(train_data)
-            self.lshf.fit(dat)
-        self.info = "%d samples, %d features" % dat.shape
-        return dat
-
-    def test(self, test_data):
-        all_distances = []
-        with warnings.catch_warnings():
-            for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
-                chunk = test_data[chunk_pos:min(len(test_data),
-                                                chunk_pos + CHUNK_SIZE)]
-                dat = self.vectorizer.transform(chunk)
-                distances, _ = self.lshf.kneighbors(dat, n_neighbors=1)
-                all_distances.extend(distances)
-        return all_distances
 
 
 class SimpleNeighbors(Model):
@@ -151,7 +118,6 @@ class HashingNeighbors(Model):
 
 
 models = {
-    'bag-of-words_lshf': LSHF,
     'bag-of-words_nn': SimpleNeighbors,
     'hashing_nn': HashingNeighbors,
     'noop': Noop,
