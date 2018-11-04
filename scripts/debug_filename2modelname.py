@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -16,7 +16,7 @@
 
 import sys
 from logreduce.utils import files_iterator
-from logreduce.models import Classifier
+from logreduce.process import Classifier
 
 try:
     path = sys.argv[1]
