@@ -14,7 +14,9 @@
 
 """Script to debug line tokenization"""
 
+from collections import Counter
 import sys
+
 from logreduce.tokenizer import Tokenizer
 
 try:
@@ -23,6 +25,17 @@ except IndexError:
     print("usage: %s file" % sys.argv[0])
     exit(1)
 
+tokens_c = Counter()
+word_c = Counter()
 for line in open(path):
     print(line[:-1])
-    print("-> %s" % Tokenizer.process(line))
+    word_c.update(line.split())
+    tokens = Tokenizer.process(line)
+    tokens_c.update(tokens.split())
+    print("-> %s" % tokens)
+
+print("Total words: %d Total Tokens: %d" % (
+        len(word_c), len(tokens_c)))
+
+print("Top 10 words: %s", word_c.most_common(10))
+print("Top 10 Tokens: %s", tokens_c.most_common(10))
