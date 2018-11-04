@@ -13,6 +13,8 @@
 import os
 import warnings
 
+import numpy as np
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 from sklearn.feature_extraction.text import HashingVectorizer
@@ -163,9 +165,56 @@ class HashingApproximateNeighbors(Model):
         return all_distances
 
 
+class HashingAnnoy(Model):
+    """HashingAnnoy NN model.
+    logreduce-tests FAILED: 85.66% accuracy, 21.84% false-positive,
+    logreduce-tests benchmark: 56sec
+
+    TODO: test and benchmark with higher sample size.
+    """
+    def __init__(self, name=""):
+        try:
+            from annoy import AnnoyIndex
+        except ImportError:
+            raise RuntimeError("Install annoy library first")
+        super().__init__(name)
+        features = 2**13
+        self.vectorizer = HashingVectorizer(
+            binary=True, n_features=features,
+            analyzer=str.split, lowercase=False, tokenizer=None,
+            preprocessor=None, stop_words=None)
+        self.nn = AnnoyIndex(features)
+
+    def train(self, train_data):
+        dat = self.vectorizer.transform(train_data)
+        for idx in range(len(train_data)):
+            self.nn.add_item(idx, dat[idx].toarray()[0])
+        self.nn.build(10)  # n trees
+        self.info = "%d samples, %d features" % dat.shape
+        return dat
+
+    def test(self, test_data):
+        all_distances = []
+        dat = self.vectorizer.transform(test_data)
+        for v in dat:
+            d = self.nn.get_nns_by_vector(
+                v.toarray()[0], 1, include_distances=True)
+            all_distances.append([d[1][0]])
+        # normalize
+        # l1
+        # norm = np.sum(all_distances)
+        # l2
+        norm = np.sqrt(np.sum(np.square(all_distances)))
+        normalized_distances = all_distances / norm
+        # Scores are much lower, increase artificially here for now
+        normalized_distances *= 2
+        return normalized_distances
+
+
 models = {
     'bag-of-words_nn': SimpleNeighbors,
     'hashing_nn': HashingNeighbors,
     'hashing_ann': HashingApproximateNeighbors,
+    'hashing_annoy': HashingAnnoy,
     'noop': Noop,
 }
