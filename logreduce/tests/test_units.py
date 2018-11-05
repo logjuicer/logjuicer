@@ -91,7 +91,9 @@ class TokenizerTests(unittest.TestCase):
             'Instance 0xdeadbeef42 created':
             'Instance created',
             'systemd[4552]: Startup finished in 28ms.':
-            'systemd Startup finished'
+            'systemd Startup finished',
+            '764928K 33%  469M 3.05s':
+            ''
         }
         for raw_line, tokens_out in tests.items():
             self.assertEqual(
