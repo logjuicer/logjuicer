@@ -17,6 +17,11 @@ from logreduce.tokenizer import Tokenizer
 
 
 class TokenizerTests(unittest.TestCase):
+    def check_expected(self, tests):
+        for raw_line, tokens_out in tests.items():
+            self.assertEqual(
+                tokens_out, Tokenizer.process(raw_line))
+
     def test_random_words(self):
         tokens = Tokenizer.process("Created interface: br-42")
         self.assertNotIn("br-42", tokens)
@@ -24,20 +29,17 @@ class TokenizerTests(unittest.TestCase):
         self.assertEqual("Instance created", tokens)
 
     def test_hash_tokenizing(self):
-        tests = {
+        self.check_expected({
             'Accepted publickey: RSA '
             'SHA256:UkrwIX8QHA4B2Bny0XHyqgSXM7wFMQTEDtT+PpY9Ep4':
             'Accepted publickey RNGH',
             # This used to match 'jan' -> DATE
             'SHA256:FePTgARR5A3kxb2GJa0QAWjanaI2q+TvneBxzHNqbTA zuul@ze03':
             'RNGH zuul'
-        }
-        for raw_line, tokens_out in tests.items():
-            self.assertEqual(
-                tokens_out, Tokenizer.process(raw_line))
+        })
 
     def test_ipv6_tokenizing(self):
-        tests = {
+        self.check_expected({
             'mysql+pymysql://root:secretdatabase@[::1]/cinder?"':
             'mysql pymysql //root secretdatabase RNGI /cinder',
             'listen_port fe80::f816:3eff:fe47:5142':
@@ -46,46 +48,34 @@ class TokenizerTests(unittest.TestCase):
             'listen_port RNGI',
             'listen_port ::8888':
             'listen_port RNGI'
-        }
-        for raw_line, tokens_out in tests.items():
-            self.assertEqual(
-                tokens_out, Tokenizer.process(raw_line))
+        })
 
     def test_date_non_tokenizing(self):
         """Tests that should not match the DATE verb"""
-        tests = {
+        self.check_expected({
             'keys randomart image':
             'keys randomart image',
             'Start zuul_console daemon':
             'Start zuul_console daemon',
-        }
-        for raw_line, tokens_out in tests.items():
-            self.assertEqual(
-                tokens_out, Tokenizer.process(raw_line))
+        })
 
     def test_uuid_words(self):
-        tests = {
+        self.check_expected({
             '| 0473427f-f505-4b50-bc70-72fb6d74568a | vmname | SHUTOFF | -   '
             '       | Shutdown    | fixed=192.168.123.3 |':
             'RNGU vmname SHUTOFF Shutdown fixed RNGI',
             '"UndercloudServiceChain-2kbhkd45kcs3-ServiceChain-54rklv3rnxhe" ':
             'UndercloudServiceChain HEATID ServiceChain HEATID'
-        }
-        for raw_line, tokens_out in tests.items():
-            self.assertEqual(
-                tokens_out, Tokenizer.process(raw_line))
+        })
 
     def test_non_uuid_words(self):
-        tests = {
+        self.check_expected({
             'dnsmasq-dhcp[31216]: DHCPRELEASE':
             'dnsmasq dhcp DHCPRELEASE',
-        }
-        for raw_line, tokens_out in tests.items():
-            self.assertEqual(
-                tokens_out, Tokenizer.process(raw_line))
+        })
 
     def test_digits_tokenizing(self):
-        tests = {
+        self.check_expected({
             'Started Session 2677 of user root':
             'Started Session user root',
             'Instance 0xdeadbeef42 created':
@@ -94,10 +84,7 @@ class TokenizerTests(unittest.TestCase):
             'systemd Startup finished',
             '764928K 33%  469M 3.05s':
             ''
-        }
-        for raw_line, tokens_out in tests.items():
-            self.assertEqual(
-                tokens_out, Tokenizer.process(raw_line))
+        })
 
     def test_filename2modelname(self):
         for fname, modelname in (
