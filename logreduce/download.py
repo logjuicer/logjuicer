@@ -202,6 +202,8 @@ class ZuulBuilds:
             args += "&uuid=%s" % uuid
         if result:
             args += "&result=%s" % result
+        if count > 50:
+            args += "&limit=%d" % count
         if args:
             url = "%s?%s" % (url, args[1:])
         self.log.debug('Getting %s' % url)
