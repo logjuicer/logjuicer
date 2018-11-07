@@ -18,10 +18,11 @@ import logging
 import sqlite3
 import zlib
 import json
+import datetime
+import time
+
 try:
     from systemd import journal
-    import datetime
-    import time
     journal_installed = True
 except ImportError:
     journal_installed = False
@@ -192,11 +193,14 @@ class Journal:
         self.journal.close()
         del self.journal
 
-    def readline(self):
+    def __iter__(self):
+        return self
+
+    def __next__(self):
         entry = self.journal.get_next()
         ts = entry.get('__REALTIME_TIMESTAMP', datetime.datetime(1970, 1, 1))
         if not entry or (self.until and ts.timestamp() > self.until):
-            return b''
+            raise StopIteration
         facility = entry.get('SYSLOG_FACILITY')
         if isinstance(facility, int):
             entry['LEVEL'] = FACILITY2NAME.get(facility, 'NOTI').upper()
@@ -218,9 +222,12 @@ class AraReport:
         self.lines = []
         self.idx = 0
 
-    def readline(self):
+    def __iter__(self):
+        return self
+
+    def __next__(self):
         if self.idx >= len(self.lines):
-            return b''
+            raise StopIteration
         self.idx += 1
         return self.lines[self.idx - 1].encode('utf-8')
 
