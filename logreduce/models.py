@@ -84,8 +84,10 @@ class SimpleNeighbors(Model):
 
 
 class HashingNeighbors(Model):
-    """HashingVectorized NN model"""
-    # True random words
+    """ HashingVectorized NN model.
+    Fastest implementation for low sample sizes (<1e5),
+    logreduce-tests benchmark: 12sec
+    """
     def __init__(self, name=""):
         super().__init__(name)
         self.vectorizer = HashingVectorizer(
@@ -119,8 +121,7 @@ class HashingNeighbors(Model):
 
 class HashingApproximateNeighbors(Model):
     """ Approximate Nearest Neighbor Search.
-    This implementation is rather slow, logreduce-tests benchmark goes from
-    12sec to 60sec.
+    This implementation is rather slow, logreduce-tests benchmark: 60sec.
     The code may be optimized to not record training data since we don't care
     what the actual neighbor is, and it should simply return distance as float
     and not str.
