@@ -300,6 +300,18 @@ class AraReport:
         pass
 
 
+def json_dumps(report):
+    class JSONEncoder(json.JSONEncoder):
+        def default(self, o):
+            if isinstance(o, Journal):
+                return "<Journal %s>" % o.name
+            elif isinstance(o, AraReport):
+                return "<ARA %s>" % o.db_path
+            return json.JSONEncoder.default(self, o)
+
+    return json.dumps(report, cls=JSONEncoder)
+
+
 def open_file(p):
     if isinstance(p, Journal):
         p.open()
