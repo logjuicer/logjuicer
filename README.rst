@@ -178,6 +178,42 @@ API
 * GET /status: return the list of worker jobs
 
 
+Installation
+............
+
+Here is a brief documentation to setup the server components:
+
+.. code-block:: console
+
+   # Setup service
+   useradd -m -d /var/lib/logreduce -c "Logreduce Daemon" logreduce
+   mkdir /etc/logreduce /var/log/logreduce
+   chown -R logreduce /var/log/logreduce
+
+   # Copy configuration
+   cp etc/logreduce/config.yaml /etc/logreduce/
+   cp etc/httpd/log-classify.conf /etc/httpd/conf.d/
+   cp etc/systemd/*.service /lib/systemd/system
+   chown -R logreduce /var/log/logreduce
+
+   # Update configuration
+   # Edit public_url with the http server public address
+
+   # Start the service
+   systemctl enable logreduce-*
+   systemctl start logreduce-*
+   systemctl status logreduce-*
+   # -> status should display 'INFO logreduce.ServerWorker: Connected'
+   # -> /var/log/logreduce/worker.log should say 'Starting RPC listener'
+
+   # Build and install the web interface
+   cd web
+   yarn install
+   yarn build
+   rsync -a build/ /usr/share/log-classify/
+   # -> curl localhost/log-classify should return the index.html
+
+
 logreduce-tests
 ---------------
 
