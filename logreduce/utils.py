@@ -30,31 +30,31 @@ except ImportError:
 
 # Avoid those files that aren't useful for words analysis
 DEFAULT_IGNORE_PATHS = [
-    "zuul-info/",
+    'zuul-info/',
     '_zuul_ansible/',
     'ara[_-]*.*/',
     'etc/hostname',
     'etc/nodepool/provider',
     # sf-ci useless static files
-    "executor.*/trusted/",
+    'executor.*/trusted/',
     # tripleo-ci static files
-    "etc/selinux/targeted/",
-    "etc/sysconfig/",
-    "etc/systemd/",
-    "etc/polkit-1/",
-    "etc/pki/",
-    "etc/swift/.*\.builder",
-    "group_vars/all.yaml",
-    "keystone/credential-keys",
-    "keystone/fernet-keys",
+    'etc/selinux/targeted/',
+    'etc/sysconfig/',
+    'etc/systemd/',
+    'etc/polkit-1/',
+    'etc/pki/',
+    r'etc/swift/.*\.builder',
+    'group_vars/all.yaml',
+    'keystone/credential-keys',
+    'keystone/fernet-keys',
     # extra/logstash is already printed in deploy logs
-    "extra/logstash.txt",
-    "migration/identity.gz",
-    "swift/backups/",
-    "/conf.modules.d/",
-    "/lib/heat-config/heat-config-script/",
-    "\.git/",
-    "\.svn/",
+    'extra/logstash.txt',
+    'migration/identity.gz',
+    'swift/backups/',
+    '/conf.modules.d/',
+    '/lib/heat-config/heat-config-script/',
+    r'\.git/',
+    r'\.svn/',
 ]
 
 DEFAULT_IGNORE_FILES = [
