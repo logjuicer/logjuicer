@@ -106,16 +106,17 @@ class Cli:
             s.add_argument("--job",
                            help="The job name")
             s.add_argument("--branch", default='master',
-                           help="The branch name")
+                           help="The branch name [%(default)s]")
             s.add_argument("--pipeline",
                            help="The pipeline to fetch baseline from, "
                            "e.g. gate or periodic")
             s.add_argument("--project",
                            help="Build a model per project")
             s.add_argument("--zuul-web", default=DEFAULT_ZUUL_WEB,
-                           help="The zuul-web url (including the tenant name)")
+                           help="The zuul-web url (including the tenant name)"
+                           " [%(default)s]")
             s.add_argument("--count", type=int, default=1,
-                           help="The number of baseline to use")
+                           help="The number of baseline to use [%(default)s]")
 
         def report_filters(s):
             s.add_argument("--html", metavar="FILE", help="Render html result")
@@ -124,28 +125,32 @@ class Cli:
             s.add_argument("--static-location",
                            help="The js/css static directory location")
             s.add_argument("--threshold", default=0.2, type=float,
-                           help="Anomalies distance threshold")
+                           help="Anomalies distance threshold [%(default)s]")
             s.add_argument(
                 "--merge-distance", default=5, type=int,
-                help="Distance between chunks to merge in a continuous one")
+                help="Distance between chunks to merge in a continuous one"
+                " [%(default)s]")
             s.add_argument(
                 "--before-context", default=3, type=int,
-                help="Amount of lines to include before the anomaly")
+                help="Amount of lines to include before the anomaly"
+                " [%(default)s]")
             s.add_argument(
                 "--after-context", default=1, type=int,
-                help="Amount of lines to include after the anomaly")
+                help="Amount of lines to include after the anomaly"
+                " [%(default)s]")
             s.add_argument(
                 "--context-length", type=int,
                 help="Set both before and after context size")
 
         def model_filters(s):
             s.add_argument("--max-age", type=int, default=7,
-                           help="Maximum age of a model")
+                           help="Maximum age of a model [%(default)s]")
 
         def journal_filters(s):
             s.add_argument("--range", choices=("day", "week", "month"),
                            default="week",
-                           help="Training/testing time frame range")
+                           help="Training/testing time frame range "
+                           " [%(default)s]")
 
         # Sub command usages
         def model_check_usage(sub):
@@ -207,7 +212,8 @@ class Cli:
             s.set_defaults(func=self.job_run)
             report_filters(s)
             s.add_argument("--zuul-web", default=DEFAULT_ZUUL_WEB,
-                           help="The zuul-web url (including the tenant name)")
+                           help="The zuul-web url (including the tenant name)"
+                           " [%(default)s]")
             path_filters(s)
             s.add_argument("model_file")
             s.add_argument("logs_url", help="The CI logs url or a local dir")
