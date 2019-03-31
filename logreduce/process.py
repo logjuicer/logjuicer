@@ -447,6 +447,7 @@ class Classifier:
                                                         filename,
                                                         pos + 1,
                                                         line))
+                        last_pos = pos
 
             # Compute mean distances of outliers
             mean_distance = 0

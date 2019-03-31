@@ -179,12 +179,12 @@ def render_logfile(dom, filename, data, source_links, expanded=False):
     last_pos = None
     for idx in range(len(data["scores"])):
         pos, dist = data["scores"][idx]
+        if last_pos and last_pos != pos and pos - last_pos != 1:
+            lines_dom.append("<hr class='ls' />")
         line = data["lines"][idx]
         lines_dom.append(
             "<font color='#%02x0000'>%1.3f | %04d: %s</font><br />" % (
                 int(255 * dist), dist, pos + 1, html.escape(line)))
-        if last_pos and last_pos != pos and pos - last_pos != 1:
-            lines_dom.append("<hr class='ls' />")
         last_pos = pos
 
     expand = " hidden"
