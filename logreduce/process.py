@@ -442,7 +442,7 @@ class Classifier:
                     if console_output:
                         if last_pos and last_pos != pos and \
                                 pos - last_pos != 1:
-                            print()
+                            print("--")
                         print("%1.3f | %s:%04d:\t%s" % (distance,
                                                         filename,
                                                         pos + 1,
