@@ -92,11 +92,11 @@ class Cli:
 
         # Common arguments
         def path_filters(s):
-            s.add_argument("--include-path",
+            s.add_argument("-i", "--include-path",
                            help="Logserver extra logs path")
-            s.add_argument("--exclude-file", action='append', default=[],
+            s.add_argument("-x", "--exclude-file", action='append', default=[],
                            help="Filename (basename) exclude regexp")
-            s.add_argument("--exclude-path", action='append', default=[],
+            s.add_argument("-X", "--exclude-path", action='append', default=[],
                            help="Path exclude regexp")
             s.add_argument("--test-prefix",
                            help="Local path mapping to logserver directory. "
@@ -122,32 +122,32 @@ class Cli:
             s.add_argument("--html", metavar="FILE", help="Render html result")
             s.add_argument("--json", metavar="FILE",
                            help="Optional json output")
-            s.add_argument("--static-location",
+            s.add_argument("-d", "--static-location",
                            help="The js/css static directory location")
-            s.add_argument("--threshold", default=0.2, type=float,
+            s.add_argument("-t", "--threshold", default=0.2, type=float,
                            help="Anomalies distance threshold [%(default)s]")
             s.add_argument(
-                "--merge-distance", default=5, type=int,
+                "-M", "--merge-distance", default=5, type=int,
                 help="Distance between chunks to merge in a continuous one"
                 " [%(default)s]")
             s.add_argument(
-                "--before-context", default=3, type=int,
+                "-B", "--before-context", default=3, type=int,
                 help="Amount of lines to include before the anomaly"
                 " [%(default)s]")
             s.add_argument(
-                "--after-context", default=1, type=int,
+                "-A", "--after-context", default=1, type=int,
                 help="Amount of lines to include after the anomaly"
                 " [%(default)s]")
             s.add_argument(
-                "--context-length", type=int,
+                "-C", "--context-length", type=int,
                 help="Set both before and after context size")
 
         def model_filters(s):
-            s.add_argument("--max-age", type=int, default=7,
+            s.add_argument("-m", "--max-age", type=int, default=7,
                            help="Maximum age of a model [%(default)s]")
 
         def journal_filters(s):
-            s.add_argument("--range", choices=("day", "week", "month"),
+            s.add_argument("-r", "--range", choices=("day", "week", "month"),
                            default="week",
                            help="Training/testing time frame range "
                            " [%(default)s]")
