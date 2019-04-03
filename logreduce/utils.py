@@ -55,6 +55,7 @@ DEFAULT_IGNORE_PATHS = [
     '/lib/heat-config/heat-config-script/',
     r'\.git/',
     r'\.svn/',
+    '/proc/net/',
 ]
 
 DEFAULT_IGNORE_FILES = [
