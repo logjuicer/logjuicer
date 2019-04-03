@@ -120,6 +120,7 @@ BLACKLIST_EXTENSIONS = (
     ".pyc",
     ".pyo",
     "ring.gz",
+    ".raw",
     ".rpm",
     ".so",
     ".sqlite",
