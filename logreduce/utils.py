@@ -56,6 +56,7 @@ DEFAULT_IGNORE_PATHS = [
     r'\.git/',
     r'\.svn/',
     '/proc/net/',
+    r'plugin-suse_.*\.txt',
 ]
 
 DEFAULT_IGNORE_FILES = [
