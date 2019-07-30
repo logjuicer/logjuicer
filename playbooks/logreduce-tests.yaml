@@ -1,7 +1,7 @@
 ---
 - hosts: all
   vars:
-    venv_dir: "/tmp/venv"
+    venv_dir: "{{ ansible_env.HOME }}/{{ zuul.project.src_dir }}/../venv"
     logreduce_dir: "{{ zuul.project.src_dir }}/../logreduce"
     logreduce_tests_dir: "{{ zuul.project.src_dir }}/../logreduce-tests"
   tasks:
