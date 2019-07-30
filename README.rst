@@ -150,8 +150,8 @@ to the previous one:
   $ logreduce journal-run --range week good-journal.clf
 
 
-Server component
-----------------
+Server component (Experimental)
+-------------------------------
 
 A server component may be deployed to build an anomaly database and produce
 dataset. This initial implementation is focused on Zuul builds and it
@@ -189,6 +189,9 @@ Here is a brief documentation to setup the server components:
    useradd -m -d /var/lib/logreduce -c "Logreduce Daemon" logreduce
    mkdir /etc/logreduce /var/log/logreduce
    chown -R logreduce /var/log/logreduce
+
+   # Install extra requirements
+   sudo -u logreduce pip3 install --user "logreduce[server]"
 
    # Copy configuration
    cp etc/logreduce/config.yaml /etc/logreduce/
