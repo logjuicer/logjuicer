@@ -61,6 +61,15 @@ BuildRequires:  patternfly-react-ui-deps
 The logreduce web interface
 
 
+%package mqtt
+Summary:        The logreduce mqtt client
+Requires:       %{?scl_prefix}logreduce = %version
+Requires:       %{?scl_prefix}python-paho-mqtt
+
+%description mqtt
+The logreduce mqtt client
+
+
 %prep
 %autosetup -n logreduce-%{version} -p1
 rm -Rf requirements.txt test-requirements.txt *.egg-info
@@ -79,7 +88,7 @@ sed -e 's#/usr/share/#/opt/rh/rh-python35/root/usr/share/#' \
 sed -e 's#/usr/bin/#/opt/rh/rh-python35/root/usr/bin/#'        \
     -e 's#/etc/logreduce/#/etc/opt/rh/rh-python35/logreduce/#' \
     -e 's#^ExecStart#EnvironmentFile=-/etc/opt/rh/rh-python35/sysconfig/enable-py3\nExecStart#' \
-    -i etc/systemd/logreduce-server.service etc/systemd/logreduce-worker.service
+    -i etc/systemd/logreduce-server.service etc/systemd/logreduce-worker.service etc/systemd/logreduce-mqtt.service
 
 pushd web
 ln -s /opt/patternfly-react-ui-deps/node_modules/ node_modules
@@ -95,6 +104,7 @@ PBR_VERSION=%{version} %{__python3} setup.py install -O1 --skip-build --root %{b
 %{?scl:EOF}
 install -p -D -m 0644 etc/systemd/logreduce-server.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-server.service
 install -p -D -m 0644 etc/systemd/logreduce-worker.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-worker.service
+install -p -D -m 0644 etc/systemd/logreduce-mqtt.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-mqtt.service
 install -p -D -m 0644 etc/logreduce/config.yaml %{buildroot}%{_sysconfdir}/logreduce/config.yaml
 install -p -D -m 0644 etc/httpd/log-classify.conf %{buildroot}/etc/httpd/conf.d/log-classify.conf
 install -p -d -m 0700 %{buildroot}%{_sharedstatedir}/logreduce
@@ -112,16 +122,23 @@ getent passwd logreduce >/dev/null || \
 %systemd_post %{?scl_prefix}logreduce-server.service
 %post worker
 %systemd_post %{?scl_prefix}logreduce-worker.service
+%post mqtt
+%systemd_post %{?scl_prefix}logreduce-mqtt.service
 
 %preun server
 %systemd_preun %{?scl_prefix}logreduce-server.service
 %preun worker
 %systemd_preun %{?scl_prefix}logreduce-worker.service
+%preun mqtt
+%systemd_preun %{?scl_prefix}logreduce-mqtt.service
 
 %postun server
 %systemd_postun %{?scl_prefix}logreduce-server.service
 %postun worker
 %systemd_postun %{?scl_prefix}logreduce-worker.service
+%postun mqtt
+%systemd_postun %{?scl_prefix}logreduce-mqtt.service
+
 
 %files
 %license LICENSE
@@ -143,6 +160,10 @@ getent passwd logreduce >/dev/null || \
 %files worker
 %{_bindir}/logreduce-worker
 %{_unitdir}/%{?scl_prefix}logreduce-worker.service
+
+%files mqtt
+%{_bindir}/logreduce-mqtt
+%{_unitdir}/%{?scl_prefix}logreduce-mqtt.service
 
 %files webui
 %{_datadir}/log-classify
