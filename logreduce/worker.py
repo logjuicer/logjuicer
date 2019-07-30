@@ -73,15 +73,16 @@ class Process:
                 self.log.warning("Can't re-use %s (%s)", model_file, e)
             return None, None
         # check for per project/branch model built
-        self.clf, self.mf = load_model(os.path.join(
-            self.lib_path, self.job, "%s-%s.clf" % (self.prj, self.brh)))
-        if self.clf:
-            return
-        # check for per project model built
-        self.clf, self.mf = load_model(os.path.join(
-            self.lib_path, self.job, "%s.clf" % (self.prj)))
-        if self.clf:
-            return
+        if self.request.get("per-project", True):
+            self.clf, self.mf = load_model(os.path.join(
+                self.lib_path, self.job, "%s-%s.clf" % (self.prj, self.brh)))
+            if self.clf:
+                return
+            # check for per project model built
+            self.clf, self.mf = load_model(os.path.join(
+                self.lib_path, self.job, "%s.clf" % (self.prj)))
+            if self.clf:
+                return
         # check for per job/branch model built
         self.clf, self.mf = load_model(os.path.join(
             self.lib_path, self.job, "%s.clf" % self.brh))
@@ -116,9 +117,13 @@ class Process:
             baselines = get_baselines(
                 pipeline=pipeline, project=self.project, branch=self.branch)
             if baselines:
-                self.model_file = os.path.join(
-                    self.lib_path, self.job,
-                    "%s-%s.clf" % (self.prj, self.brh))
+                if self.request.get("per-project", True):
+                    self.model_file = os.path.join(
+                        self.lib_path, self.job,
+                        "%s-%s.clf" % (self.prj, self.brh))
+                else:
+                    self.model_file = os.path.join(
+                        self.lib_path, self.job, "%s.clf" % self.brh)
         # todo: look for project without branch filter
         if not baselines:
             # check for pipeline
@@ -217,7 +222,7 @@ class Process:
         ###############################
         # Step 7, Run target analysis #
         ###############################
-        report = self.clf.process(
+        self.report = self.clf.process(
             self.build,
             threshold=float(0.2),
             merge_distance=5,
@@ -230,6 +235,6 @@ class Process:
         # Step 8, Convert report for database injestion #
         #################################################
         return logreduce.server.client.prepare_report(
-            report,
+            self.report,
             name=self.request['name'],
             reporter=self.request['reporter'])
