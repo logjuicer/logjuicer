@@ -43,8 +43,12 @@ class ProcessTests(unittest.TestCase):
         logreduce.process.Classifier.check(model)
         # joblib load reset the seek for io bytes, bypass model check in test
         model = io.BytesIO(model.read())
-        import sklearn
-        clf = sklearn.externals.joblib.load(model)
+        try:
+            from sklearn.externals import joblib
+        except ImportError:
+            # Recent sklearn library doesn't vendor joblib anymore
+            import joblib
+        clf = joblib.load(model)
 
         # Re-use the model with another test file
         target = os.path.join(os.path.dirname(baseline), "test_units.py")

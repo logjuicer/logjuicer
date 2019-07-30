@@ -22,7 +22,11 @@ import uuid
 import numpy as np
 import sklearn.utils.validation
 import sklearn.exceptions
-import sklearn.externals
+try:
+    from sklearn.externals import joblib
+except ImportError:
+    # Recent sklearn library doesn't vendor joblib anymore
+    import joblib
 
 from logreduce.models import models
 from logreduce.tokenizer import remove_ansible_std_lines_lists
@@ -63,7 +67,7 @@ class Classifier:
             fileobj = open(fileobj, 'wb')
         fileobj.write(b'LGRD')
         fileobj.write(struct.pack('I', self.version))
-        sklearn.externals.joblib.dump(self, fileobj, compress=True)
+        joblib.dump(self, fileobj, compress=True)
         self.log.debug("%s: written" % fileobj.name)
 
     @staticmethod
@@ -81,7 +85,7 @@ class Classifier:
         if isinstance(fileobj, str):
             fileobj = open(fileobj, 'rb')
         Classifier.check(fileobj)
-        return sklearn.externals.joblib.load(fileobj)
+        return joblib.load(fileobj)
 
     @staticmethod
     def filename2modelname(filename):
