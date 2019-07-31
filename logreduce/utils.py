@@ -100,6 +100,8 @@ DEFAULT_IGNORE_FILES = [
     'password.gz',
     'moduli',
     'screen-dstat',
+    'atop.bin',
+    'log-size.txt',
 ]
 
 BLACKLIST_EXTENSIONS = (
@@ -128,6 +130,8 @@ BLACKLIST_EXTENSIONS = (
     ".subunit",
     ".svg",
     ".tgz",
+    ".tar",
+    ".tar.bz2",
     ".ttf",
     ".woff",
     ".xml",
