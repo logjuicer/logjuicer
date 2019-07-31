@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import copy
 import urllib.parse
 import os
 import logging
@@ -31,6 +32,13 @@ class Process:
         self.logserver_folder = kwargs["server"].get(
             "logserver_folder", "~/logs")
         self.request = request
+        self.exclude_files = copy.copy(logreduce.utils.DEFAULT_IGNORE_FILES)
+        if request.get("exclude-files"):
+            self.exclude_files.extend(request["exclude-files"])
+        self.exclude_paths = copy.copy(logreduce.utils.DEFAULT_IGNORE_PATHS)
+        if request.get("exclude-paths"):
+            self.exclude_paths.extend(request["exclude-paths"])
+        self.exclude_lines = request.get("exclude-lines")
         zuul_url = self.kwargs["server"].get("zuul_url")
         if request.get("url"):
             zuul_url = request["url"]
@@ -179,7 +187,11 @@ class Process:
         ################################
         train_args.append('/'.join(self.model_file.split('/')[-2:]))
         self.mf = self.model_file
-        self.clf = Classifier("hashing_nn")
+        self.clf = Classifier(
+            "hashing_nn",
+            exclude_paths=self.exclude_paths,
+            exclude_files=self.exclude_files,
+            exclude_lines=self.exclude_lines)
         self.log.debug("Starting training of %s for %s", baselines, train_args)
         self.clf.train(
             baselines, command=["logreduce", "job-train"] + train_args)
@@ -208,8 +220,10 @@ class Process:
                 url,
                 logspath,
                 trim=self.build['log_url'],
-                exclude_files=logreduce.utils.DEFAULT_IGNORE_FILES,
-                exclude_paths=logreduce.utils.DEFAULT_IGNORE_PATHS,
+                exclude_files=self.exclude_files if self.exclude_files else
+                logreduce.utils.DEFAULT_IGNORE_FILES,
+                exclude_paths=self.exclude_paths if self.exclude_paths else
+                logreduce.utils.DEFAULT_IGNORE_PATHS,
                 exclude_extensions=logreduce.utils.BLACKLIST_EXTENSIONS
             ).wait()
         self.build['local_path'] = logspath

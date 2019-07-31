@@ -46,6 +46,7 @@ class MQTTWorker:
         self.model_dest = self.config["mqtt"].get("model_dest", "").rstrip('/')
         self.log_dest = self.config["mqtt"].get("log_dest", "").rstrip('/')
         self.do_rsync = self.config["mqtt"].get("rsync", False)
+        self.filters = self.config.get("filters", {})
 
     def start(self):
         self.log.info("Starting MQTTWorker")
@@ -132,6 +133,9 @@ class MQTTWorker:
                 "name": build["uuid"],
                 "reporter": "mqtt",
                 "per-project": False,
+                "exclude-files": self.filters.get("exclude_files"),
+                "exclude-paths": self.filters.get("exclude_paths"),
+                "exclude-lines": self.filters.get("exclude_lines"),
             })
             phase = 'train'
             process.train()
