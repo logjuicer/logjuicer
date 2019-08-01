@@ -13,6 +13,7 @@
 import io
 import unittest
 import os
+import tempfile
 
 import logreduce.process
 
@@ -77,3 +78,31 @@ class ProcessTests(unittest.TestCase):
         assert isinstance(scores[0][0], int), 'line number wrong type'
         assert isinstance(scores[0][1], float), 'distance wrong type'
         assert scores[0][0] > 0, 'license matched as anomaly'
+
+    def test_process_exclude_lines(self):
+        # Generate two log file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            baseline = os.path.join(tmpdir, "good")
+            target = os.path.join(tmpdir, "bad")
+            with open(baseline, "w") as good, open(target, "w") as bad:
+                for f in (good, bad):
+                    f.write("01: Server created\n")
+                    f.write("02: Bootloader initialized\n")
+                good.write("03: Kernel started\n")
+                bad.write("03: Kernel failed to start\n")
+                # Add false positive
+                bad.write("False positive line\n")
+                bad.write("XXXXXXXXXXXXXXXXXXXXXXXXX\n")
+
+            clf = logreduce.process.Classifier(exclude_lines=[
+                "^[Ff]alse positive line$",
+                "^[A-Z]{25}$"
+            ])
+            clf.merge_distance = 0
+            clf.before_context = 0
+            clf.after_context = 0
+            clf.train(baseline)
+            for file_result in clf.test(target):
+                filename, _, model, outliers, test_time = file_result
+                assert len(outliers) == 1
+                assert outliers[0][2] == "03: Kernel failed to start\n"

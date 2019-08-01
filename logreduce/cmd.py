@@ -44,6 +44,7 @@ class Cli:
         self.job = None
         self.exclude_file = logreduce.utils.DEFAULT_IGNORE_FILES
         self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
+        self.exclude_line = []
         self.include_path = []
         self.test_prefix = None
         self.ara_database = False
@@ -53,6 +54,8 @@ class Cli:
                 self.exclude_file.extend(v)
             elif k == "exclude_path":
                 self.exclude_path.extend(v)
+            elif k == "exclude_line":
+                self.exclude_line.extend(v)
             elif k in ("logs_url", "model_file", "target", "baseline",
                        "target_dir"):
                 # function argument
@@ -98,6 +101,8 @@ class Cli:
                            help="Filename (basename) exclude regexp")
             s.add_argument("-X", "--exclude-path", action='append', default=[],
                            help="Path exclude regexp")
+            s.add_argument("-f", "--exclude-line", action='append',
+                           default=[], help="Log line exclude regexp")
             s.add_argument("--test-prefix",
                            help="Local path mapping to logserver directory. "
                            "(e.g.: 'controller/logs' for '/opt/stack/logs')")
@@ -475,6 +480,7 @@ class Cli:
                 trim=logs_url,
                 exclude_files=self.exclude_file,
                 exclude_paths=self.exclude_path,
+                exclude_lines=self.exclude_line,
                 exclude_extensions=logreduce.utils.BLACKLIST_EXTENSIONS).wait()
         return target_dir
 
