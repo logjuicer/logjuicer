@@ -43,17 +43,24 @@ class Classifier:
     version = 5
 
     def __init__(self,
-                 model='bag-of-words_nn', exclude_paths=[], exclude_files=[]):
+                 model='bag-of-words_nn',
+                 exclude_paths=[], exclude_files=[], exclude_lines=[]):
         self.models = {}
         self.model_name = model
         self.exclude_paths = exclude_paths
         self.exclude_files = exclude_files
+        self.exclude_lines = None
+        if exclude_lines:
+            self.exclude_lines = re.compile(r'|'.join(exclude_lines))
         self.test_prefix = None
         # Default
         self.threshold = 0.2
         self.merge_distance = 5
         self.before_context = 2
         self.after_context = 2
+
+    def is_filtered(self, line):
+        return self.exclude_lines and self.exclude_lines.match(line)
 
     def get(self, model_name):
         return self.models.setdefault(model_name,
@@ -175,6 +182,8 @@ class Classifier:
                         # Remove ansible std_lines list now
                         line = remove_ansible_std_lines_lists(line)
                         for sub_line in line.split(r'\r'):
+                            if self.is_filtered(sub_line):
+                                continue
                             sub_line = model.process_line(sub_line)
                             if sub_line:
                                 train_data.add(sub_line)
@@ -311,6 +320,8 @@ class Classifier:
                     line = remove_ansible_std_lines_lists(line)
                     data.append(line)
                     for sub_line in line.split(r'\r'):
+                        if self.is_filtered(sub_line):
+                            continue
                         sub_line = model.process_line(sub_line)
                         if sub_line in test_data_set:
                             dup_pos[idx] = test_data.index(sub_line)
