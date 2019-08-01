@@ -209,13 +209,14 @@ def render_logfile(dom, filename, data, source_links, expanded=False):
               <div class="list-group-item-heading">
                 {filename}
               </div>
-              <div class="list-group-item-text">
-                (<a href="{loglink}">log link</a>)
-              </div>
             </div>
             <div class="list-view-pf-additional-info-item" id='debuginfo'>
               <span class="pficon pficon-registry"></span>
               <a href="{model_link}">{model_name}</a> model
+            </div>
+            <div class="list-view-pf-additional-info-item">
+              <span class="fa fa-external-link"></span>
+              <a href="{loglink}">file</a></strong>
             </div>
             <div class="list-view-pf-additional-info-item">
               <span class="fa fa-bug"></span>
