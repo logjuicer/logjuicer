@@ -118,6 +118,7 @@ BLACKLIST_EXTENSIONS = (
     ".json.txt",
     "_key",
     ".key",
+    ".pcap.log",
     ".pem",
     ".png",
     ".pyc",
