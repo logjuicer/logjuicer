@@ -113,6 +113,9 @@ class Classifier:
                     ".xml", ".html", ".txt", ".py", ".json", ".yml"):
             if ext in filename:
                 shortfilename += ext
+        # Merge .log.txt with .log because containers stdout
+        # may be split between .log and .log.txt files...:
+        shortfilename = shortfilename.replace(".log.txt", ".log")
         # Remove UUID in filename
         shortfilename = Tokenizer.uuid_re.subn('', shortfilename)[0]
         # Remove numbers and symbols
