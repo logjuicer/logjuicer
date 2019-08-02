@@ -132,7 +132,6 @@ BLACKLIST_EXTENSIONS = (
     ".svg",
     ".tgz",
     ".tar",
-    ".tar.bz2",
     ".ttf",
     ".woff",
     ".xml",
@@ -366,6 +365,7 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
                             fname.endswith("%s.gz" % skip) or
                             fname.endswith("%s.txt.gz" % skip) or
                             fname.endswith("%s.bz2" % skip) or
+                            fname.endswith("%s.bzip2" % skip) or
                             fname.endswith("%s.xz" % skip)]:
                         continue
                     fpath = os.path.join(dname, fname)
