@@ -42,6 +42,8 @@ class TokenizerTests(unittest.TestCase):
         self.check_expected({
             'mysql+pymysql://root:secretdatabase@[::1]/cinder?"':
             'mysql pymysql //root secretdatabase RNGI /cinder',
+            'bind-address=fd00:fd00:fd00:2000::1f':
+            'bind address RNGI',
             'listen_port fe80::f816:3eff:fe47:5142':
             'listen_port RNGI',
             'listen_port FE80::F816:3eff:fe47:5142':
