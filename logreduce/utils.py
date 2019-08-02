@@ -331,7 +331,10 @@ def open_file(p):
             return gzip.open(p, mode='r')
     elif p.endswith(".xz"):
         return lzma.open(p, mode='r')
-    return open(p, 'rb')
+    fobj = open(p, 'rb')
+    # Try to decode the first few byte to detect binary files
+    fobj.peek(32).decode('utf-8')
+    return fobj
 
 
 def files_iterator(paths, ign_files=[], ign_paths=[]):

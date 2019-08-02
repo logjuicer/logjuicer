@@ -195,6 +195,8 @@ class Classifier:
                         model.size += os.stat(filename).st_size
                     except TypeError:
                         pass
+                except UnicodeDecodeError:
+                    self.log.info("%s: not a valid utf-8 file", filename)
                 except KeyboardInterrupt:
                     exit(1)
                 except Exception:
@@ -339,6 +341,8 @@ class Classifier:
                 except TypeError:
                     pass
                 self.testing_lines_count += idx
+            except UnicodeDecodeError:
+                self.log.info("%s: not a valid utf-8 file", filename)
             except KeyboardInterrupt:
                 exit(1)
             except Exception:
