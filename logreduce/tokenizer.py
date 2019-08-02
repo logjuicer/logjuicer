@@ -60,10 +60,15 @@ class Tokenizer:
         r'|ovs-ofctl .* (dump-ports|dump-flows|show)\b'
         r'|(ip|eb)tables .* -L\b'
     )
+    # See https://en.wikipedia.org/wiki/Percent-encoding
+    uri_percent_re = re.compile(r'%[2345][0-9A-F]')
     ip_re = re.compile(r'%s|%s|%s' % (IPV4_RE, IPV6_RE, MAC_RE))
-    power2_re = re.compile(r'\b(?:[\w+/]{128}|[\w+/]{64}|'
-                           r'[0-9a-fA-F]{40}|[0-9a-fA-F]{32})\b')
-    uuid_re = re.compile(r'\b(?:%s|tx[^ ]{32})\b' % UUID_RE, re.I)
+    # For some unknown reason, '_' in (?=) doesn't work in prefix match
+    #  re.sub(r'(?=\b|_)test(?=\b|_)',   'RNG', 'AUTH_test_')  -> doesn't work
+    #  re.sub(r'(?=\b|_)_?test(?=\b|_)', 'RNG', 'AUTH_test_')  -> works
+    power2_re = re.compile(r'(?=\b|_)_?(?:[\w+/]{128}|[\w+/]{64}|'
+                           r'[0-9a-fA-F]{40}|[0-9a-fA-F]{32})(?=\b|_)')
+    uuid_re = re.compile(r'(?=\b|_)_?(?:%s|tx[^ ]{32})(?=\b|_)' % UUID_RE, re.I)
     date_re = re.compile(r'\b(?:%s|%s|%s|%s)\b' % (DAYS, SHORT_DAYS,
                                                    SHORT_MONTHS, MONTHS), re.I)
     heat_re = re.compile(r'-\w{12}[- \"$]')
@@ -83,6 +88,8 @@ class Tokenizer:
         if Tokenizer.rawline_re.search(line):
             return ''
         strip = line
+        # Break URI percent encoding
+        strip = Tokenizer.uri_percent_re.sub(" ", strip)
         # Remove words that are exactly 32, 64 or 128 character longs
         strip = Tokenizer.power2_re.sub("RNGN", strip)
         # Remove uuid

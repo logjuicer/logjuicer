@@ -40,7 +40,7 @@ class Classifier:
     log = logging.getLogger("logreduce.Classifier")
     # Bump this version when models created with earlier versions
     # should be rejected
-    version = 5
+    version = 6
 
     def __init__(self,
                  model='bag-of-words_nn',

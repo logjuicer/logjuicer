@@ -67,7 +67,11 @@ class TokenizerTests(unittest.TestCase):
             '       | Shutdown    | fixed=192.168.123.3 |':
             'RNGU vmname SHUTOFF Shutdown fixed RNGI',
             '"UndercloudServiceChain-2kbhkd45kcs3-ServiceChain-54rklv3rnxhe" ':
-            'UndercloudServiceChain HEATID ServiceChain HEATID'
+            'UndercloudServiceChain HEATID ServiceChain HEATID',
+            'GET /1/339/AUTH_4f271e48b7dd480f916056948c76dd7f/'
+            'zaqar_subscription%3Atripleo%3A832822a81f7a4917ac5321b72fcdbbf5'
+            '/f0d6a4ec-9f94-4c12-bb6b-d1943856410e':
+            '///AUTHRNGN/zaqar_subscription tripleo RNGN/RNGU'
         })
 
     def test_non_uuid_words(self):
