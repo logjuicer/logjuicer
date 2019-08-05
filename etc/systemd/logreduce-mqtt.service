@@ -1,0 +1,13 @@
+[Unit]
+Description=Logreduce MQTT Service
+After=network.target
+
+[Service]
+Type=simple
+User=logreduce
+Group=logreduce
+SyslogIdentifier=logreduce-mqtt
+ExecStart=/usr/bin/logreduce-mqtt -c /etc/logreduce/config.yaml
+
+[Install]
+WantedBy=multi-user.target
