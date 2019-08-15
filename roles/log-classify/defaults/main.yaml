@@ -1,7 +1,5 @@
 # Set optin to False to disable log-classify
 logclassify_optin: True
-# Set report to True to hijack the reported log url
-logclassify_report: False
 
 # How many job logs to use for building the model
 logclassify_model_job_count: 2
