@@ -12,10 +12,6 @@
   set_fact:
     _model_path: "{{ logclassify_model_dir }}/{{ _model_name }}"
 
-- name: Set report name
-  set_fact:
-    _report_name: "{% if logclassify_report %}report{% else %}log-classify{% endif %}"
-
 - name: Create directories
   file:
     path: "{{ item }}"
@@ -92,7 +88,7 @@
             {{ logclassify_local_dir }}/job-output.txt
         {% endif %}
       {% endif %}
-      --html {{ logclassify_tmp_dir }}/{{ _report_name }}.html
+      --html {{ logclassify_tmp_dir }}/log-classify.html
       {% if logclassify_static_location %}--static-location {{ logclassify_static_location }}{% endif %}
       {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
       {% for _path in logclassify_exclude_paths %}--exclude-path {{ _path }}{% endfor %}
@@ -104,8 +100,8 @@
 
 - name: Fetch report
   synchronize:
-    src: "{{ logclassify_tmp_dir }}/{{ _report_name }}.{{ item }}"
-    dest: "{{ zuul.executor.log_root }}/{{ _report_name }}.{{ item }}"
+    src: "{{ logclassify_tmp_dir }}/log-classify.{{ item }}"
+    dest: "{{ zuul.executor.log_root }}/log-classify.{{ item }}"
     mode: pull
   with_items:
     - html

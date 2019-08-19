@@ -2,16 +2,16 @@
 - name: Check for report file
   delegate_to: localhost
   stat:
-    path: "{{ zuul.executor.log_root }}/report.html"
+    path: "{{ zuul.executor.log_root }}/log-classify.html"
   register: _report_file
 
-- name: Set zuul.log_url fact to the report URL
+- name: Return the report artifact
+  when:
+    - _report_file.stat.exists
   delegate_to: localhost
   zuul_return:
     data:
       zuul:
-        log_url: "{{ zuul_log_url }}/{{ zuul_log_path }}/report.html"
-  when:
-    - _report_file.stat.exists
-    - zuul_log_url is defined
-    - zuul_log_path is defined
+        artifacts:
+          - name: "LogReduce report"
+            url: "log-classify.html"
