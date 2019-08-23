@@ -47,17 +47,25 @@ class Classifier:
                  exclude_paths=[], exclude_files=[], exclude_lines=[]):
         self.models = {}
         self.model_name = model
-        self.exclude_paths = exclude_paths
-        self.exclude_files = exclude_files
-        self.exclude_lines = None
-        if exclude_lines:
-            self.exclude_lines = re.compile(r'|'.join(exclude_lines))
         self.test_prefix = None
         # Default
         self.threshold = 0.2
         self.merge_distance = 5
         self.before_context = 2
         self.after_context = 2
+        self.exclude_paths = []
+        self.exclude_files = []
+        self.exclude_lines = None
+        self.set_filters(exclude_paths, exclude_files, exclude_lines)
+
+    def set_filters(self, exclude_paths, exclude_files, exclude_lines):
+        if exclude_paths:
+            self.exclude_paths = exclude_paths
+        if exclude_files:
+            self.exclude_files = exclude_files
+        if exclude_lines:
+            self.exclude_lines = re.compile(r'|'.join(exclude_lines))
+        self.exclude_lines_raw = exclude_lines
 
     def is_filtered(self, line):
         return self.exclude_lines and self.exclude_lines.match(line)
@@ -87,12 +95,16 @@ class Classifier:
             raise RuntimeError("Invalid version")
 
     @staticmethod
-    def load(fileobj):
+    def load(fileobj, exclude_paths=[], exclude_files=[], exclude_lines=[]):
         """Load a saved model"""
         if isinstance(fileobj, str):
             fileobj = open(fileobj, 'rb')
         Classifier.check(fileobj)
-        return joblib.load(fileobj)
+        obj = joblib.load(fileobj)
+        if not exclude_lines:
+            exclude_lines = obj.exclude_lines_raw
+        obj.set_filters(exclude_paths, exclude_files, exclude_lines)
+        return obj
 
     @staticmethod
     def filename2modelname(filename):

@@ -74,7 +74,10 @@ class Process:
         def load_model(model_file):
             try:
                 if os.path.isfile(model_file):
-                    clf = Classifier.load(model_file)
+                    clf = Classifier.load(model_file,
+                                          exclude_paths=self.exclude_paths,
+                                          exclude_files=self.exclude_files,
+                                          exclude_lines=self.exclude_lines)
                     self.log.info("Re-using %s", model_file)
                     return clf, model_file
             except Exception as e:

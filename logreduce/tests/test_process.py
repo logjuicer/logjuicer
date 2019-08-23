@@ -13,12 +13,32 @@
 import io
 import unittest
 import os
+import re
 import tempfile
 
 import logreduce.process
 
 
 class ProcessTests(unittest.TestCase):
+    def test_model_save_load(self):
+        # Create a model
+        clf = logreduce.process.Classifier(
+            exclude_files=["test.txt"], exclude_lines=["foo", "bar"])
+        expected_exclude_lines = re.compile(r'|'.join(["foo", "bar"]))
+        expected_exclude_files = ["test.txt"]
+        assert clf.exclude_lines == expected_exclude_lines
+        assert clf.exclude_files == expected_exclude_files
+        with tempfile.NamedTemporaryFile() as tmpfile:
+            clf.save(tmpfile.name)
+            clf = logreduce.process.Classifier.load(tmpfile.name)
+            assert clf.exclude_lines == expected_exclude_lines
+            assert clf.exclude_files == expected_exclude_files
+
+            # Also test exclude can be overriden on load
+            clf = logreduce.process.Classifier.load(
+                tmpfile.name, exclude_files=["test.txt", "new.txt"])
+            assert clf.exclude_files == ["test.txt", "new.txt"]
+
     def test_process_diff(self):
         # Compare two python test files
         clf = logreduce.process.Classifier()
