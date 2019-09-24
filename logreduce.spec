@@ -1,9 +1,6 @@
-%{?scl:%scl_package logreduce}
-%{!?scl:%global pkg_name %{name}}
-
-Name:           %{?scl_prefix}logreduce
-Version:        0.3.0
-Release:        2%{?dist}
+Name:           logreduce
+Version:        0.5.0
+Release:        1%{?dist}
 Summary:        Extract anomalies from log files
 
 License:        ASL 2.0
@@ -12,19 +9,16 @@ Source0:        http://tarball.softwarefactory-project.io/logreduce/logreduce-%{
 
 BuildArch:      noarch
 
-BuildRequires:  %{?scl_prefix}python-devel
-BuildRequires:  %{?scl_prefix}python-setuptools
-BuildRequires:  %{?scl_prefix}python-pbr
+BuildRequires:  python3-devel
+BuildRequires:  python3-setuptools
+BuildRequires:  python3-pbr
 
-Requires:       %{?scl_prefix}python-setuptools
-Requires:       %{?scl_prefix}python-pbr
-Requires:       %{?scl_prefix}python-aiohttp
-Requires:       %{?scl_prefix}python-requests
-Requires:       %{?scl_prefix}python-scikit-learn
-Requires:       %{?scl_prefix}PyYAML
-
-%{?scl:Requires: %{scl}-runtime}
-%{?scl:BuildRequires: %{scl}-runtime}
+Requires:       python3-setuptools
+Requires:       python3-pbr
+Requires:       python3-aiohttp
+Requires:       python3-requests
+Requires:       python3-scikit-learn
+Requires:       python3-pyyaml
 
 %description
 Extract anomalies from log files
@@ -32,13 +26,13 @@ Extract anomalies from log files
 
 %package server
 Summary:        The logreduce server
-Requires:       %{?scl_prefix}logreduce = %version
-Requires:       %{?scl_prefix}python-alembic
-Requires:       %{?scl_prefix}python-sqlalchemy
-Requires:       %{?scl_prefix}python-cherrypy
-Requires:       %{?scl_prefix}python-routes
-Requires:       %{?scl_prefix}python-voluptuous
-Requires:       %{?scl_prefix}python-gear
+Requires:       logreduce = %version
+Requires:       python3-alembic
+Requires:       python3-sqlalchemy
+Requires:       python3-cherrypy
+Requires:       python3-routes
+Requires:       python3-voluptuous
+Requires:       python3-gear
 
 %description server
 The logreduce server
@@ -46,8 +40,8 @@ The logreduce server
 
 %package worker
 Summary:        The logreduce worker
-Requires:       %{?scl_prefix}logreduce = %version
-Requires:       %{?scl_prefix}python-gear
+Requires:       logreduce = %version
+Requires:       python3-gear
 
 %description worker
 The logreduce worker
@@ -63,8 +57,8 @@ The logreduce web interface
 
 %package mqtt
 Summary:        The logreduce mqtt client
-Requires:       %{?scl_prefix}logreduce = %version
-Requires:       %{?scl_prefix}python-paho-mqtt
+Requires:       logreduce = %version
+Requires:       python3-paho-mqtt
 
 %description mqtt
 The logreduce mqtt client
@@ -76,19 +70,8 @@ rm -Rf requirements.txt test-requirements.txt *.egg-info
 
 
 %build
-%{?scl:scl enable %{scl} - << \EOF}
-PBR_VERSION=%{version} %{__python3} setup.py build
-%{?scl:EOF}
-# TODO: make this replace conditional only when SCL is enabled
-sed -e 's#/var/lib/logreduce#/var/opt/rh/rh-python35/lib/logreduce#' \
-    -e 's#/var/log/logreduce#/var/opt/rh/rh-python35/log/logreduce#' \
-    -i etc/logreduce/config.yaml
-sed -e 's#/usr/share/#/opt/rh/rh-python35/root/usr/share/#' \
-    -i etc/httpd/log-classify.conf
-sed -e 's#/usr/bin/#/opt/rh/rh-python35/root/usr/bin/#'        \
-    -e 's#/etc/logreduce/#/etc/opt/rh/rh-python35/logreduce/#' \
-    -e 's#^ExecStart#EnvironmentFile=-/etc/opt/rh/rh-python35/sysconfig/enable-py3\nExecStart#' \
-    -i etc/systemd/logreduce-server.service etc/systemd/logreduce-worker.service etc/systemd/logreduce-mqtt.service
+export PBR_VERSION=%{version}
+%py3_build
 
 pushd web
 ln -s /opt/patternfly-react-ui-deps/node_modules/ node_modules
@@ -99,12 +82,12 @@ popd
 %install
 install -p -d -m 0755 %{buildroot}/%{_datadir}/log-classify
 mv web/build/* %{buildroot}/%{_datadir}/log-classify
-%{?scl:scl enable %{scl} - << \EOF}
-PBR_VERSION=%{version} %{__python3} setup.py install -O1 --skip-build --root %{buildroot}
-%{?scl:EOF}
-install -p -D -m 0644 etc/systemd/logreduce-server.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-server.service
-install -p -D -m 0644 etc/systemd/logreduce-worker.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-worker.service
-install -p -D -m 0644 etc/systemd/logreduce-mqtt.service %{buildroot}%{_unitdir}/%{?scl_prefix}logreduce-mqtt.service
+export PBR_VERSION=%{version}
+%py3_install
+
+install -p -D -m 0644 etc/systemd/logreduce-server.service %{buildroot}%{_unitdir}/logreduce-server.service
+install -p -D -m 0644 etc/systemd/logreduce-worker.service %{buildroot}%{_unitdir}/logreduce-worker.service
+install -p -D -m 0644 etc/systemd/logreduce-mqtt.service %{buildroot}%{_unitdir}/logreduce-mqtt.service
 install -p -D -m 0644 etc/logreduce/config.yaml %{buildroot}%{_sysconfdir}/logreduce/config.yaml
 install -p -D -m 0644 etc/httpd/log-classify.conf %{buildroot}/etc/httpd/conf.d/log-classify.conf
 install -p -d -m 0700 %{buildroot}%{_sharedstatedir}/logreduce
@@ -119,25 +102,25 @@ getent passwd logreduce >/dev/null || \
   useradd -r -g logreduce -G logreduce -d %{_sharedstatedir}/logreduce -s /sbin/nologin -c "Logreduce Daemon" logreduce
 
 %post server
-%systemd_post %{?scl_prefix}logreduce-server.service
+%systemd_post logreduce-server.service
 %post worker
-%systemd_post %{?scl_prefix}logreduce-worker.service
+%systemd_post logreduce-worker.service
 %post mqtt
-%systemd_post %{?scl_prefix}logreduce-mqtt.service
+%systemd_post logreduce-mqtt.service
 
 %preun server
-%systemd_preun %{?scl_prefix}logreduce-server.service
+%systemd_preun logreduce-server.service
 %preun worker
-%systemd_preun %{?scl_prefix}logreduce-worker.service
+%systemd_preun logreduce-worker.service
 %preun mqtt
-%systemd_preun %{?scl_prefix}logreduce-mqtt.service
+%systemd_preun logreduce-mqtt.service
 
 %postun server
-%systemd_postun %{?scl_prefix}logreduce-server.service
+%systemd_postun logreduce-server.service
 %postun worker
-%systemd_postun %{?scl_prefix}logreduce-worker.service
+%systemd_postun logreduce-worker.service
 %postun mqtt
-%systemd_postun %{?scl_prefix}logreduce-mqtt.service
+%systemd_postun logreduce-mqtt.service
 
 
 %files
@@ -153,22 +136,25 @@ getent passwd logreduce >/dev/null || \
 %files server
 %{_bindir}/logreduce-server
 %config(noreplace) /etc/httpd/conf.d/log-classify.conf
-%{_unitdir}/%{?scl_prefix}logreduce-server.service
+%{_unitdir}/logreduce-server.service
 %dir %attr(0755, logreduce, logreduce) /var/www/log-classify/logs
 %dir %attr(0755, logreduce, logreduce) /var/www/log-classify/anomalies
 
 %files worker
 %{_bindir}/logreduce-worker
-%{_unitdir}/%{?scl_prefix}logreduce-worker.service
+%{_unitdir}/logreduce-worker.service
 
 %files mqtt
 %{_bindir}/logreduce-mqtt
-%{_unitdir}/%{?scl_prefix}logreduce-mqtt.service
+%{_unitdir}/logreduce-mqtt.service
 
 %files webui
 %{_datadir}/log-classify
 
 %changelog
+* Wed Sep 25 2019 Tristan Cacqueray <tdecacqu@redhat.com> - 0.5.0-1
+- Remove SCL macros
+
 * Mon Jul  9 2018 Tristan Cacqueray <tdecacqu@redhat.com> - 0.1.0-2
 - Add server service
 
