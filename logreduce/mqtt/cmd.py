@@ -46,6 +46,7 @@ class MQTTWorker:
         self.model_dest = self.config["mqtt"].get("model_dest", "").rstrip('/')
         self.log_dest = self.config["mqtt"].get("log_dest", "").rstrip('/')
         self.do_rsync = self.config["mqtt"].get("rsync", False)
+        self.only_model = self.config["mqtt"].get("only_model", False)
         self.filters = self.config.get("filters", {})
 
     def start(self):
@@ -137,6 +138,9 @@ class MQTTWorker:
                 "exclude-paths": self.filters.get("exclude_paths"),
                 "exclude-lines": self.filters.get("exclude_lines"),
             })
+            if self.only_model and process.loadModel():
+                self.log.info("%s: model already built %s", build["uuid"], process.mf)
+                return
             phase = 'train'
             process.train()
             phase = 'test'

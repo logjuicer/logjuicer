@@ -66,8 +66,10 @@ class Process:
         self.lib_path = os.path.join(
             self.kwargs["server"]["models_folder"],
             urllib.parse.urlsplit(self.build["log_url"]).netloc)
+        self.clf = None
 
-    def train(self):
+    def loadModel(self):
+        """Returns True if an existing model is found"""
         #################################
         # Step 2, check for local model #
         #################################
@@ -83,28 +85,34 @@ class Process:
             except Exception as e:
                 self.log.warning("Can't re-use %s (%s)", model_file, e)
             return None, None
+        # check for model already discovered/supplied
+        if self.clf:
+            return True
         # check for per project/branch model built
         if self.request.get("per-project", True):
             self.clf, self.mf = load_model(os.path.join(
                 self.lib_path, self.job, "%s-%s.clf" % (self.prj, self.brh)))
             if self.clf:
-                return
+                return True
             # check for per project model built
             self.clf, self.mf = load_model(os.path.join(
                 self.lib_path, self.job, "%s.clf" % (self.prj)))
             if self.clf:
-                return
+                return True
         # check for per job/branch model built
         self.clf, self.mf = load_model(os.path.join(
             self.lib_path, self.job, "%s.clf" % self.brh))
         if self.clf:
-            return
+            return True
         # check for per job model built
         self.clf, self.mf = load_model(
             os.path.join(self.lib_path, "%s.clf" % self.job))
         if self.clf:
-            return
+            return True
 
+    def train(self):
+        if self.loadModel():
+            return
         # No model found, let's try to build a new one
 
         ###################################
