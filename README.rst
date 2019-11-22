@@ -150,6 +150,31 @@ to the previous one:
   $ logreduce journal-run --range week good-journal.clf
 
 
+Filters configuration
+.....................
+
+Some content yields false positives that can be ignored through filters.
+Using the `--config` command line attribute, filters can be set for
+exclude_files, exclude_paths and exclude_lines. Here is an example
+filters configuration file:
+
+.. code-block:: yaml
+
+   filters:
+     exclude_files:
+       - "deployment-hieradata.j2.yaml"
+       - "tempest.html"
+     exclude_paths:
+       - "group_vars/Compute"
+       - "group_vars/Controller"
+       - "group_vars/Undercloud"
+     exclude_lines:
+       # neutron dhcp interface
+       - "^tap[^ ]*$"
+       # IPA cookies
+       - "^.*[Cc]ookie.*ipa_session="
+
+
 Server component (Experimental)
 -------------------------------
 

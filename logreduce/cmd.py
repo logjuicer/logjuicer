@@ -63,12 +63,22 @@ class Cli:
             else:
                 # class member variables
                 self.__dict__[k] = v
+
+        # Add config default
+        config = yaml.safe_load(open(args.config)) if args.config else {}
+        for k in ("exclude_lines", "exclude_files", "exclude_paths"):
+            if config.get('filters', {}).get(k):
+                # class attribute are singular, without the 's'
+                attribute = k[:-1]
+                getattr(self, attribute).extend(config['filters'][k])
+
         # Convenient trick
         if "logs.openstack.org" in kwargs.get('logs_url', ""):
             self.zuul_web = "http://zuul.openstack.org/api"
         if "logs.rdoproject.org" in kwargs.get('logs_url', ""):
             self.zuul_web = "https://softwarefactory-project.io/zuul/api/" \
                             "tenant/rdoproject.org"
+
         # Remove ara-report exclude
         if self.ara_database:
             try:
@@ -85,6 +95,8 @@ class Cli:
     def usage(self):
         parser = argparse.ArgumentParser()
         parser.set_defaults(func=None)
+        parser.add_argument("--config",
+                            help="Config file for defaults filters")
         parser.add_argument("--debug", action="store_true", help="Print debug")
         parser.add_argument("--tmp-dir", default=os.getcwd())
         parser.add_argument("--cacheonly", action="store_true",
