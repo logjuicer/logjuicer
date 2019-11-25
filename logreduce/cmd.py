@@ -492,7 +492,6 @@ class Cli:
                 trim=logs_url,
                 exclude_files=self.exclude_file,
                 exclude_paths=self.exclude_path,
-                exclude_lines=self.exclude_line,
                 exclude_extensions=logreduce.utils.BLACKLIST_EXTENSIONS).wait()
         return target_dir
 
