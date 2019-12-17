@@ -1,5 +1,7 @@
+%global with_ui 0
+
 Name:           logreduce
-Version:        0.5.0
+Version:        0.5.1
 Release:        1%{?dist}
 Summary:        Extract anomalies from log files
 
@@ -46,14 +48,14 @@ Requires:       python3-gear
 %description worker
 The logreduce worker
 
-
+%if %{with_ui}
 %package webui
 Summary:        The logreduce web interface
 BuildRequires:  patternfly-react-ui-deps
 
 %description webui
 The logreduce web interface
-
+%endif
 
 %package mqtt
 Summary:        The logreduce mqtt client
@@ -73,17 +75,21 @@ rm -Rf requirements.txt test-requirements.txt *.egg-info
 export PBR_VERSION=%{version}
 %py3_build
 
+%if %{with_ui}
 pushd web
 ln -s /opt/patternfly-react-ui-deps/node_modules/ node_modules
 PUBLIC_URL="/log-classify/" ./node_modules/.bin/yarn build
 popd
-
+%endif
 
 %install
 install -p -d -m 0755 %{buildroot}/%{_datadir}/log-classify
-mv web/build/* %{buildroot}/%{_datadir}/log-classify
 export PBR_VERSION=%{version}
 %py3_install
+
+%if %{with_ui}
+mv web/build/* %{buildroot}/%{_datadir}/log-classify
+%endif
 
 install -p -D -m 0644 etc/systemd/logreduce-server.service %{buildroot}%{_unitdir}/logreduce-server.service
 install -p -D -m 0644 etc/systemd/logreduce-worker.service %{buildroot}%{_unitdir}/logreduce-worker.service
@@ -148,10 +154,15 @@ getent passwd logreduce >/dev/null || \
 %{_bindir}/logreduce-mqtt
 %{_unitdir}/logreduce-mqtt.service
 
+%if %{with_ui}
 %files webui
 %{_datadir}/log-classify
+%endif
 
 %changelog
+* Tue Dec 17 2019 Tristan Cacqueray <tdecacqu@redhat.com> - 0.5.1-1
+- Do not build web ui by default
+
 * Wed Sep 25 2019 Tristan Cacqueray <tdecacqu@redhat.com> - 0.5.0-1
 - Remove SCL macros
 
