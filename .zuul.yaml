@@ -10,7 +10,7 @@
     nodeset:
       nodes:
         - name: container
-          label: runc-fedora
+          label: pod-fedora-31
 
 - project:
     name: logreduce
@@ -21,12 +21,12 @@
             nodeset:
               nodes:
                 - name: testrunner
-                  label: runc-fedora
-        - tox-py35:
+                  label: pod-fedora-31
+        - tox-py37:
             nodeset:
               nodes:
                 - name: testrunner
-                  label: runc-fedora
+                  label: pod-fedora-31
     gate:
       jobs:
         - logreduce-tests
@@ -34,12 +34,12 @@
             nodeset:
               nodes:
                 - name: testrunner
-                  label: runc-fedora
-        - tox-py35:
+                  label: pod-fedora-31
+        - tox-py37:
             nodeset:
               nodes:
                 - name: testrunner
-                  label: runc-fedora
+                  label: pod-fedora-31
     release:
       jobs:
         - upload-pypi

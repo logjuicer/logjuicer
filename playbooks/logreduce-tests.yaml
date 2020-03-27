@@ -6,7 +6,7 @@
     logreduce_tests_dir: "{{ zuul.project.src_dir }}/../logreduce-tests"
   tasks:
     - name: Prepare virtualenv
-      command: virtualenv-3 --system-site-packages "{{ venv_dir }}"
+      command: virtualenv --system-site-packages "{{ venv_dir }}"
 
     - name: Install logreduce
       command: "{{ venv_dir }}/bin/python setup.py develop"
