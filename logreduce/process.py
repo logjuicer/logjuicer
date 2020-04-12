@@ -112,6 +112,10 @@ class Classifier:
         # Special case for job-output which is stored at top-level
         if filename.startswith("job-output.txt"):
             return "job-output.txt"
+        # Special case for k8s logs
+        basename = os.path.basename(filename)
+        if basename.startswith("k8s_"):
+            return basename.split('-')[0]
         # Only keep parent directory and first component of the basename
         shortfilename = os.path.join(
             re.subn(r'[a-z0-9]*[0-9][a-z0-9]*[^\s\/-]*', "", os.path.basename(
