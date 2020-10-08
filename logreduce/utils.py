@@ -420,9 +420,5 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         if os.path.basename(sys.argv[1]) == "ansible.sqlite":
             report = AraReport(sys.argv[1])
-            report.open()
-            while True:
-                line = report.readline()
-                if not line:
-                    break
+            for line in report.open():
                 print(line[:-1].decode('utf-8'))

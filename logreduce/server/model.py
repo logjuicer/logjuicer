@@ -12,6 +12,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+# mypy doesn't play well with sqlalchemy.orm, skip type for now here
+# type: ignore
+
 import copy
 import datetime
 import logging

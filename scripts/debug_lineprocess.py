@@ -25,8 +25,8 @@ except IndexError:
     print("usage: %s [file]..." % sys.argv[0])
     exit(1)
 
-tokens_c = Counter()
-word_c = Counter()
+tokens_c = Counter()  # type: ignore
+word_c = Counter()  # type: ignore
 line_set = set()
 for path in sys.argv[1:]:
     for line in open(path):

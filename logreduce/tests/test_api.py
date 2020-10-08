@@ -43,14 +43,14 @@ class APITest(helper.CPWebCase):
         os.unlink(cls.tmpfile)
         cls.gear.stop()
 
-    def setup_server():
+    def setup_server():  # type: ignore
         def fake_handle_download_log(_, url, dest):
             APITest.downloadLog.append((url, dest))
         api.ServerWorker.handle_download_log = fake_handle_download_log
         srv = api.Server(dburi="sqlite:///%s" % APITest.tmpfile, tests=True,
                          gearman=APITest.gearman)
         srv.api.rpc.start()
-    setup_server = staticmethod(setup_server)
+    setup_server = staticmethod(setup_server)  # type: ignore
 
     def postData(self, path, data=None, method='POST'):
         if data:

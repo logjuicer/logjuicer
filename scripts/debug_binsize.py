@@ -28,7 +28,7 @@ except IndexError:
 
 binsize = {}
 
-groups = {}
+groups = {}  # type: ignore
 for filename, filename_rel in files_iterator(path):
     bag_name = Classifier.filename2modelname(filename_rel)
     groups.setdefault(bag_name, []).append(filename)

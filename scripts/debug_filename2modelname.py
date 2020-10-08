@@ -24,7 +24,7 @@ except IndexError:
     print("usage: %s dir" % sys.argv[0])
     exit(1)
 
-groups = {}
+groups = {}  # type: ignore
 for filename, filename_rel in files_iterator(path):
     bag_name = Classifier.filename2modelname(filename_rel)
     groups.setdefault(bag_name, []).append(filename)
