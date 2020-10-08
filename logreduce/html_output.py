@@ -14,6 +14,9 @@ import html
 import os.path
 import pkg_resources
 
+from typing import Any, List, Tuple
+from logreduce.data import Result
+
 LOGO = """
 iVBORw0KGgoAAAANSUhEUgAAABcAAAAXBAMAAAASBMmTAAAAFVBMVEU6feU9geVjl+WMsOUicOXA
 z+X///9aF/8vAAAAAXRSTlMAQObYZgAAAAFiS0dEAIgFHUgAAAAJcEhZcwAACxMAAAsTAQCanBgA
@@ -88,7 +91,7 @@ $(".list-group-item-container .close").on("click", function (){
 """
 
 
-def render_unmatch_list(dom, output):
+def render_unmatch_list(dom: List[str], output: Result) -> None:
     if output.get("unknown_files"):
         dom.append("<br /><h2>Unmatched file in previous success logs</h2>")
         dom.append("<ul>")
@@ -97,7 +100,7 @@ def render_unmatch_list(dom, output):
         dom.append("</ul>")
 
 
-def table(dom, columns, rows):
+def table(dom: List[str], columns: List[str], rows: List[List[str]]) -> None:
     dom.append(
         "<div id='debuginfo' style='overflow-x: auto'>"
         "<table style='white-space: nowrap; margin: 0px' "
@@ -111,7 +114,8 @@ def table(dom, columns, rows):
     dom.append("<tbody>")
     for row in rows:
         if columns and len(row) > len(columns):
-            dom.append("<tr id='%s'>" % row.pop())
+            # TODO: make row id an explicit attribute
+            dom.append("<tr id='%s'>" % row.pop())  # type: ignore
         else:
             dom.append("<tr>")
         for col in row:
@@ -120,21 +124,21 @@ def table(dom, columns, rows):
     dom.append("</tbody></table><br /></div>")
 
 
-def render_result_info(dom, output):
+def render_result_info(dom: List[str], output: Result):
     rows = []
     if output.get("train_command"):
-        rows.append(("Test command", output["train_command"]))
-    rows.append(("Command", output["test_command"]))
+        rows.append(["Test command", output["train_command"]])
+    rows.append(["Command", output["test_command"]])
     rows.append(
-        ("Targets", "%s" % " ".join(map(html.escape, map(str, output["targets"]))))
+        ["Targets", "%s" % " ".join(map(html.escape, map(str, output["targets"])))]
     )
     rows.append(
-        ("Baselines", "%s" % " ".join(map(html.escape, map(str, output["baselines"]))))
+        ["Baselines", "%s" % " ".join(map(html.escape, map(str, output["baselines"])))]
     )
-    rows.append(("Anomalies count", output["anomalies_count"]))
-    rows.append(("Run time", "%.2f seconds" % output["total_time"]))
+    rows.append(["Anomalies count", str(output["anomalies_count"])])
+    rows.append(["Run time", "%.2f seconds" % output["total_time"]])
     rows.append(
-        (
+        [
             "Reduction",
             "%02.2f%% (from %d lines to %d)"
             % (
@@ -142,30 +146,30 @@ def render_result_info(dom, output):
                 output["testing_lines_count"],
                 output["outlier_lines_count"],
             ),
-        )
+        ]
     )
     table(dom, columns=[], rows=rows)
 
 
-def render_result_table(dom, files_sorted):
+def render_result_table(dom: List[str], files_sorted: List[Tuple[str, Any]]) -> None:
     columns = ["Anomaly count", "Filename", "Test time", "Model"]
-    rows = []
+    rows: List[List[str]] = []
     for filename, data in files_sorted:
         if not data["scores"]:
             continue
         rows.append(
-            (
-                len(data["scores"]),
+            [
+                str(len(data["scores"])),
                 "<a href='#%s'>%s</a> (<a href='%s'>log link</a>)"
                 % (filename.replace("/", "_"), filename, data["file_url"]),
                 "%.2f sec" % data["test_time"],
                 "<a href='#model_%s'>%s</a>" % (data["model"], data["model"]),
-            )
+            ]
         )
     table(dom, columns, rows)
 
 
-def render_model_table(dom, model_sorted, links):
+def render_model_table(dom, model_sorted, links) -> None:
     columns = ["Model", "Train time", "Infos", "Baseline files"]
     rows = []
     for model_name, data in model_sorted:
@@ -181,7 +185,7 @@ def render_model_table(dom, model_sorted, links):
     table(dom, columns, rows)
 
 
-def render_logfile(dom, filename, data, source_links, expanded=False):
+def render_logfile(dom, filename, data, source_links, expanded=False) -> None:
     lines_dom = []
     last_pos = None
     for idx in range(len(data["scores"])):
@@ -259,7 +263,7 @@ def render_logfile(dom, filename, data, source_links, expanded=False):
     return
 
 
-def render_html(output, static_location=None):
+def render_html(output: Result, static_location: str = None) -> str:
     if static_location:
         jquery_loc = static_location + "/js/jquery.min.js"
         bootst_loc = static_location + "/bootstrap"
@@ -272,7 +276,7 @@ def render_html(output, static_location=None):
     ptnfly_css_loc = "%s/css/patternfly.min.css" % ptnfly_loc
     ptnfly_cssa_loc = "%s/css/patternfly-additions.min.css" % ptnfly_loc
 
-    body = []
+    body: List[str] = []
 
     render_result_info(body, output)
 

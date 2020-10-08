@@ -4,3 +4,4 @@ numpy
 scipy
 scikit-learn
 PyYAML
+typing-extensions; python_version < '3.8'

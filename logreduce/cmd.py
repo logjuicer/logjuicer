@@ -22,6 +22,7 @@ import yaml
 import logreduce.download
 import logreduce.utils
 
+from typing import List, Optional
 from logreduce.process import Classifier
 from logreduce.html_output import render_html
 from logreduce.models import models
@@ -36,6 +37,12 @@ class Cli:
     log = logging.getLogger("LogReduce")
 
     def __init__(self):
+        self.context_length = None
+        self.json = None
+        self.html = None
+        self.threshold = None
+        self.merge_distance = None
+        self.static_location = None
         parser = self.usage()
         args = parser.parse_args()
         if not args.func:
@@ -568,7 +575,12 @@ class Cli:
         clf.include_path = self.include_path
         return clf
 
-    def _report(self, clf, target_dirs, target_source=None):
+    def _report(
+        self,
+        clf: Classifier,
+        target_dirs: List[str],
+        target_source: Optional[str] = None,
+    ) -> None:
         if self.context_length is not None:
             self.before_context = self.context_length
             self.after_context = self.context_length

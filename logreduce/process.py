@@ -29,6 +29,9 @@ except ImportError:
     # Recent sklearn library doesn't vendor joblib anymore
     import joblib
 
+from typing import List, Optional
+
+from logreduce.data import Result
 from logreduce.models import models
 from logreduce.tokenizer import remove_ansible_std_lines_lists
 from logreduce.tokenizer import Tokenizer
@@ -478,22 +481,23 @@ class Classifier:
 
     def process(
         self,
-        path,
-        path_source=None,
-        threshold=0.2,
-        merge_distance=5,
-        before_context=3,
-        after_context=1,
-        console_output=False,
-        command=sys.argv,
-    ):
+        path: List[str],
+        path_source: Optional[str] = None,
+        threshold: float = 0.2,
+        merge_distance: int = 5,
+        before_context: int = 3,
+        after_context: int = 1,
+        console_output: bool = False,
+        command: List[str] = sys.argv,
+    ) -> Result:
         """Process target and create a report"""
         start_time = time.monotonic()
         self.threshold = threshold
         self.merge_distance = merge_distance
         self.before_context = before_context
         self.after_context = after_context
-        output = {
+        # Initial Result type is ignored because it is currently incomplete.
+        output: Result = {  # type: ignore
             "files": {},
             "unknown_files": [],
             "models": {},
