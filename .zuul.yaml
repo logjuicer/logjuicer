@@ -14,10 +14,10 @@
 
 - project:
     name: logreduce
-    check:
+    check: &jobs
       jobs:
         - logreduce-tests
-        - tox-pep8:
+        - tox-linters:
             nodeset:
               nodes:
                 - name: testrunner
@@ -27,19 +27,7 @@
               nodes:
                 - name: testrunner
                   label: pod-fedora-31
-    gate:
-      jobs:
-        - logreduce-tests
-        - tox-pep8:
-            nodeset:
-              nodes:
-                - name: testrunner
-                  label: pod-fedora-31
-        - tox-py37:
-            nodeset:
-              nodes:
-                - name: testrunner
-                  label: pod-fedora-31
+    gate: *jobs
     release:
       jobs:
         - upload-pypi

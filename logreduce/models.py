@@ -18,6 +18,7 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 from sklearn.feature_extraction.text import HashingVectorizer
+
 # from sklearn import svm
 
 from logreduce.tokenizer import Tokenizer
@@ -25,12 +26,12 @@ from logreduce.tokenizer import Tokenizer
 # Query chunk size, it seems to improve memory footprint of kneighbors call
 CHUNK_SIZE = int(os.environ.get("LR_CHUNK_SIZE", 512))
 # Disable multiprocessing by default
-os.environ["JOBLIB_MULTIPROCESSING"] = os.environ.get(
-    "LR_MULTIPROCESSING", "0")
+os.environ["JOBLIB_MULTIPROCESSING"] = os.environ.get("LR_MULTIPROCESSING", "0")
 
 
 class Model:
     """Base class for model"""
+
     def __init__(self, name):
         self.name = name
         self.sources = []
@@ -52,20 +53,24 @@ class Model:
 
 class Noop(Model):
     """Benchmark model"""
+
     def test(self, test_data):
         return [0.5] * len(test_data)
 
 
 class SimpleNeighbors(Model):
     """Simple NN model"""
+
     def __init__(self, name=""):
         super().__init__(name)
         self.vectorizer = TfidfVectorizer(
-            analyzer=str.split, lowercase=False, tokenizer=None,
-            preprocessor=None, stop_words=None)
-        self.nn = NearestNeighbors(
-            algorithm='brute',
-            metric='cosine')
+            analyzer=str.split,
+            lowercase=False,
+            tokenizer=None,
+            preprocessor=None,
+            stop_words=None,
+        )
+        self.nn = NearestNeighbors(algorithm="brute", metric="cosine")
 
     def train(self, train_data):
         dat = self.vectorizer.fit_transform(train_data)
@@ -77,8 +82,9 @@ class SimpleNeighbors(Model):
         all_distances = []
         with warnings.catch_warnings():
             for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
-                chunk = test_data[chunk_pos:min(len(test_data),
-                                                chunk_pos + CHUNK_SIZE)]
+                chunk = test_data[
+                    chunk_pos : min(len(test_data), chunk_pos + CHUNK_SIZE)
+                ]
                 dat = self.vectorizer.transform(chunk)
                 distances, _ = self.nn.kneighbors(dat, n_neighbors=1)
                 all_distances.extend(distances)
@@ -86,22 +92,28 @@ class SimpleNeighbors(Model):
 
 
 class HashingNeighbors(Model):
-    """ HashingVectorized NN model.
+    """HashingVectorized NN model.
     Fastest implementation for low sample sizes (<1e5),
     logreduce-tests benchmark: 12sec
     """
+
     def __init__(self, name=""):
         super().__init__(name)
         self.vectorizer = HashingVectorizer(
-            binary=True, n_features=2**18,
-            analyzer=str.split, lowercase=False, tokenizer=None,
-            preprocessor=None, stop_words=None)
+            binary=True,
+            n_features=2 ** 18,
+            analyzer=str.split,
+            lowercase=False,
+            tokenizer=None,
+            preprocessor=None,
+            stop_words=None,
+        )
         # HashingVectorizer produces sparse vectors, and
         # sorted(sklearn.neighbors.VALID_METRICS_SPARSE['algorithm']) is
         # empty for anything != brute
         self.nn = NearestNeighbors(
-            algorithm='brute', metric='cosine',
-            n_jobs=1, n_neighbors=1)
+            algorithm="brute", metric="cosine", n_jobs=1, n_neighbors=1
+        )
 
     def train(self, train_data):
         dat = self.vectorizer.transform(train_data)
@@ -113,8 +125,9 @@ class HashingNeighbors(Model):
         all_distances = []
         with warnings.catch_warnings():
             for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
-                chunk = test_data[chunk_pos:min(len(test_data),
-                                                chunk_pos + CHUNK_SIZE)]
+                chunk = test_data[
+                    chunk_pos : min(len(test_data), chunk_pos + CHUNK_SIZE)
+                ]
                 dat = self.vectorizer.transform(chunk)
                 distances, _ = self.nn.kneighbors(dat)
                 all_distances.extend(distances)
@@ -122,7 +135,7 @@ class HashingNeighbors(Model):
 
 
 class HashingApproximateNeighbors(Model):
-    """ Approximate Nearest Neighbor Search.
+    """Approximate Nearest Neighbor Search.
     This implementation is rather slow, logreduce-tests benchmark: 60sec.
     The code may be optimized to not record training data since we don't care
     what the actual neighbor is, and it should simply return distance as float
@@ -130,35 +143,40 @@ class HashingApproximateNeighbors(Model):
 
     TODO: benchmark with higher sample size.
     """
+
     def __init__(self, name=""):
         super().__init__(name)
         self.vectorizer = HashingVectorizer(
             binary=True,
-            analyzer=str.split, lowercase=False, tokenizer=None,
-            preprocessor=None, stop_words=None)
+            analyzer=str.split,
+            lowercase=False,
+            tokenizer=None,
+            preprocessor=None,
+            stop_words=None,
+        )
 
     def train(self, train_data):
         try:
             import pysparnn.cluster_index as ci
         except ImportError:
-            raise RuntimeError("Install this dependency to use this model: "
-                               "https://github.com/facebookresearch/pysparnn")
+            raise RuntimeError(
+                "Install this dependency to use this model: "
+                "https://github.com/facebookresearch/pysparnn"
+            )
         train_data = list(train_data)
         dat = self.vectorizer.transform(train_data)
         self.nn = ci.MultiClusterIndex(dat, train_data)
-        self.info = ''
+        self.info = ""
 
     def test(self, test_data):
         all_distances = []
         for chunk_pos in range(0, len(test_data), CHUNK_SIZE):
-            chunk = test_data[chunk_pos:min(len(test_data),
-                                            chunk_pos + CHUNK_SIZE)]
+            chunk = test_data[chunk_pos : min(len(test_data), chunk_pos + CHUNK_SIZE)]
             dat = self.vectorizer.transform(chunk)
-            distances = self.nn.search(
-                dat, k=1, k_clusters=2, return_distance=True)
+            distances = self.nn.search(dat, k=1, k_clusters=2, return_distance=True)
             # Work around str format of distance...
             for distance in distances:
-                if distance[0][0].startswith('-'):
+                if distance[0][0].startswith("-"):
                     all_distances.append([0.0])
                     continue
                 all_distances.append([float(distance[0][0])])
@@ -172,17 +190,23 @@ class HashingAnnoy(Model):
 
     TODO: test and benchmark with higher sample size.
     """
+
     def __init__(self, name=""):
         try:
             from annoy import AnnoyIndex
         except ImportError:
             raise RuntimeError("Install annoy library first")
         super().__init__(name)
-        features = 2**13
+        features = 2 ** 13
         self.vectorizer = HashingVectorizer(
-            binary=True, n_features=features,
-            analyzer=str.split, lowercase=False, tokenizer=None,
-            preprocessor=None, stop_words=None)
+            binary=True,
+            n_features=features,
+            analyzer=str.split,
+            lowercase=False,
+            tokenizer=None,
+            preprocessor=None,
+            stop_words=None,
+        )
         self.nn = AnnoyIndex(features)
 
     def train(self, train_data):
@@ -197,8 +221,7 @@ class HashingAnnoy(Model):
         all_distances = []
         dat = self.vectorizer.transform(test_data)
         for v in dat:
-            d = self.nn.get_nns_by_vector(
-                v.toarray()[0], 1, include_distances=True)
+            d = self.nn.get_nns_by_vector(v.toarray()[0], 1, include_distances=True)
             all_distances.append([d[1][0]])
         # normalize
         # l1
@@ -212,9 +235,9 @@ class HashingAnnoy(Model):
 
 
 models = {
-    'bag-of-words_nn': SimpleNeighbors,
-    'hashing_nn': HashingNeighbors,
-    'hashing_ann': HashingApproximateNeighbors,
-    'hashing_annoy': HashingAnnoy,
-    'noop': Noop,
+    "bag-of-words_nn": SimpleNeighbors,
+    "hashing_nn": HashingNeighbors,
+    "hashing_ann": HashingApproximateNeighbors,
+    "hashing_annoy": HashingAnnoy,
+    "noop": Noop,
 }

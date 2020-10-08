@@ -33,15 +33,16 @@ class Server:
         child_pid = os.fork()
         if child_pid == 0:
             os.close(pipe_write)
-            host = self.kwargs.get('addr')
-            port = int(self.kwargs.get('port', 4730))
+            host = self.kwargs.get("addr")
+            port = int(self.kwargs.get("port", 4730))
             gear.Server(
                 port,
                 host=host,
                 keepalive=True,
                 tcp_keepidle=300,
                 tcp_keepintvl=60,
-                tcp_keepcnt=5)
+                tcp_keepcnt=5,
+            )
             # Keep running until the parent dies:
             pipe_read = os.fdopen(pipe_read)
             try:
@@ -61,8 +62,8 @@ class Server:
 
 class Client(object):
     def __init__(self, addr, port, **kwargs):
-        if addr == '0.0.0.0':
-            addr = '127.0.0.1'
+        if addr == "0.0.0.0":
+            addr = "127.0.0.1"
         self.addr = addr
         self.port = port
         self.kwargs = kwargs
@@ -79,9 +80,9 @@ class Client(object):
 
     def submitJob(self, name, data, wait=False):
         self.log.debug("Submitting job %s with data %s" % (name, data))
-        job = gear.TextJob('logreduce:' + name,
-                           json.dumps(data),
-                           unique=str(time.time()))
+        job = gear.TextJob(
+            "logreduce:" + name, json.dumps(data), unique=str(time.time())
+        )
         self.gearman.submitJob(job, timeout=300)
 
         if wait:
@@ -106,7 +107,7 @@ class Listener(Client):
         if self.client:
             super().start()
         self._running = True
-        self.worker = gear.TextWorker('Logreduce ' + self.name + ' Listener')
+        self.worker = gear.TextWorker("Logreduce " + self.name + " Listener")
         self.worker.addServer(self.addr, self.port)
         self.log.debug("Waiting for server")
         self.worker.waitForServer()
@@ -133,8 +134,8 @@ class Listener(Client):
             try:
                 job = self.worker.getJob()
                 self.log.debug("Received job %s" % job.name)
-                z, jobname = job.name.split(':')
-                attrname = 'handle_' + jobname
+                z, jobname = job.name.split(":")
+                attrname = "handle_" + jobname
                 if hasattr(self, attrname):
                     f = getattr(self, attrname)
                     if callable(f):
@@ -156,5 +157,4 @@ class Listener(Client):
     def register(self):
         for fn in dir(self):
             if fn.startswith("handle_"):
-                self.worker.registerFunction(
-                    "logreduce:%s" % fn.replace("handle_", ""))
+                self.worker.registerFunction("logreduce:%s" % fn.replace("handle_", ""))

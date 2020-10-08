@@ -16,43 +16,43 @@ from contextlib import closing
 
 def find_free_port():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.bind(('', 0))
+        s.bind(("", 0))
         return s.getsockname()[1]
 
 
 fake_result = {
-    'anomalies_count': 18,
-    'baselines': ['test_process.py'],
-    'files': {
-        'test_units.py': {
-            'file_url': 'test_units.py',
-            'lines': [
-                'This is an anomaly...',
+    "anomalies_count": 18,
+    "baselines": ["test_process.py"],
+    "files": {
+        "test_units.py": {
+            "file_url": "test_units.py",
+            "lines": [
+                "This is an anomaly...",
             ],
-            'scores': [
+            "scores": [
                 (1, 0.8),
             ],
-            'mean_distance': 0.8,
-            'model': 'test_process.py',
-            'test_time': 0.005851114000506641
+            "mean_distance": 0.8,
+            "model": "test_process.py",
+            "test_time": 0.005851114000506641,
         }
     },
-    'models': {
-        'test_process.py': {
-            'info': '65 samples, 108 features',
-            'source_files': ['test_process.py'],
-            'train_time': 0.012661808999837376,
-            'uuid': '42'
+    "models": {
+        "test_process.py": {
+            "info": "65 samples, 108 features",
+            "source_files": ["test_process.py"],
+            "train_time": 0.012661808999837376,
+            "uuid": "42",
         }
     },
-    'outlier_lines_count': 1,
-    'reduction': 61.76470588235294,
-    'targets': ['test_units.py'],
-    'testing_lines_count': 34,
-    'training_lines_count': 74,
-    'total_time': 42,
-    'unknown_files': [],
-    "test_command": "logreduce dir test_process.py test_units.py"
+    "outlier_lines_count": 1,
+    "reduction": 61.76470588235294,
+    "targets": ["test_units.py"],
+    "testing_lines_count": 34,
+    "training_lines_count": 74,
+    "total_time": 42,
+    "unknown_files": [],
+    "test_command": "logreduce dir test_process.py test_units.py",
 }
 
 fake_build_result = {
@@ -87,7 +87,7 @@ fake_build_result = {
                 [2812, 0.0],
                 [2813, 0.09075879068336479],
                 [2814, 0.5596144939494555],
-                [2815, 0.0]
+                [2815, 0.0],
             ],
             "lines": [
                 "Aug  6 07:02:30 managesf python: ansible-command Invoked",
@@ -96,13 +96,13 @@ fake_build_result = {
                 "Aug  6 07:02:30 managesf python: ansible-command Error",
                 "Aug  6 07:02:34 managesf python2: ansible-command Invoked",
             ],
-            "mean_distance": 0.13007465692656406
+            "mean_distance": 0.13007465692656406,
         },
     },
     "unknown_files": [
         [
             "logs/install-server/ansible/sfconfig.retry",
-            "logs/install-server/ansible/sfconfig.retry"
+            "logs/install-server/ansible/sfconfig.retry",
         ]
     ],
     "models": {
@@ -113,7 +113,7 @@ fake_build_result = {
             ],
             "train_time": 3.051848716000677,
             "info": "8745 samples, 1048576 features",
-            "uuid": "42"
+            "uuid": "42",
         },
         "log/messages": {
             "source_files": [
@@ -123,7 +123,7 @@ fake_build_result = {
             ],
             "train_time": 8.414538813000036,
             "info": "14448 samples, 1048576 features",
-            "uuid": "23"
+            "uuid": "23",
         },
     },
     "anomalies_count": 10,
@@ -145,9 +145,11 @@ fake_build_result = {
             "pipeline": "gate",
             "job_name": "sf-ci-functional-minimal",
             "uuid": "901820598eec4502b3a9354caee43016",
-            "log_url": ("https://softwarefactory-project.io/logs/10/13310/1/"
-                        "gate/sf-ci-functional-minimal/9018205/"),
-            "local_path": "/tmp/lr/_baselines/sf-ci-functional-minimal/9018205"
+            "log_url": (
+                "https://softwarefactory-project.io/logs/10/13310/1/"
+                "gate/sf-ci-functional-minimal/9018205/"
+            ),
+            "local_path": "/tmp/lr/_baselines/sf-ci-functional-minimal/9018205",
         }
     ],
     "targets": [
@@ -168,9 +170,11 @@ fake_build_result = {
             "pipeline": "check",
             "job_name": "sf-ci-functional-minimal",
             "uuid": "b252ec45f0524b49ab91e3fe60781091",
-            "log_url": ("https://softwarefactory-project.io/logs/12/13312/1/"
-                        "check/sf-ci-functional-minimal/b252ec4/"),
-            "local_path": "/tmp/lr/_targets/sf-ci-functional-minimal/b252ec4"
+            "log_url": (
+                "https://softwarefactory-project.io/logs/12/13312/1/"
+                "check/sf-ci-functional-minimal/b252ec4/"
+            ),
+            "local_path": "/tmp/lr/_targets/sf-ci-functional-minimal/b252ec4",
         }
     ],
     "training_lines_count": 90664,
@@ -179,5 +183,5 @@ fake_build_result = {
     "reduction": 99.37775766489422,
     "total_time": 4.587375126000552,
     "train_command": "logreduce job-train --job sf-ci-functional model.clf",
-    "test_command": "logreduce job-run model.clf https://logs.sf/..."
+    "test_command": "logreduce job-run model.clf https://logs.sf/...",
 }

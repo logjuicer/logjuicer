@@ -44,6 +44,7 @@ Base = declarative_base(metadata=sa.MetaData())
 ################
 class Build(Base):
     """Zuul Builds cache to link ref_url associated with logfiles"""
+
     __tablename__ = "build"
     uuid = sa.Column(sa.String(36), primary_key=True)
     result = sa.Column(sa.String(255))
@@ -58,7 +59,7 @@ class Build(Base):
 
     def toDict(self):
         d = copy.copy(self.__dict__)
-        del d['_sa_instance_state']
+        del d["_sa_instance_state"]
         if d["end_time"]:
             d["end_time"] = d["end_time"].strftime("%Y-%m-%dT%H:%M:%S")
         return d
@@ -66,6 +67,7 @@ class Build(Base):
 
 class Baseline(Base):
     """The list of file used to train a model"""
+
     __tablename__ = "baseline"
     id = sa.Column(sa.Integer, primary_key=True)
     path = sa.Column(sa.String(512))
@@ -77,6 +79,7 @@ class Baseline(Base):
 
 class Model(Base):
     """The list of model used to analyze files"""
+
     __tablename__ = "model"
     uuid = sa.Column(sa.String(36), primary_key=True)
     name = sa.Column(sa.String(255), primary_key=True)
@@ -88,6 +91,7 @@ class Model(Base):
 
 class Line(Base):
     """The confidence score for file's lines"""
+
     __tablename__ = "line"
     id = sa.Column(sa.Integer, primary_key=True)
     logfile_id = sa.Column(sa.Integer, sa.ForeignKey("logfile.id"))
@@ -97,6 +101,7 @@ class Line(Base):
 
 class LogFile(Base):
     """A logfile containing anomalies"""
+
     __tablename__ = "logfile"
     id = sa.Column(sa.Integer, primary_key=True)
     anomaly_uuid = sa.Column(sa.Integer, sa.ForeignKey("anomaly.uuid"))
@@ -113,7 +118,7 @@ class Anomaly(Base):
     uuid = sa.Column(sa.String(36), primary_key=True)
     name = sa.Column(sa.String(255))
     reporter = sa.Column(sa.String(255))
-    status = sa.Column(sa.Enum('processed', 'reviewed', 'archived'))
+    status = sa.Column(sa.Enum("processed", "reviewed", "archived"))
     report_date = sa.Column(sa.DateTime())
     archive_date = sa.Column(sa.DateTime())
     test_command = sa.Column(sa.String(512))
@@ -128,43 +133,46 @@ class Anomaly(Base):
 # Input Schemas #
 #################
 class Report:
-    build = v.Schema({
-        'uuid': str,
-        'log_url': str,
-        'result': str,
-        'branch': str,
-        'pipeline': str,
-        'ref_url': str,
-        'ref': str,
-        'job': str,
-        'project': str,
-        'end_time': str
-    }, extra=v.REMOVE_EXTRA)
+    build = v.Schema(
+        {
+            "uuid": str,
+            "log_url": str,
+            "result": str,
+            "branch": str,
+            "pipeline": str,
+            "ref_url": str,
+            "ref": str,
+            "job": str,
+            "project": str,
+            "end_time": str,
+        },
+        extra=v.REMOVE_EXTRA,
+    )
 
     log = {
-        v.Required('path'): str,
-        'model': str,
-        'scores': [[int, float]],
-        'test_time': float,
+        v.Required("path"): str,
+        "model": str,
+        "scores": [[int, float]],
+        "test_time": float,
     }
 
     model = {
-        v.Required('name'): str,
-        'uuid': str,
-        'source_files': [str],
-        'train_time': float,
-        'info': str,
+        v.Required("name"): str,
+        "uuid": str,
+        "source_files": [str],
+        "train_time": float,
+        "info": str,
     }
 
     report = {
-        'name': str,
-        'reporter': str,
-        'target': build,
-        'baselines': [build],
-        'models': [model],
-        'logs': [log],
-        'test_command': str,
-        'train_command': str,
+        "name": str,
+        "reporter": str,
+        "target": build,
+        "baselines": [build],
+        "models": [model],
+        "logs": [log],
+        "test_command": str,
+        "train_command": str,
     }
 
     schema = v.Schema(report)
@@ -172,17 +180,17 @@ class Report:
 
 class UserReport:
     report = {
-        'name': v.Required(str),
+        "name": v.Required(str),
         # Uuid is a Zuul build id
-        'uuid': v.Required(str),
-        'reporter': v.Required(str),
+        "uuid": v.Required(str),
+        "reporter": v.Required(str),
         # Url is the zuul api url
-        'url': str,
+        "url": str,
         # Path is an optional --include-path parameter
-        'path': str,
+        "path": str,
         # logpath and lines are used when receiving report from os-loganalyze
-        'logpath': str,
-        'lines': (int, int),
+        "logpath": str,
+        "lines": (int, int),
     }
 
     schema = v.Schema(report)
@@ -191,7 +199,8 @@ class UserReport:
 def parse_time(build):
     if build["end_time"]:
         build["end_time"] = datetime.datetime.strptime(
-            build["end_time"], "%Y-%m-%dT%H:%M:%S")
+            build["end_time"], "%Y-%m-%dT%H:%M:%S"
+        )
     else:
         del build["end_time"]
 
@@ -210,8 +219,8 @@ class Db(object):
     def createEngine(self):
         engine_args = {}
         if not self.dburi.startswith("sqlite://"):
-            engine_args['poolclass'] = sqlalchemy.pool.QueuePool
-            engine_args['pool_recycle'] = 1
+            engine_args["poolclass"] = sqlalchemy.pool.QueuePool
+            engine_args["pool_recycle"] = 1
         return sa.create_engine(self.dburi, **engine_args)
         self.connected = True
 
@@ -224,6 +233,7 @@ class Db(object):
         def autoclose():
             yield session
             session.remove()
+
         return autoclose()
 
     def duplicate(self, session, old_anomaly, copyInfo):
@@ -231,28 +241,34 @@ class Db(object):
             uuid=str(uuid.uuid4()),
             name=old_anomaly.name,
             reporter=old_anomaly.reporter,
-            status='reviewed',
+            status="reviewed",
             report_date=old_anomaly.report_date,
             archive_date=old_anomaly.archive_date,
             test_command=old_anomaly.test_command,
             train_command=old_anomaly.train_command,
-            build=old_anomaly.build
+            build=old_anomaly.build,
         )
         if copyInfo.get("name"):
             anomaly.name = copyInfo["name"]
         if copyInfo.get("reporter"):
             anomaly.reporter = copyInfo["reporter"]
-        logfileFilter = copyInfo.get('logfiles', None)
+        logfileFilter = copyInfo.get("logfiles", None)
         for logfile in old_anomaly.logfiles:
             if logfileFilter and logfile.id not in logfileFilter:
                 continue
-            anomaly.logfiles.append(LogFile(
-                model=logfile.model,
-                path=logfile.path,
-                test_time=logfile.test_time,
-                lines=list(map(
-                    lambda x: Line(nr=x.nr, confidence=x.confidence),
-                    logfile.lines))))
+            anomaly.logfiles.append(
+                LogFile(
+                    model=logfile.model,
+                    path=logfile.path,
+                    test_time=logfile.test_time,
+                    lines=list(
+                        map(
+                            lambda x: Line(nr=x.nr, confidence=x.confidence),
+                            logfile.lines,
+                        )
+                    ),
+                )
+            )
         session.add(anomaly)
         return anomaly.uuid
 
@@ -270,47 +286,52 @@ class Db(object):
                 modelfiles = []
                 modelbuilds = set()
                 for baseline in model.baselines:
-                    modelfiles.append(os.path.join(
-                        baseline.build.log_url, baseline.path))
+                    modelfiles.append(
+                        os.path.join(baseline.build.log_url, baseline.path)
+                    )
                     build = baseline.build.toDict()
                     if build["uuid"] not in baselines:
                         baselines[build["uuid"]] = build
                     if build["uuid"] not in modelbuilds:
                         modelbuilds.add(build["uuid"])
                 models[model.name] = {
-                    'train_time': model.train_time,
-                    'info': model.info,
-                    'source_files': modelfiles,
-                    'source_builds': list(modelbuilds)
+                    "train_time": model.train_time,
+                    "info": model.info,
+                    "source_files": modelfiles,
+                    "source_builds": list(modelbuilds),
                 }
             mean_distance = np.mean(np.array(scores)[:, 1])
-            logfiles.append({
-                'id': logfile.id,
-                'model': logfile.model.name,
-                'path': logfile.path,
-                'test_time': logfile.test_time,
-                'scores': scores,
-                'lines': [],
-                'mean_distance': mean_distance
-            })
+            logfiles.append(
+                {
+                    "id": logfile.id,
+                    "model": logfile.model.name,
+                    "path": logfile.path,
+                    "test_time": logfile.test_time,
+                    "scores": scores,
+                    "lines": [],
+                    "mean_distance": mean_distance,
+                }
+            )
 
         return {
-            'uuid': anomaly.uuid,
-            'name': anomaly.name,
-            'status': anomaly.status,
-            'test_command': anomaly.test_command,
-            'train_command': anomaly.train_command,
-            'reporter': anomaly.reporter,
-            'report_date': utils.formatTime(anomaly.report_date),
-            'archive_date': utils.formatTime(anomaly.archive_date),
-            'build': anomaly.build.toDict(),
-            'baselines': list(baselines.values()),
-            'logfiles': sorted(
+            "uuid": anomaly.uuid,
+            "name": anomaly.name,
+            "status": anomaly.status,
+            "test_command": anomaly.test_command,
+            "train_command": anomaly.train_command,
+            "reporter": anomaly.reporter,
+            "report_date": utils.formatTime(anomaly.report_date),
+            "archive_date": utils.formatTime(anomaly.archive_date),
+            "build": anomaly.build.toDict(),
+            "baselines": list(baselines.values()),
+            "logfiles": sorted(
                 logfiles,
-                key=lambda x: (x['path'].startswith("job-output.txt") or
-                               x['mean_distance']),
-                reverse=True),
-            'models': models,
+                key=lambda x: (
+                    x["path"].startswith("job-output.txt") or x["mean_distance"]
+                ),
+                reverse=True,
+            ),
+            "models": models,
         }
 
     def import_report(self, session, report):
@@ -322,13 +343,12 @@ class Db(object):
         # Insert build and models
         target = session.query(Build).get(report["target"]["uuid"])
         if not target:
-            parse_time(report['target'])
+            parse_time(report["target"])
             target = Build(**report["target"])
         # extract baselines and insert build from the baseline list
         baselines = {}
         for baseline in report["baselines"]:
-            baselines[baseline["log_url"]] = session.query(Build).get(
-                baseline["uuid"])
+            baselines[baseline["log_url"]] = session.query(Build).get(baseline["uuid"])
             if not baselines[baseline["log_url"]]:
                 parse_time(baseline)
                 baselines[baseline["log_url"]] = Build(**baseline)
@@ -337,7 +357,8 @@ class Db(object):
         models = {}
         for model in report["models"]:
             models[model["name"]] = session.query(Model).get(
-                (model["uuid"], model["name"]))
+                (model["uuid"], model["name"])
+            )
             if not models[model["name"]]:
                 baseline_files = []
                 for source_file in model["source_files"]:
@@ -345,10 +366,9 @@ class Db(object):
                     for log_url, baseline in baselines.items():
                         if source_file.startswith(log_url):
                             build = baseline
-                            baseline_path = source_file[len(log_url):]
+                            baseline_path = source_file[len(log_url) :]
                             break
-                    baseline_files.append(Baseline(
-                        path=baseline_path, build=build))
+                    baseline_files.append(Baseline(path=baseline_path, build=build))
                 model["baselines"] = baseline_files
                 del model["source_files"]
                 models[model["name"]] = Model(**model)
@@ -357,20 +377,21 @@ class Db(object):
         logfiles = []
         for log in report["logs"]:
             log["model"] = models[log["model"]]
-            log["lines"] = list(map(
-                lambda x: Line(nr=x[0], confidence=x[1]), log["scores"]))
+            log["lines"] = list(
+                map(lambda x: Line(nr=x[0], confidence=x[1]), log["scores"])
+            )
             del log["scores"]
             logfiles.append(LogFile(**log))
 
         # Create anomaly entry
         anomaly = Anomaly(
             uuid=anomaly_uuid,
-            name=report['name'],
-            reporter=report['reporter'],
-            status='processed',
+            name=report["name"],
+            reporter=report["reporter"],
+            status="processed",
             build=target,
-            train_command=report.get('train_command'),
-            test_command=report.get('test_command'),
+            train_command=report.get("train_command"),
+            test_command=report.get("test_command"),
             logfiles=logfiles,
             report_date=datetime.datetime.utcnow(),
         )
@@ -384,10 +405,9 @@ class Db(object):
         with engine.begin() as conn:
             context = alembic.migration.MigrationContext.configure(conn)
             current_rev = context.get_current_revision()
-            self.log.debug('Current migration revision: %s' % current_rev)
+            self.log.debug("Current migration revision: %s" % current_rev)
 
             config = alembic.config.Config()
-            config.set_main_option("script_location",
-                                   "logreduce:server/sql/alembic")
+            config.set_main_option("script_location", "logreduce:server/sql/alembic")
             config.set_main_option("sqlalchemy.url", self.dburi)
-            alembic.command.upgrade(config, 'head')
+            alembic.command.upgrade(config, "head")

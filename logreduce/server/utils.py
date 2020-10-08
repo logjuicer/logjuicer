@@ -17,7 +17,7 @@ def formatTime(dt):
     if dt:
         return dt.strftime("%Y-%m-%dT%H:%M:%S")
     else:
-        return ''
+        return ""
 
 
 def usage(service_name):
@@ -27,25 +27,26 @@ def usage(service_name):
     import logging.config
 
     parser = argparse.ArgumentParser(description="%s daemon" % service_name)
-    parser.add_argument("-c", required=True, dest='config',
-                        help="configuration file path")
-    parser.add_argument("--debug", action="store_true",
-                        help="unable debug log")
+    parser.add_argument(
+        "-c", required=True, dest="config", help="configuration file path"
+    )
+    parser.add_argument("--debug", action="store_true", help="unable debug log")
     args = parser.parse_args()
     config = yaml.safe_load(open(args.config))
 
     log = config["logging"]
     log["version"] = 1
-    log["handlers"]["file"]["filename"] = log["handlers"]["file"][
-        "filename"].format(service=service_name)
+    log["handlers"]["file"]["filename"] = log["handlers"]["file"]["filename"].format(
+        service=service_name
+    )
     if args.debug:
         log["loggers"]["logreduce"]["level"] = "DEBUG"
         log["root"]["level"] = "DEBUG"
-        log["root"]["handlers"] = ['console']
+        log["root"]["handlers"] = ["console"]
         for logger in log["loggers"].values():
-            logger['handlers'] = ['console']
-        del log['handlers']['file']
-        log['handlers']['console']['level'] = 'DEBUG'
+            logger["handlers"] = ["console"]
+        del log["handlers"]["file"]
+        log["handlers"]["console"]["level"] = "DEBUG"
     logging.config.dictConfig(log)
 
     return config

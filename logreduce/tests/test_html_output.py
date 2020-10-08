@@ -14,10 +14,10 @@ import unittest
 
 import logreduce.html_output
 
-from . utils import fake_result
+from .utils import fake_result
 
 
 class ProcessTests(unittest.TestCase):
     def test_html_output(self):
         html = logreduce.html_output.render_html(fake_result)
-        assert 'This is an anomaly' in html
+        assert "This is an anomaly" in html

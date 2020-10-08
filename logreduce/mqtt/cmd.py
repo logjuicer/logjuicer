@@ -35,16 +35,18 @@ class MQTTWorker:
     # Managements interface
     def __init__(self, config):
         self.config = config
-        self.jobs = list(map(
-            re.compile, self.config.get("mqtt", {}).get("jobs", [r".*"])))
-        self.tenants = list(map(
-            re.compile, self.config.get("mqtt", {}).get("tenants", [r".*"])))
+        self.jobs = list(
+            map(re.compile, self.config.get("mqtt", {}).get("jobs", [r".*"]))
+        )
+        self.tenants = list(
+            map(re.compile, self.config.get("mqtt", {}).get("tenants", [r".*"]))
+        )
         self.client = None
         self.worker = None
         self.alive = None
         self.queue = Queue(maxsize=10)
-        self.model_dest = self.config["mqtt"].get("model_dest", "").rstrip('/')
-        self.log_dest = self.config["mqtt"].get("log_dest", "").rstrip('/')
+        self.model_dest = self.config["mqtt"].get("model_dest", "").rstrip("/")
+        self.log_dest = self.config["mqtt"].get("log_dest", "").rstrip("/")
         self.do_rsync = self.config["mqtt"].get("rsync", False)
         self.only_model = self.config["mqtt"].get("only_model", False)
         self.filters = self.config.get("filters", {})
@@ -53,7 +55,8 @@ class MQTTWorker:
         self.log.info("Starting MQTTWorker")
         self.client = mqtt.Client()
         self.client.connect(
-            self.config["mqtt"]["url"], self.config["mqtt"].get("port", 1883))
+            self.config["mqtt"]["url"], self.config["mqtt"].get("port", 1883)
+        )
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.loop_start()
@@ -80,26 +83,31 @@ class MQTTWorker:
 
     def on_message(self, client, userdata, msg):
         try:
-            topic, payload = msg.topic, json.loads(msg.payload.decode('utf-8'))
+            topic, payload = msg.topic, json.loads(msg.payload.decode("utf-8"))
         except Exception:
-            self.log.exception("Couldn't decode message %s from %s",
-                               msg.payload, msg.topic)
+            self.log.exception(
+                "Couldn't decode message %s from %s", msg.payload, msg.topic
+            )
             return
         if not any(map(lambda x: x.match(payload["tenant"]), self.tenants)):
             return
         self.log.debug("Received %s %s", topic, payload)
         for build in payload.get("buildset", {}).get("builds", []):
-            if build.get("result", "Null") == "FAILURE" and any(map(
-                    lambda x: x.match(build.get("job_name")), self.jobs)):
+            if build.get("result", "Null") == "FAILURE" and any(
+                map(lambda x: x.match(build.get("job_name")), self.jobs)
+            ):
                 self.checkFailure(build)
 
     def checkFailure(self, build):
         if not build.get("log_url", "").endswith("/"):
-            self.log.debug(
-                "%s: Log url doesn't end with a /", build.get("log_url"))
+            self.log.debug("%s: Log url doesn't end with a /", build.get("log_url"))
             return
-        if any(map(lambda x: requests.head(build.get("log_url") + x).ok,
-                   ("log-classify.html", "report.html"))):
+        if any(
+            map(
+                lambda x: requests.head(build.get("log_url") + x).ok,
+                ("log-classify.html", "report.html"),
+            )
+        ):
             self.log.debug("%s: report already built", build["log_url"])
             return
 
@@ -124,26 +132,30 @@ class MQTTWorker:
             self.queue.task_done()
 
     def processFailure(self, build):
-        self.log.info("Processing build %s for job %s",
-                      build["uuid"], build["job_name"])
+        self.log.info(
+            "Processing build %s for job %s", build["uuid"], build["job_name"]
+        )
         try:
-            phase = 'lookup'
-            process = logreduce.worker.Process(self.config, {
-                "uuid": build["uuid"],
-                "path": "logs/",
-                "name": build["uuid"],
-                "reporter": "mqtt",
-                "per-project": False,
-                "exclude-files": self.filters.get("exclude_files"),
-                "exclude-paths": self.filters.get("exclude_paths"),
-                "exclude-lines": self.filters.get("exclude_lines"),
-            })
+            phase = "lookup"
+            process = logreduce.worker.Process(
+                self.config,
+                {
+                    "uuid": build["uuid"],
+                    "path": "logs/",
+                    "name": build["uuid"],
+                    "reporter": "mqtt",
+                    "per-project": False,
+                    "exclude-files": self.filters.get("exclude_files"),
+                    "exclude-paths": self.filters.get("exclude_paths"),
+                    "exclude-lines": self.filters.get("exclude_lines"),
+                },
+            )
             if self.only_model and process.loadModel():
                 self.log.info("%s: model already built %s", build["uuid"], process.mf)
                 return
-            phase = 'train'
+            phase = "train"
             process.train()
-            phase = 'test'
+            phase = "test"
             process.test()
         except Exception:
             self.log.exception("%s: failed at phase %s", build["uuid"], phase)
@@ -151,10 +163,12 @@ class MQTTWorker:
 
         buildReportHtml = os.path.join(
             self.config.get("server", {}).get("logserver_folder", "/tmp"),
-            build["uuid"] + ".html")
+            build["uuid"] + ".html",
+        )
         buildReportJson = os.path.join(
             self.config.get("server", {}).get("logserver_folder", "/tmp"),
-            build["uuid"] + ".json")
+            build["uuid"] + ".json",
+        )
         with open(buildReportHtml, "w") as htmlFile:
             htmlFile.write(render_html(process.report))
         with open(buildReportJson, "w") as jsonFile:
@@ -162,18 +176,23 @@ class MQTTWorker:
 
         files = []
         if self.model_dest:
-            files.append((
-                os.path.dirname(process.mf) + "/",
-                os.path.join(self.model_dest, build["job_name"]) + "/"
-            ))
+            files.append(
+                (
+                    os.path.dirname(process.mf) + "/",
+                    os.path.join(self.model_dest, build["job_name"]) + "/",
+                )
+            )
         if self.log_dest:
-            files.append((
-                buildReportHtml,
-                os.path.join(
-                    self.log_dest,
-                    urllib.parse.urlsplit(build["log_url"]).path[1:],
-                    "report.html")
-            ))
+            files.append(
+                (
+                    buildReportHtml,
+                    os.path.join(
+                        self.log_dest,
+                        urllib.parse.urlsplit(build["log_url"]).path[1:],
+                        "report.html",
+                    ),
+                )
+            )
 
         for src, dst in files:
             cmd = ["rsync", "-av", "--chmod=D755,F644", src, dst]

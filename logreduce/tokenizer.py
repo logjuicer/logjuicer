@@ -16,17 +16,20 @@ import re
 
 # Tokenizer
 DAYS = "sunday|monday|tuesday|wednesday|thursday|friday|saturday"
-MONTHS = "january|february|march|april|may|june|july|august|september|" \
-         "october|november|december"
+MONTHS = (
+    "january|february|march|april|may|june|july|august|september|"
+    "october|november|december"
+)
 SHORT_MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dev"
 SHORT_DAYS = "mon|tue|wed|thu|fri|sat|sun"
 
-UUID_RE = r'[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-' \
-          '?[0-9a-f]{12}'
-IPV4_RE = r'(([01]?[0-9]?[0-9]|2[0-4][0-9]|2[5][0-5])\.){3}' \
-          r'([01]?[0-9]?[0-9]|2[0-4][0-9]|2[5][0-5])'
-IPV6_RE = r'([0-9A-Fa-f]{0,4}:){2,6}(\d{1,3}\.){0,3}[0-9A-Fa-f]{1,3}'
-MAC_RE = r'([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})'
+UUID_RE = r"[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-" "?[0-9a-f]{12}"
+IPV4_RE = (
+    r"(([01]?[0-9]?[0-9]|2[0-4][0-9]|2[5][0-5])\.){3}"
+    r"([01]?[0-9]?[0-9]|2[0-4][0-9]|2[5][0-5])"
+)
+IPV6_RE = r"([0-9A-Fa-f]{0,4}:){2,6}(\d{1,3}\.){0,3}[0-9A-Fa-f]{1,3}"
+MAC_RE = r"([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})"
 
 
 class Tokenizer:
@@ -35,58 +38,61 @@ class Tokenizer:
         r'"GET / HTTP/1.1"'
         r'|"OPTIONS * HTTP/1.0" 200'
         # ssh keys
-        r'|AAAA[A-Z][0-9]'
+        r"|AAAA[A-Z][0-9]"
         # hashed password
-        r'|\$[0-9]\$'
+        r"|\$[0-9]\$"
         # Certificates
-        r'|-----BEGIN'
+        r"|-----BEGIN"
         # git status
-        r'|HEAD is now at|Change-Id: '
+        r"|HEAD is now at|Change-Id: "
         # Download statement
-        r'| ETA '
+        r"| ETA "
         # yum mirrors information
-        r'|\* [a-zA-Z]+: [a-zA-Z0-9\.-]*$|Trying other mirror.'
+        r"|\* [a-zA-Z]+: [a-zA-Z0-9\.-]*$|Trying other mirror."
         # ssh scan attempts
         r'|audit.*exe="/usr/sbin/sshd"|sshd.*[iI]nvalid user'
-        r'|sshd.*Unable to connect using the available authentication methods'
-        r'|unix_chkpwd.*: password check failed for user'
-        r'|sshd.*: authentication failure'
-        r'|sshd.*: Failed password for'
-        r'|sshd.*- POSSIBLE BREAK-IN ATTEMPT'
+        r"|sshd.*Unable to connect using the available authentication methods"
+        r"|unix_chkpwd.*: password check failed for user"
+        r"|sshd.*: authentication failure"
+        r"|sshd.*: Failed password for"
+        r"|sshd.*- POSSIBLE BREAK-IN ATTEMPT"
         # zuul random test
-        r'|zuul.*echo BECOME-SUCCESS-'
-        r'|^[^ ]{64}$'
+        r"|zuul.*echo BECOME-SUCCESS-"
+        r"|^[^ ]{64}$"
         # useless debug statement
-        r'|ovs-ofctl .* (dump-ports|dump-flows|show)\b'
-        r'|(ip|eb)tables .* -L\b'
+        r"|ovs-ofctl .* (dump-ports|dump-flows|show)\b"
+        r"|(ip|eb)tables .* -L\b"
     )
     # See https://en.wikipedia.org/wiki/Percent-encoding
-    uri_percent_re = re.compile(r'%[2345][0-9A-F]')
-    ip_re = re.compile(r'%s|%s|%s' % (IPV4_RE, IPV6_RE, MAC_RE))
+    uri_percent_re = re.compile(r"%[2345][0-9A-F]")
+    ip_re = re.compile(r"%s|%s|%s" % (IPV4_RE, IPV6_RE, MAC_RE))
     # For some unknown reason, '_' in (?=) doesn't work in prefix match
     #  re.sub(r'(?=\b|_)test(?=\b|_)',   'RNG', 'AUTH_test_')  -> doesn't work
     #  re.sub(r'(?=\b|_)_?test(?=\b|_)', 'RNG', 'AUTH_test_')  -> works
-    power2_re = re.compile(r'(?=\b|_)_?(?:[\w+/]{128}|[\w+/]{64}|'
-                           r'[0-9a-fA-F]{40}|[0-9a-fA-F]{32})(?=\b|_)')
-    uuid_re = re.compile(r'(?=\b|_)_?(?:%s|tx[^ ]{32})(?=\b|_)' % UUID_RE, re.I)
-    date_re = re.compile(r'\b(?:%s|%s|%s|%s)\b' % (DAYS, SHORT_DAYS,
-                                                   SHORT_MONTHS, MONTHS), re.I)
-    heat_re = re.compile(r'-\w{12}[- \"$]')
+    power2_re = re.compile(
+        r"(?=\b|_)_?(?:[\w+/]{128}|[\w+/]{64}|"
+        r"[0-9a-fA-F]{40}|[0-9a-fA-F]{32})(?=\b|_)"
+    )
+    uuid_re = re.compile(r"(?=\b|_)_?(?:%s|tx[^ ]{32})(?=\b|_)" % UUID_RE, re.I)
+    date_re = re.compile(
+        r"\b(?:%s|%s|%s|%s)\b" % (DAYS, SHORT_DAYS, SHORT_MONTHS, MONTHS), re.I
+    )
+    heat_re = re.compile(r"-\w{12}[- \"$]")
     comments = re.compile(r'(?:[\s]*# |^%% |^#|^[\s]*id = ").*')
-    alpha_re = re.compile(r'[^a-zA-Z_\/\s]+')
-    gitver_re = re.compile(r'git\w+')
-    digits_re = re.compile(r'0x[0-9a-fA-F]{2,}|[0-9]+(?:\.\d+)?')
-    randpath_re = re.compile(r'(?:/tmp/ansible\.\w{8}'
-                             r'|/tmp/tmp\w{6}'
-                             r'|/tmp/tmp\.\w{10})\b')
-    gitsha_re = re.compile(r'\b\w{7}\.\.\w{7}\b')
-    hash_re = re.compile(r'SHA256:[\w+/]{43}\b')
+    alpha_re = re.compile(r"[^a-zA-Z_\/\s]+")
+    gitver_re = re.compile(r"git\w+")
+    digits_re = re.compile(r"0x[0-9a-fA-F]{2,}|[0-9]+(?:\.\d+)?")
+    randpath_re = re.compile(
+        r"(?:/tmp/ansible\.\w{8}" r"|/tmp/tmp\w{6}" r"|/tmp/tmp\.\w{10})\b"
+    )
+    gitsha_re = re.compile(r"\b\w{7}\.\.\w{7}\b")
+    hash_re = re.compile(r"SHA256:[\w+/]{43}\b")
 
     @staticmethod
     def process(line):
         # Ignore some raw pattern first
         if Tokenizer.rawline_re.search(line):
-            return ''
+            return ""
         strip = line
         # Break URI percent encoding
         strip = Tokenizer.uri_percent_re.sub(" ", strip)
@@ -127,13 +133,12 @@ def remove_ansible_std_lines_lists(line):
         if '"%s": ' % i in line and token in line:
             start_pos = line.index(token)
             pos = start_pos + len(token)
-            if line[pos:].startswith('[]'):
+            if line[pos:].startswith("[]"):
                 # Nothing to remove
                 continue
             # Sanity check
             if not line[pos:].startswith('["'):
-                print("Ooops: couldn't find %s beginning '[' in %s" % (token,
-                                                                       line))
+                print("Ooops: couldn't find %s beginning '[' in %s" % (token, line))
                 return line
             quote = False
             escape = False
@@ -141,7 +146,7 @@ def remove_ansible_std_lines_lists(line):
                 if not escape:
                     if line[pos] == '"':
                         quote = not quote
-                    if not quote and line[pos] == ']':
+                    if not quote and line[pos] == "]":
                         break
                 if line[pos] == "\\":
                     escape = True
@@ -150,8 +155,7 @@ def remove_ansible_std_lines_lists(line):
                 pos += 1
             if pos == len(line):
                 # Ooops
-                print("Ooops: couldn't find %s ending ']' in %s" % (token,
-                                                                    line))
+                print("Ooops: couldn't find %s ending ']' in %s" % (token, line))
                 return line
             line = line[:start_pos] + line[pos:]
             line.replace('"%s": ' % token, r"\n")

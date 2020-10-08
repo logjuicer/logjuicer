@@ -39,8 +39,7 @@ for path in sys.argv[1:]:
             print("  ", line)
             print("-> %s" % tokens)
 
-print("Total words: %d Total Tokens: %d" % (
-        len(word_c), len(tokens_c)))
+print("Total words: %d Total Tokens: %d" % (len(word_c), len(tokens_c)))
 
 print("Top 10 words: %s", word_c.most_common(10))
 print("Top 10 Tokens: %s", tokens_c.most_common(10))

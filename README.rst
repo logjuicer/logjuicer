@@ -321,3 +321,6 @@ Contribute
 
 Contribution are most welcome, use **git-review** to propose a change.
 Setup your ssh keys after sign in https://softwarefactory-project.io/auth/login
+
+Code style is managed with `black https://github.com/psf/black#readme`_,
+run `black logreduce` before commit to format the source file.

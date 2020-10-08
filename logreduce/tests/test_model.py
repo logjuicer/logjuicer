@@ -15,7 +15,7 @@ import unittest
 import logreduce.server.model as model
 import logreduce.server.client
 
-from . utils import fake_build_result
+from .utils import fake_build_result
 
 
 class DBTests(unittest.TestCase):
@@ -28,11 +28,11 @@ class DBTests(unittest.TestCase):
             build = model.Build(
                 uuid="2%s" % buildid,
                 pipeline="periodic",
-                log_url="http://logs/%d/" % buildid)
+                log_url="http://logs/%d/" % buildid,
+            )
             baseline = model.Baseline(path=name, build=build)
             baselines.append(baseline)
-        return model.Model(
-            uuid="2%s" % buildid, name=name, baselines=baselines)
+        return model.Model(uuid="2%s" % buildid, name=name, baselines=baselines)
 
     def test_model_logfile(self):
         """Test logfile <-> model <-> baseline <-> build relationships"""
@@ -56,14 +56,21 @@ class DBTests(unittest.TestCase):
         with self.db.session() as session:
             # Create a model and logfile
             m = self._add_model("message")
-            logfile = model.LogFile(path="message", model=m, lines=[
-                model.Line(nr=1, confidence=0.0),
-                model.Line(nr=2, confidence=0.5)
-            ])
+            logfile = model.LogFile(
+                path="message",
+                model=m,
+                lines=[
+                    model.Line(nr=1, confidence=0.0),
+                    model.Line(nr=2, confidence=0.5),
+                ],
+            )
             # Register the target build and the anomaly
-            a = model.Anomaly(uuid="test", name="test-anomaly",
-                              build=model.Build(uuid="42", pipeline="check"),
-                              logfiles=[logfile])
+            a = model.Anomaly(
+                uuid="test",
+                name="test-anomaly",
+                build=model.Build(uuid="42", pipeline="check"),
+                logfiles=[logfile],
+            )
             session.add(a)
             session.commit()
 

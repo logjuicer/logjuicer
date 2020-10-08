@@ -47,14 +47,17 @@ def download_data(**kwarg):
     print("Listing build: ", kwarg)
     for build in ZuulBuilds("https://zuul.openstack.org/api").get(**kwarg):
         to_download.append(
-            (os.path.join(build["log_url"], "job-output.txt.gz"),
-             os.path.join(CACHE, kwarg["result"], "%s.txt" % build["uuid"])))
+            (
+                os.path.join(build["log_url"], "job-output.txt.gz"),
+                os.path.join(CACHE, kwarg["result"], "%s.txt" % build["uuid"]),
+            )
+        )
     for url, dest in to_download:
         if os.path.isfile(dest):
             continue
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         r = requests.get(url)
-        with open(dest, 'wb') as fd:
+        with open(dest, "wb") as fd:
             for chunk in r.iter_content(chunk_size=4096):
                 fd.write(chunk)
         print("Downloaded %s from %s" % (dest, url))
@@ -96,7 +99,7 @@ def single_test(file_list, limit=1e6):
         start_time = time.monotonic()
         model.test(target_vectors)
         test_time = time.monotonic() - start_time
-        print("batch %02d: %f\r" % (batch_nr, test_time), end='')
+        print("batch %02d: %f\r" % (batch_nr, test_time), end="")
         test_times[batch_nr] = time.monotonic() - start_time
 
     print("\nTesting took %f\n" % np.mean(test_time))
@@ -111,7 +114,8 @@ def benchmark():
         fnames = os.listdir(dpath) if os.path.isdir(dpath) else []
         if not fnames:
             download_data(
-                job=JOB_NAME, branch=BRANCH, count=MAX_JOB_COUNT, result=dname)
+                job=JOB_NAME, branch=BRANCH, count=MAX_JOB_COUNT, result=dname
+            )
         for fname in fnames:
             lobj.append(os.path.join(dpath, fname))
         random.shuffle(lobj)
@@ -154,12 +158,11 @@ def benchmark():
             start_time = time.monotonic()
             model.test(target_vectors)
             test_time = time.monotonic() - start_time
-            print("batch %02d: %f\r" % (batch_nr, test_time), end='')
+            print("batch %02d: %f\r" % (batch_nr, test_time), end="")
             test_times[batch_nr] = time.monotonic() - start_time
 
         print("\nsample_job %02d: %f\n" % (sample_job, np.mean(test_time)))
-        results.append([
-            sample_job, sample_count, len(vectors), np.mean(test_times)])
+        results.append([sample_job, sample_count, len(vectors), np.mean(test_times)])
     return results
 
 
@@ -183,20 +186,24 @@ plot '{csvpath}' using {csv_range} notitle
 EOF
 """
 
-print(GNUPLOT.format(
-    title="Unique vectors per tempest-full jobs",
-    filename="vector-per-jobs",
-    ylabel="vectors",
-    xlabel="jobs",
-    csv_range="0:3 with lines lw 2 ",
-    csvpath=csvpath,
-    ))
+print(
+    GNUPLOT.format(
+        title="Unique vectors per tempest-full jobs",
+        filename="vector-per-jobs",
+        ylabel="vectors",
+        xlabel="jobs",
+        csv_range="0:3 with lines lw 2 ",
+        csvpath=csvpath,
+    )
+)
 
-print(GNUPLOT.format(
-    title="Search time per sample size",
-    filename="time-per-samples",
-    ylabel="512 vectors search time (seconds)",
-    xlabel="samples",
-    csv_range="3:4 with linespoints lw 2",
-    csvpath=csvpath,
-    ))
+print(
+    GNUPLOT.format(
+        title="Search time per sample size",
+        filename="time-per-samples",
+        ylabel="512 vectors search time (seconds)",
+        xlabel="samples",
+        csv_range="3:4 with linespoints lw 2",
+        csvpath=csvpath,
+    )
+)

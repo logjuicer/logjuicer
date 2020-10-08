@@ -125,52 +125,59 @@ def render_result_info(dom, output):
     if output.get("train_command"):
         rows.append(("Test command", output["train_command"]))
     rows.append(("Command", output["test_command"]))
-    rows.append(("Targets", "%s" % " ".join(
-        map(html.escape, map(str, output["targets"])))))
-    rows.append(("Baselines", "%s" % " ".join(
-        map(html.escape, map(str, output["baselines"])))))
+    rows.append(
+        ("Targets", "%s" % " ".join(map(html.escape, map(str, output["targets"]))))
+    )
+    rows.append(
+        ("Baselines", "%s" % " ".join(map(html.escape, map(str, output["baselines"]))))
+    )
     rows.append(("Anomalies count", output["anomalies_count"]))
     rows.append(("Run time", "%.2f seconds" % output["total_time"]))
-    rows.append(("Reduction", "%02.2f%% (from %d lines to %d)" % (
-        output["reduction"],
-        output["testing_lines_count"],
-        output["outlier_lines_count"])))
+    rows.append(
+        (
+            "Reduction",
+            "%02.2f%% (from %d lines to %d)"
+            % (
+                output["reduction"],
+                output["testing_lines_count"],
+                output["outlier_lines_count"],
+            ),
+        )
+    )
     table(dom, columns=[], rows=rows)
 
 
 def render_result_table(dom, files_sorted):
-    columns = [
-        "Anomaly count",
-        "Filename",
-        "Test time",
-        "Model"
-    ]
+    columns = ["Anomaly count", "Filename", "Test time", "Model"]
     rows = []
     for filename, data in files_sorted:
         if not data["scores"]:
             continue
-        rows.append((
-            len(data["scores"]),
-            "<a href='#%s'>%s</a> (<a href='%s'>log link</a>)" % (
-                filename.replace('/', '_'), filename, data["file_url"]),
-            "%.2f sec" % data["test_time"],
-            "<a href='#model_%s'>%s</a>" % (data["model"], data["model"])))
+        rows.append(
+            (
+                len(data["scores"]),
+                "<a href='#%s'>%s</a> (<a href='%s'>log link</a>)"
+                % (filename.replace("/", "_"), filename, data["file_url"]),
+                "%.2f sec" % data["test_time"],
+                "<a href='#model_%s'>%s</a>" % (data["model"], data["model"]),
+            )
+        )
     table(dom, columns, rows)
 
 
 def render_model_table(dom, model_sorted, links):
-    columns = [
-        "Model", "Train time", "Infos", "Baseline files"
-    ]
+    columns = ["Model", "Train time", "Infos", "Baseline files"]
     rows = []
     for model_name, data in model_sorted:
-        rows.append([
-            model_name,
-            "%.2f sec" % data["train_time"],
-            data["info"],
-            " ".join(links[model_name]),
-            "model_%s" % model_name,
-        ])
+        rows.append(
+            [
+                model_name,
+                "%.2f sec" % data["train_time"],
+                data["info"],
+                " ".join(links[model_name]),
+                "model_%s" % model_name,
+            ]
+        )
     table(dom, columns, rows)
 
 
@@ -183,8 +190,9 @@ def render_logfile(dom, filename, data, source_links, expanded=False):
             lines_dom.append("<hr class='ls' />")
         line = data["lines"][idx]
         lines_dom.append(
-            "<font color='#%02x0000'>%1.3f | %04d: %s</font><br />" % (
-                int(255 * dist), dist, pos + 1, html.escape(line)))
+            "<font color='#%02x0000'>%1.3f | %04d: %s</font><br />"
+            % (int(255 * dist), dist, pos + 1, html.escape(line))
+        )
         last_pos = pos
 
     expand = " hidden"
@@ -194,7 +202,8 @@ def render_logfile(dom, filename, data, source_links, expanded=False):
         expand = ""
         angle = " fa-angle-down"
         list_expand = " list-view-pf-expand-active"
-    dom.append("""
+    dom.append(
+        """
     <div class="list-group-item{list_expand}" id='{anchor}'>
       <div class="list-group-item-header">
         <div class="list-view-pf-expand">
@@ -234,17 +243,19 @@ def render_logfile(dom, filename, data, source_links, expanded=False):
       </div>
     </div>
     """.format(
-        lines="\n".join(lines_dom),
-        baselines="".join(map(lambda x: "<li>%s</li>" % x, source_links)),
-        list_expand=list_expand,
-        expand=expand,
-        angle=angle,
-        anchor=filename.replace('/', '_'),
-        model_name=data['model'],
-        model_link="#model_%s" % data['model'],
-        anomaly_count=len(data["scores"]),
-        filename=filename,
-        loglink=data['file_url'],))
+            lines="\n".join(lines_dom),
+            baselines="".join(map(lambda x: "<li>%s</li>" % x, source_links)),
+            list_expand=list_expand,
+            expand=expand,
+            angle=angle,
+            anchor=filename.replace("/", "_"),
+            model_name=data["model"],
+            model_link="#model_%s" % data["model"],
+            anomaly_count=len(data["scores"]),
+            filename=filename,
+            loglink=data["file_url"],
+        )
+    )
     return
 
 
@@ -266,15 +277,14 @@ def render_html(output, static_location=None):
     render_result_info(body, output)
 
     files_sorted = sorted(
-        output['files'].items(),
-        key=lambda x: (x[0].startswith("job-output.txt") or
-                       x[1]['mean_distance']),
-        reverse=True)
+        output["files"].items(),
+        key=lambda x: (x[0].startswith("job-output.txt") or x[1]["mean_distance"]),
+        reverse=True,
+    )
 
     models_sorted = sorted(
-        output['models'].items(),
-        key=lambda x: x[1]['train_time'],
-        reverse=True)
+        output["models"].items(), key=lambda x: x[1]["train_time"], reverse=True
+    )
     links = {}
     for model_name, data in models_sorted:
         source_links = []
@@ -283,10 +293,13 @@ def render_html(output, static_location=None):
                 source_dir = os.path.basename(os.path.dirname(source_file))
                 if source_dir.startswith("Z"):
                     source_dir = ""
-                source_links.append("<a href='%s'>%s</a>" % (
-                    source_file, os.path.join(source_dir,
-                                              os.path.basename(source_file))
-                ))
+                source_links.append(
+                    "<a href='%s'>%s</a>"
+                    % (
+                        source_file,
+                        os.path.join(source_dir, os.path.basename(source_file)),
+                    )
+                )
             else:
                 source_links.append(source_file)
         links[model_name] = source_links
@@ -300,7 +313,7 @@ def render_html(output, static_location=None):
             continue
         render_logfile(body, filename, data, links[data["model"]], first)
         first = False
-    body.append('</div>')
+    body.append("</div>")
 
     render_model_table(body, models_sorted, links)
 
@@ -309,11 +322,12 @@ def render_html(output, static_location=None):
     return HTML_DOM.format(
         target=" ".join(map(html.escape, map(str, output["targets"]))),
         js=JS,
-        logo=LOGO.replace('\n', ''),
+        logo=LOGO.replace("\n", ""),
         version=pkg_resources.get_distribution("logreduce").version,
         body="\n".join(body),
         jquery_loc=jquery_loc,
         bootst_loc=bootst_loc,
         ptnfly_loc=ptnfly_loc,
         ptnfly_css_loc=ptnfly_css_loc,
-        ptnfly_cssa_loc=ptnfly_cssa_loc)
+        ptnfly_cssa_loc=ptnfly_cssa_loc,
+    )

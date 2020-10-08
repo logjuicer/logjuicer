@@ -22,6 +22,7 @@ import uuid
 import numpy as np
 import sklearn.utils.validation
 import sklearn.exceptions
+
 try:
     from sklearn.externals import joblib
 except ImportError:
@@ -42,9 +43,13 @@ class Classifier:
     # should be rejected
     version = 6
 
-    def __init__(self,
-                 model='bag-of-words_nn',
-                 exclude_paths=[], exclude_files=[], exclude_lines=[]):
+    def __init__(
+        self,
+        model="bag-of-words_nn",
+        exclude_paths=[],
+        exclude_files=[],
+        exclude_lines=[],
+    ):
         self.models = {}
         self.model_name = model
         self.test_prefix = None
@@ -64,33 +69,32 @@ class Classifier:
         if exclude_files:
             self.exclude_files = exclude_files
         if exclude_lines:
-            self.exclude_lines = re.compile(r'|'.join(exclude_lines))
+            self.exclude_lines = re.compile(r"|".join(exclude_lines))
         self.exclude_lines_raw = exclude_lines
 
     def is_filtered(self, line):
         return self.exclude_lines and self.exclude_lines.match(line)
 
     def get(self, model_name):
-        return self.models.setdefault(model_name,
-                                      models[self.model_name](model_name))
+        return self.models.setdefault(model_name, models[self.model_name](model_name))
 
     def save(self, fileobj):
         """Save the model"""
         if isinstance(fileobj, str):
             if os.path.dirname(fileobj):
                 os.makedirs(os.path.dirname(fileobj), 0o700, exist_ok=True)
-            fileobj = open(fileobj, 'wb')
-        fileobj.write(b'LGRD')
-        fileobj.write(struct.pack('I', self.version))
+            fileobj = open(fileobj, "wb")
+        fileobj.write(b"LGRD")
+        fileobj.write(struct.pack("I", self.version))
         joblib.dump(self, fileobj, compress=True)
         self.log.debug("%s: written" % fileobj.name)
 
     @staticmethod
     def check(fileobj):
         hdr = fileobj.read(4)
-        if hdr != b'LGRD':
+        if hdr != b"LGRD":
             raise RuntimeError("Invalid header")
-        version = struct.unpack('I', fileobj.read(4))[0]
+        version = struct.unpack("I", fileobj.read(4))[0]
         if version != Classifier.version:
             raise RuntimeError("Invalid version")
 
@@ -98,7 +102,7 @@ class Classifier:
     def load(fileobj, exclude_paths=[], exclude_files=[], exclude_lines=[]):
         """Load a saved model"""
         if isinstance(fileobj, str):
-            fileobj = open(fileobj, 'rb')
+            fileobj = open(fileobj, "rb")
         Classifier.check(fileobj)
         obj = joblib.load(fileobj)
         if not exclude_lines:
@@ -115,41 +119,56 @@ class Classifier:
         # Special case for k8s logs
         basename = os.path.basename(filename)
         if basename.startswith("k8s_"):
-            return basename.split('-')[0]
+            return basename.split("-")[0]
         # Only keep parent directory and first component of the basename
         shortfilename = os.path.join(
-            re.subn(r'[a-z0-9]*[0-9][a-z0-9]*[^\s\/-]*', "", os.path.basename(
-                os.path.dirname(filename)))[0],
-            os.path.basename(filename).split('.')[0])
+            re.subn(
+                r"[a-z0-9]*[0-9][a-z0-9]*[^\s\/-]*",
+                "",
+                os.path.basename(os.path.dirname(filename)),
+            )[0],
+            os.path.basename(filename).split(".")[0],
+        )
         # Detect pipeline in path and add job name
         for pipeline in ("check", "gate", "post", "periodic"):
             pipedir = "/%s/" % pipeline
             if pipedir in filename:
-                job_name = filename.split(pipedir)[-1].split('/')[0]
+                job_name = filename.split(pipedir)[-1].split("/")[0]
                 shortfilename = os.path.join(job_name, shortfilename)
                 break
-        if shortfilename == '':
+        if shortfilename == "":
             # Reduction was too agressive, just keep the filename in this case
-            shortfilename = os.path.basename(filename).split('.')[0]
+            shortfilename = os.path.basename(filename).split(".")[0]
         # Append relevant extensions
-        for ext in (".conf", ".audit", ".yaml", ".orig", ".log",
-                    ".xml", ".html", ".txt", ".py", ".json", ".yml"):
+        for ext in (
+            ".conf",
+            ".audit",
+            ".yaml",
+            ".orig",
+            ".log",
+            ".xml",
+            ".html",
+            ".txt",
+            ".py",
+            ".json",
+            ".yml",
+        ):
             if ext in filename:
                 shortfilename += ext
         # Merge .log.txt with .log because containers stdout
         # may be split between .log and .log.txt files...:
         shortfilename = shortfilename.replace(".log.txt", ".log")
         # Remove UUID in filename
-        shortfilename = Tokenizer.uuid_re.subn('', shortfilename)[0]
+        shortfilename = Tokenizer.uuid_re.subn("", shortfilename)[0]
         # Remove numbers and symbols
-        return re.subn(r'[^a-zA-Z\/\._-]*', '', shortfilename)[0]
+        return re.subn(r"[^a-zA-Z\/\._-]*", "", shortfilename)[0]
 
     @staticmethod
     def _is_log_classify_invocation(model_name, line):
         """ Returns True if the line is related to log-classify"""
         return model_name == "job-output.txt" and (
-            "TASK [log-classify " in line or
-            "TASK [Generate ara report]" in line)
+            "TASK [log-classify " in line or "TASK [Generate ara report]" in line
+        )
 
     def train(self, baselines, command=sys.argv):
         """Train the model, baselines can be path(s) or build dict(s)"""
@@ -166,15 +185,17 @@ class Classifier:
 
         # Group similar files for the same model
         to_train = {}
-        for filename, filename_rel in files_iterator(baselines,
-                                                     self.exclude_files,
-                                                     self.exclude_paths):
+        for filename, filename_rel in files_iterator(
+            baselines, self.exclude_files, self.exclude_paths
+        ):
             if filename_rel:
-                if [True for ign in self.exclude_files
-                        if re.match(ign, os.path.basename(filename))]:
+                if [
+                    True
+                    for ign in self.exclude_files
+                    if re.match(ign, os.path.basename(filename))
+                ]:
                     continue
-                if [True for ign in self.exclude_paths
-                        if re.search(ign, filename_rel)]:
+                if [True for ign in self.exclude_paths if re.search(ign, filename_rel)]:
                     continue
             model_name = Classifier.filename2modelname(filename_rel)
             to_train.setdefault(model_name, []).append(filename)
@@ -194,13 +215,13 @@ class Classifier:
                 try:
                     fobj = open_file(filename)
                     for line in fobj:
-                        line = line.decode('ascii', errors='ignore')
+                        line = line.decode("ascii", errors="ignore")
                         # Special case to not train ourself
                         if self._is_log_classify_invocation(model_name, line):
                             break
                         # Remove ansible std_lines list now
                         line = remove_ansible_std_lines_lists(line)
-                        for sub_line in line.split(r'\r'):
+                        for sub_line in line.split(r"\r"):
                             if self.is_filtered(sub_line):
                                 continue
                             sub_line = model.process_line(sub_line)
@@ -225,11 +246,11 @@ class Classifier:
                 forig = filename
                 for build in self.baselines:
                     if isinstance(build, dict):
-                        build_prefix = "%s/" % build.get(
-                            'local_path', '').rstrip('/')
+                        build_prefix = "%s/" % build.get("local_path", "").rstrip("/")
                         if filename.startswith(build_prefix):
-                            forig = os.path.join(build.get('log_url'),
-                                                 filename[len(build_prefix):])
+                            forig = os.path.join(
+                                build.get("log_url"), filename[len(build_prefix) :]
+                            )
                             break
                 model.sources.append(forig)
 
@@ -241,8 +262,10 @@ class Classifier:
             self.training_size += model.size
             train_data_time = time.monotonic() - model_start_time
             self.log.debug(
-                "%s: Parsing took %s", model_name,
-                format_speed(model.count, model.size, train_data_time))
+                "%s: Parsing took %s",
+                model_name,
+                format_speed(model.count, model.size, train_data_time),
+            )
             try:
                 # Transform and fit the model data
                 train_start_time = time.monotonic()
@@ -250,28 +273,37 @@ class Classifier:
                 model.train(train_data)
                 model.train_time = time.monotonic() - train_start_time
 
-                self.log.debug("%s: Fitting took %s" % (
-                    model_name,
-                    format_speed(model.count, model.size, model.train_time)))
+                self.log.debug(
+                    "%s: Fitting took %s"
+                    % (
+                        model_name,
+                        format_speed(model.count, model.size, model.train_time),
+                    )
+                )
             except ValueError:
-                self.log.exception("%s: couldn't train with %s" % (model_name,
-                                                                   train_data))
+                self.log.exception(
+                    "%s: couldn't train with %s" % (model_name, train_data)
+                )
                 del self.models[model_name]
             except KeyboardInterrupt:
                 exit(1)
             except Exception:
-                self.log.exception("%s: couldn't train with %s" % (model_name,
-                                                                   train_data))
+                self.log.exception(
+                    "%s: couldn't train with %s" % (model_name, train_data)
+                )
                 del self.models[model_name]
         self.train_time = time.monotonic() - start_time
-        self.log.info("Training took %s" % format_speed(
-            self.training_lines_count, self.training_size, self.train_time))
+        self.log.info(
+            "Training took %s"
+            % format_speed(
+                self.training_lines_count, self.training_size, self.train_time
+            )
+        )
         if not self.training_lines_count:
             raise RuntimeError("No train lines found")
         return self.training_lines_count
 
-
-#    @profile
+    #    @profile
     def test(self, targets):
         """Return outliers, target can be path(s) or build dict(s)"""
         start_time = time.monotonic()
@@ -285,15 +317,17 @@ class Classifier:
 
         self.targets = targets
 
-        for filename, filename_rel in files_iterator(targets,
-                                                     self.exclude_files,
-                                                     self.exclude_paths):
+        for filename, filename_rel in files_iterator(
+            targets, self.exclude_files, self.exclude_paths
+        ):
             if filename_rel:
-                if [True for ign in self.exclude_files
-                        if re.match(ign, os.path.basename(filename))]:
+                if [
+                    True
+                    for ign in self.exclude_files
+                    if re.match(ign, os.path.basename(filename))
+                ]:
                     continue
-                if [True for ign in self.exclude_paths
-                        if re.search(ign, filename_rel)]:
+                if [True for ign in self.exclude_paths if re.search(ign, filename_rel)]:
                     continue
             test_start_time = time.monotonic()
 
@@ -309,8 +343,9 @@ class Classifier:
                 # Get model name based on filename
                 model_name = Classifier.filename2modelname(filename_rel)
                 if model_name not in self.models:
-                    self.log.debug("Skipping unknown file %s (%s)" % (
-                        filename, model_name))
+                    self.log.debug(
+                        "Skipping unknown file %s (%s)" % (filename, model_name)
+                    )
                     yield (filename_rel, filename_orig, None, None, None)
                     continue
             else:
@@ -333,14 +368,14 @@ class Classifier:
                 fobj = open_file(filename)
                 idx = 0
                 for line in fobj:
-                    line = line.decode('ascii', errors='ignore')
+                    line = line.decode("ascii", errors="ignore")
                     # Special case to not test ourself
                     if self._is_log_classify_invocation(model_name, line):
                         break
                     # Remove ansible std_lines list now
                     line = remove_ansible_std_lines_lists(line)
                     data.append(line)
-                    for sub_line in line.split(r'\r'):
+                    for sub_line in line.split(r"\r"):
                         if self.is_filtered(sub_line):
                             continue
                         sub_line = model.process_line(sub_line)
@@ -379,8 +414,10 @@ class Classifier:
                 # The HashingNeighbors vectorizer uses n_neighbors=1 to only
                 # return the closest distance to a known baseline vector.
                 distances = model.test(test_data)
-            except (sklearn.utils.validation.NotFittedError,
-                    sklearn.exceptions.NotFittedError):
+            except (
+                sklearn.utils.validation.NotFittedError,
+                sklearn.exceptions.NotFittedError,
+            ):
                 self.log.warning("%s: skipping unfitted model" % filename)
                 continue
 
@@ -408,11 +445,10 @@ class Classifier:
                     if line_pos - last_outlier >= self.merge_distance:
                         # When last outlier is too far,
                         # set last_outlier to before_context
-                        last_outlier = max(line_pos - 1 - self.before_context,
-                                           -1)
+                        last_outlier = max(line_pos - 1 - self.before_context, -1)
                     # Add previous context
                     for prev_pos in range(last_outlier + 1, line_pos):
-                        outliers.append((prev_pos, ) + get_line_info(prev_pos))
+                        outliers.append((prev_pos,) + get_line_info(prev_pos))
                     last_outlier = line_pos
 
                     outliers.append((line_pos, distance, line))
@@ -424,27 +460,46 @@ class Classifier:
                     last_outlier = line_pos
 
             # Yield result
-            yield (filename_rel, filename_orig, model, outliers,
-                   time.monotonic() - test_start_time)
+            yield (
+                filename_rel,
+                filename_orig,
+                model,
+                outliers,
+                time.monotonic() - test_start_time,
+            )
 
         self.test_time = time.monotonic() - start_time
-        self.log.info("Testing took %s" % format_speed(
-            self.testing_lines_count, self.testing_size, self.test_time))
+        self.log.info(
+            "Testing took %s"
+            % format_speed(self.testing_lines_count, self.testing_size, self.test_time)
+        )
         if not self.testing_lines_count:
             raise RuntimeError("No test lines found")
 
-    def process(self, path, path_source=None, threshold=0.2, merge_distance=5,
-                before_context=3, after_context=1, console_output=False,
-                command=sys.argv):
+    def process(
+        self,
+        path,
+        path_source=None,
+        threshold=0.2,
+        merge_distance=5,
+        before_context=3,
+        after_context=1,
+        console_output=False,
+        command=sys.argv,
+    ):
         """Process target and create a report"""
         start_time = time.monotonic()
         self.threshold = threshold
         self.merge_distance = merge_distance
         self.before_context = before_context
         self.after_context = after_context
-        output = {'files': {}, 'unknown_files': [],
-                  'models': {}, 'anomalies_count': 0,
-                  'baselines': self.baselines}
+        output = {
+            "files": {},
+            "unknown_files": [],
+            "models": {},
+            "anomalies_count": 0,
+            "baselines": self.baselines,
+        }
         for file_result in self.test(path):
             filename, filename_orig, model, outliers, test_time = file_result
             if model is None:
@@ -454,54 +509,61 @@ class Classifier:
                 continue
             if path_source is not None:
                 filename_orig = os.path.join(path_source, filename_orig)
-            output['models'].setdefault(model.name, {
-                'source_files': list(map(str, model.sources)),
-                'train_time': model.train_time,
-                'info': model.info,
-                'uuid': model.uuid,
-            })
-            file_info = output['files'].setdefault(filename, {
-                'file_url': filename_orig,
-                'test_time': test_time,
-                'model': model.name,
-                'scores': [],
-                'lines': [],
-            })
+            output["models"].setdefault(
+                model.name,
+                {
+                    "source_files": list(map(str, model.sources)),
+                    "train_time": model.train_time,
+                    "info": model.info,
+                    "uuid": model.uuid,
+                },
+            )
+            file_info = output["files"].setdefault(
+                filename,
+                {
+                    "file_url": filename_orig,
+                    "test_time": test_time,
+                    "model": model.name,
+                    "scores": [],
+                    "lines": [],
+                },
+            )
             last_pos = None
-            self.log.debug("%s: compared with %s" % (
-                filename, " ".join(list(map(str, model.sources)))))
+            self.log.debug(
+                "%s: compared with %s"
+                % (filename, " ".join(list(map(str, model.sources))))
+            )
 
             for pos, distance, outlier in outliers:
                 # Expand one-liner outputs (e.g. ansible)
-                for line in outlier[:-1].split(r'\n'):
-                    line = line.replace(r'\t', '\t')
-                    file_info['scores'].append((pos, distance))
-                    file_info['lines'].append(line)
+                for line in outlier[:-1].split(r"\n"):
+                    line = line.replace(r"\t", "\t")
+                    file_info["scores"].append((pos, distance))
+                    file_info["lines"].append(line)
                     if console_output:
-                        if last_pos and last_pos != pos and \
-                                pos - last_pos != 1:
+                        if last_pos and last_pos != pos and pos - last_pos != 1:
                             print("--")
-                        print("%1.3f | %s:%04d:\t%s" % (distance,
-                                                        filename,
-                                                        pos + 1,
-                                                        line))
+                        print(
+                            "%1.3f | %s:%04d:\t%s" % (distance, filename, pos + 1, line)
+                        )
                         last_pos = pos
 
             # Compute mean distances of outliers
             mean_distance = 0
             if file_info["scores"]:
                 # [:, 1] returns an 1d array with the distances only
-                mean_distance = np.mean(np.array(file_info['scores'])[:, 1])
+                mean_distance = np.mean(np.array(file_info["scores"])[:, 1])
                 # TODO: do not cound sequential lines, only blocks
                 output["anomalies_count"] += len(file_info["scores"])
             file_info["mean_distance"] = mean_distance
 
-        output['targets'] = self.targets
+        output["targets"] = self.targets
         output["training_lines_count"] = self.training_lines_count
         output["testing_lines_count"] = self.testing_lines_count
         output["outlier_lines_count"] = self.outlier_lines_count
-        output["reduction"] = 100 - (output["outlier_lines_count"] /
-                                     output["testing_lines_count"]) * 100
+        output["reduction"] = (
+            100 - (output["outlier_lines_count"] / output["testing_lines_count"]) * 100
+        )
         test_command = " ".join(command)
         if test_command != self.train_command:
             output["train_command"] = self.train_command

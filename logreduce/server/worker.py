@@ -22,17 +22,17 @@ import logreduce.server.utils as utils
 
 class Worker(rpc.Listener):
     log = logging.getLogger("logreduce.Worker")
-    name = 'worker'
+    name = "worker"
 
     def handle_process(self, request):
         """Handle process job submitted by the Api server"""
         self.log.info("Processing [%s]" % request)
         try:
-            phase = 'lookup'
+            phase = "lookup"
             process = logreduce.worker.Process(self.kwargs, request)
-            phase = 'train'
+            phase = "train"
             process.train()
-            phase = 'test'
+            phase = "test"
             result = {"report": process.test()}
         except Exception as e:
             error = "%s failed (%s)" % (phase, e)
@@ -44,7 +44,7 @@ class Worker(rpc.Listener):
 def main():
     config = utils.usage("worker")
     services = []
-    if config.get('gearman', {}).get('start'):
+    if config.get("gearman", {}).get("start"):
         services.append(rpc.Server(**config["gearman"]))
 
     utils.run([Worker(server=config["server"], **config["gearman"])])

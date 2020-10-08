@@ -22,7 +22,7 @@ import logreduce.server.api as api
 import logreduce.server.client
 import logreduce.server.rpc as rpc
 
-from . utils import fake_build_result, find_free_port
+from .utils import fake_build_result, find_free_port
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -31,7 +31,7 @@ class APITest(helper.CPWebCase):
     @classmethod
     def setup_class(cls):
         cls.tmpfile = tempfile.mkstemp()[1]
-        cls.gearman = {'addr': '0.0.0.0', 'port': find_free_port()}
+        cls.gearman = {"addr": "0.0.0.0", "port": find_free_port()}
         cls.gear = rpc.Server(**cls.gearman)
         cls.gear.start()
         cls.downloadLog = []
@@ -46,87 +46,88 @@ class APITest(helper.CPWebCase):
     def setup_server():  # type: ignore
         def fake_handle_download_log(_, url, dest):
             APITest.downloadLog.append((url, dest))
+
         api.ServerWorker.handle_download_log = fake_handle_download_log
-        srv = api.Server(dburi="sqlite:///%s" % APITest.tmpfile, tests=True,
-                         gearman=APITest.gearman)
+        srv = api.Server(
+            dburi="sqlite:///%s" % APITest.tmpfile, tests=True, gearman=APITest.gearman
+        )
         srv.api.rpc.start()
+
     setup_server = staticmethod(setup_server)  # type: ignore
 
-    def postData(self, path, data=None, method='POST'):
+    def postData(self, path, data=None, method="POST"):
         if data:
             body = json.dumps(data)
             headers = [
-                ('Content-Type', 'application/json'),
-                ('Content-Length', str(len(body)))
+                ("Content-Type", "application/json"),
+                ("Content-Length", str(len(body))),
             ]
         else:
             body = None
             headers = None
 
-        self.getPage(
-            path,
-            headers=headers,
-            method=method,
-            body=body)
+        self.getPage(path, headers=headers, method=method, body=body)
 
     def getData(self, path):
         self.getPage(path)
-        data = self.body.decode('utf-8')
+        data = self.body.decode("utf-8")
         return json.loads(data)
 
     def test_api_import_report(self):
-        res = self.getData('/api/status')
-        self.assertStatus('200 OK')
+        res = self.getData("/api/status")
+        self.assertStatus("200 OK")
         assert "functions" in res
 
         report = logreduce.server.client.prepare_report(fake_build_result)
-        self.postData('/api/anomaly', data=report, method='PUT')
-        self.assertStatus('200 OK')
-        res = json.loads(self.body.decode('utf-8'))
-        assert 'uuid' in res
-        anomaly_uuid = res['uuid']
+        self.postData("/api/anomaly", data=report, method="PUT")
+        self.assertStatus("200 OK")
+        res = json.loads(self.body.decode("utf-8"))
+        assert "uuid" in res
+        anomaly_uuid = res["uuid"]
 
         # List
-        res = self.getData('/api/anomalies')
-        self.assertStatus('200 OK')
-        assert anomaly_uuid == res[0]['uuid']
-        assert 'processed' == res[0]['status']
+        res = self.getData("/api/anomalies")
+        self.assertStatus("200 OK")
+        assert anomaly_uuid == res[0]["uuid"]
+        assert "processed" == res[0]["status"]
 
         # Get
-        res = self.getData('/api/anomaly/' + anomaly_uuid)
-        self.assertStatus('200 OK')
-        assert 'check' == res['build']['pipeline']
+        res = self.getData("/api/anomaly/" + anomaly_uuid)
+        self.assertStatus("200 OK")
+        assert "check" == res["build"]["pipeline"]
         assert 2 == len(res["models"])
 
         # Remove a file
-        logfile_id = res['logfiles'][0]['id']
+        logfile_id = res["logfiles"][0]["id"]
         self.postData(
-            '/api/anomaly/' + anomaly_uuid + '/logfile/' + str(logfile_id),
-            method='DELETE')
-        self.assertStatus('200 OK')
+            "/api/anomaly/" + anomaly_uuid + "/logfile/" + str(logfile_id),
+            method="DELETE",
+        )
+        self.assertStatus("200 OK")
 
         # Check the file got deleted
-        res = self.getData('/api/anomaly/' + anomaly_uuid)
-        self.assertStatus('200 OK')
-        assert logfile_id != res['logfiles'][0]['id']
+        res = self.getData("/api/anomaly/" + anomaly_uuid)
+        self.assertStatus("200 OK")
+        assert logfile_id != res["logfiles"][0]["id"]
         assert 1 == len(res["models"])
 
         # Update scores
-        logfile_id = res['logfiles'][0]['id']
-        original_scores = res['logfiles'][0]['scores']
+        logfile_id = res["logfiles"][0]["id"]
+        original_scores = res["logfiles"][0]["scores"]
         scores = copy.deepcopy(original_scores[2:])
         scores[-1][1] = 0.99
         self.postData(
-            '/api/anomaly/' + anomaly_uuid + '/logfile/' + str(logfile_id),
+            "/api/anomaly/" + anomaly_uuid + "/logfile/" + str(logfile_id),
             data=scores,
-            method='POST')
-        self.assertStatus('200 OK')
+            method="POST",
+        )
+        self.assertStatus("200 OK")
 
         # Check score got updated
-        res = self.getData('/api/anomaly/' + anomaly_uuid)
-        self.assertStatus('200 OK')
-        assert original_scores != res['logfiles'][0]['scores']
-        assert 0.99 == res['logfiles'][0]['scores'][-1][1]
+        res = self.getData("/api/anomaly/" + anomaly_uuid)
+        self.assertStatus("200 OK")
+        assert original_scores != res["logfiles"][0]["scores"]
+        assert 0.99 == res["logfiles"][0]["scores"][-1][1]
 
         # Check download job was triggered
         assert 0 < len(self.downloadLog)

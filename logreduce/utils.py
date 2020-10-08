@@ -23,6 +23,7 @@ import time
 
 try:
     from systemd import journal
+
     journal_installed = True
 except ImportError:
     journal_installed = False
@@ -30,79 +31,79 @@ except ImportError:
 
 # Avoid those files that aren't useful for words analysis
 DEFAULT_IGNORE_PATHS = [
-    'zuul-info/',
-    '_zuul_ansible/',
-    'ara[_-]*.*/',
-    'etc/hostname',
-    'etc/nodepool/provider',
+    "zuul-info/",
+    "_zuul_ansible/",
+    "ara[_-]*.*/",
+    "etc/hostname",
+    "etc/nodepool/provider",
     # sf-ci useless static files
-    'executor.*/trusted/',
+    "executor.*/trusted/",
     # tripleo-ci static files
-    'etc/selinux/targeted/',
-    'etc/sysconfig/',
-    'etc/systemd/',
-    'etc/polkit-1/',
-    'etc/pki/',
-    r'etc/swift/.*\.builder',
-    'group_vars/all.yaml',
-    'keystone/credential-keys',
-    'keystone/fernet-keys',
+    "etc/selinux/targeted/",
+    "etc/sysconfig/",
+    "etc/systemd/",
+    "etc/polkit-1/",
+    "etc/pki/",
+    r"etc/swift/.*\.builder",
+    "group_vars/all.yaml",
+    "keystone/credential-keys",
+    "keystone/fernet-keys",
     # extra/logstash is already printed in deploy logs
-    'extra/logstash.txt',
-    'migration/identity.gz',
-    'swift/backups/',
-    '/conf.modules.d/',
-    '/lib/heat-config/heat-config-script/',
-    r'\.git/',
-    r'\.svn/',
-    '/proc/net/',
-    r'plugin-suse_.*\.txt',
+    "extra/logstash.txt",
+    "migration/identity.gz",
+    "swift/backups/",
+    "/conf.modules.d/",
+    "/lib/heat-config/heat-config-script/",
+    r"\.git/",
+    r"\.svn/",
+    "/proc/net/",
+    r"plugin-suse_.*\.txt",
 ]
 
 DEFAULT_IGNORE_FILES = [
-    'btmp.txt',
-    'cpuinfo.txt',
-    'devstack-gate-setup-host.txt',
-    'df.txt',
-    'dstat.txt',
-    'free.txt',
-    'heat-deploy-times.log.txt',
-    'host_info.txt',
-    'hosts.txt',
-    'id_rsa',
-    'index.html',
-    'iostat.txt',
-    'iotop.txt',
-    'lastlog',
-    'last',
-    'authkey',
-    'lsmod.txt',
-    'lsof.txt',
-    'lsof_network.txt',
-    'meminfo.txt',
-    'nose_results.html',
-    'passwords.yml',
-    'postci.txt',
-    'pstree.txt',
-    'ps.txt',
-    'rdo-trunk-deps-end.txt',
-    'repolist.txt',
-    'service_configs.json.txt',
-    'sysctl.txt',
-    'sysstat.txt',
-    'tempest.log.txt',
-    'tempest_output.log.txt',
-    'uname.txt',
-    'worlddump-',
-    'wtmp.txt',
-    'README',
-    'unbound.log',
-    'dns_cache.txt',
-    'password.gz',
-    'moduli',
-    'screen-dstat',
-    'atop.bin',
-    'log-size.txt',
+    "btmp.txt",
+    "cpuinfo.txt",
+    "devstack-gate-setup-host.txt",
+    "df.txt",
+    "dstat.txt",
+    "free.txt",
+    "heat-deploy-times.log.txt",
+    "host_info.txt",
+    "hosts.txt",
+    "id_rsa",
+    "index.html",
+    "iostat.txt",
+    "iotop.txt",
+    "lastlog",
+    "last",
+    "authkey",
+    "lsmod.txt",
+    "lsof.txt",
+    "lsof_network.txt",
+    "meminfo.txt",
+    "nose_results.html",
+    "passwords.yml",
+    "postci.txt",
+    "pstree.txt",
+    "ps.txt",
+    "rdo-trunk-deps-end.txt",
+    "repolist.txt",
+    "service_configs.json.txt",
+    "sysctl.txt",
+    "sysstat.txt",
+    "tempest.log.txt",
+    "tempest_output.log.txt",
+    "uname.txt",
+    "worlddump-",
+    "wtmp.txt",
+    "README",
+    "unbound.log",
+    "dns_cache.txt",
+    "password.gz",
+    "moduli",
+    "screen-dstat",
+    "atop.bin",
+    "log-size.txt",
 ]
 
 BLACKLIST_EXTENSIONS = (
@@ -142,7 +143,7 @@ BLACKLIST_EXTENSIONS = (
 )
 
 FACILITY2NAME = {
-    0: 'kern',
+    0: "kern",
     1: "user",
     2: "mail",
     3: "daemon",
@@ -172,8 +173,7 @@ FACILITY2NAME = {
 class Journal:
     def __init__(self, since, previous=False):
         if not journal_installed:
-            raise RuntimeError(
-                "Please run dnf install -y python3-systemd to continue")
+            raise RuntimeError("Please run dnf install -y python3-systemd to continue")
         _day = 3600 * 24
         if since.lower() == "day":
             ts = _day
@@ -205,19 +205,20 @@ class Journal:
 
     def __next__(self):
         entry = self.journal.get_next()
-        ts = entry.get('__REALTIME_TIMESTAMP', datetime.datetime(1970, 1, 1))
+        ts = entry.get("__REALTIME_TIMESTAMP", datetime.datetime(1970, 1, 1))
         if not entry or (self.until and ts.timestamp() > self.until):
             raise StopIteration
-        facility = entry.get('SYSLOG_FACILITY')
+        facility = entry.get("SYSLOG_FACILITY")
         if isinstance(facility, int):
-            entry['LEVEL'] = FACILITY2NAME.get(facility, 'NOTI').upper()
+            entry["LEVEL"] = FACILITY2NAME.get(facility, "NOTI").upper()
         else:
-            entry['LEVEL'] = str(facility)
-        entry['DATE'] = ts.strftime('%Y-%m-%d %H:%M:%S')
+            entry["LEVEL"] = str(facility)
+        entry["DATE"] = ts.strftime("%Y-%m-%d %H:%M:%S")
         entry.setdefault("SYSLOG_IDENTIFIER", "NONE")
         entry.setdefault("MESSAGE", "NONE")
         return "{DATE} - {SYSLOG_IDENTIFIER} - {LEVEL} - {MESSAGE}\n".format(
-            **entry).encode('utf-8')
+            **entry
+        ).encode("utf-8")
 
     def __str__(self):
         return "Journal of %s" % self.name
@@ -236,21 +237,22 @@ class AraReport:
         if self.idx >= len(self.lines):
             raise StopIteration
         self.idx += 1
-        return self.lines[self.idx - 1].encode('utf-8')
+        return self.lines[self.idx - 1].encode("utf-8")
 
     def open(self):
         con = sqlite3.connect(self.db_path)
         c = con.cursor()
-        c.execute("SELECT playbooks.path, tasks.name, task_results.status, "
-                  "task_results.result"
-                  " FROM task_results"
-                  " INNER JOIN tasks ON tasks.id == task_results.task_id"
-                  " INNER JOIN playbooks ON tasks.playbook_id == playbooks.id")
-        result_ignores = (
-            "src", "ansible_facts", "stdout_lines", "stderr_lines")
+        c.execute(
+            "SELECT playbooks.path, tasks.name, task_results.status, "
+            "task_results.result"
+            " FROM task_results"
+            " INNER JOIN tasks ON tasks.id == task_results.task_id"
+            " INNER JOIN playbooks ON tasks.playbook_id == playbooks.id"
+        )
+        result_ignores = ("src", "ansible_facts", "stdout_lines", "stderr_lines")
         for row in c:
             path, name, status, res = row
-            res_dec = zlib.decompress(res).decode('utf-8', errors='ignore')
+            res_dec = zlib.decompress(res).decode("utf-8", errors="ignore")
             stdout, stderr = None, None
             try:
                 obj = json.loads(res_dec)
@@ -271,20 +273,21 @@ class AraReport:
             except Exception:
                 result = res_dec
             playbook_path = os.path.join(
-                os.path.basename(os.path.dirname(path)),
-                os.path.basename(path))
-            self.lines.append("PLAYBOOK [%s] TASK [%s]: %s\n" % (
-                playbook_path, name.replace(' ', '_'), status
-            ))
+                os.path.basename(os.path.dirname(path)), os.path.basename(path)
+            )
+            self.lines.append(
+                "PLAYBOOK [%s] TASK [%s]: %s\n"
+                % (playbook_path, name.replace(" ", "_"), status)
+            )
             for line in result:
                 self.lines.append("%s\n" % (line))
             if stdout:
                 self.lines.append(" -- STDOUT:\n")
-                for line in stdout.split('\n'):
+                for line in stdout.split("\n"):
                     self.lines.append("%s\n" % line)
             if stderr:
                 self.lines.append(" -- STDERR:\n")
-                for line in stderr.split('\n'):
+                for line in stderr.split("\n"):
                     self.lines.append("%s\n" % line)
             self.lines.append("\n")
         c.close()
@@ -328,13 +331,13 @@ def open_file(p):
         return p
     if p.endswith(".gz"):
         # check if really gzip, logs.openstack.org return decompressed files
-        if open(p, 'rb').read(2) == b'\x1f\x8b':
-            return gzip.open(p, mode='r')
+        if open(p, "rb").read(2) == b"\x1f\x8b":
+            return gzip.open(p, mode="r")
     elif p.endswith(".xz"):
-        return lzma.open(p, mode='r')
-    fobj = open(p, 'rb')
+        return lzma.open(p, mode="r")
+    fobj = open(p, "rb")
     # Try to decode the first few byte to detect binary files
-    fobj.peek(32).decode('utf-8')
+    fobj.peek(32).decode("utf-8")
     return fobj
 
 
@@ -346,14 +349,14 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
         # Copy path list
         paths = list(paths)
     for path in paths:
-        if isinstance(path, dict) and path.get('local_path'):
+        if isinstance(path, dict) and path.get("local_path"):
             # This is a build object, return the log's local path
-            path = path['local_path']
+            path = path["local_path"]
         if isinstance(path, Journal):
             yield (path, "")
         elif os.path.isfile(path):
             if path.endswith("ara-report/ansible.sqlite"):
-                yield(AraReport(path), "report/ansible.sqlite")
+                yield (AraReport(path), "report/ansible.sqlite")
             else:
                 yield (path, os.path.basename(path))
         elif os.path.isdir(path):
@@ -363,14 +366,16 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
                 for fname in fnames:
                     if [True for ign in ign_files if re.match(ign, fname)]:
                         continue
-                    if fname != "ansible.sqlite" and \
-                       [True for skip in BLACKLIST_EXTENSIONS if
-                            fname.endswith("%s" % skip) or
-                            fname.endswith("%s.gz" % skip) or
-                            fname.endswith("%s.txt.gz" % skip) or
-                            fname.endswith("%s.bz2" % skip) or
-                            fname.endswith("%s.bzip2" % skip) or
-                            fname.endswith("%s.xz" % skip)]:
+                    if fname != "ansible.sqlite" and [
+                        True
+                        for skip in BLACKLIST_EXTENSIONS
+                        if fname.endswith("%s" % skip)
+                        or fname.endswith("%s.gz" % skip)
+                        or fname.endswith("%s.txt.gz" % skip)
+                        or fname.endswith("%s.bz2" % skip)
+                        or fname.endswith("%s.bzip2" % skip)
+                        or fname.endswith("%s.xz" % skip)
+                    ]:
                         continue
                     fpath = os.path.join(dname, fname)
 
@@ -384,11 +389,11 @@ def files_iterator(paths, ign_files=[], ign_paths=[]):
                     except Exception:
                         pass
 
-                    rel_path = fpath[len(path):]
+                    rel_path = fpath[len(path) :]
                     if [True for ign in ign_paths if re.search(ign, rel_path)]:
                         continue
                     if fname == "ansible.sqlite":
-                        yield(AraReport(fpath), "report/ansible.sqlite")
+                        yield (AraReport(fpath), "report/ansible.sqlite")
                     else:
                         yield (fpath, rel_path)
         else:
@@ -400,8 +405,8 @@ def setup_logging(debug=False):
     if debug:
         loglevel = logging.DEBUG
     logging.basicConfig(
-        format='%(asctime)s %(levelname)-5.5s %(name)s - %(message)s',
-        level=loglevel)
+        format="%(asctime)s %(levelname)-5.5s %(name)s - %(message)s", level=loglevel
+    )
 
 
 def format_speed(count, size, elapsed_time):
@@ -417,8 +422,9 @@ def format_speed(count, size, elapsed_time):
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) == 2:
         if os.path.basename(sys.argv[1]) == "ansible.sqlite":
             report = AraReport(sys.argv[1])
             for line in report.open():
-                print(line[:-1].decode('utf-8'))
+                print(line[:-1].decode("utf-8"))

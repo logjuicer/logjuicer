@@ -41,10 +41,10 @@ for group_name, files in sorted(groups.items()):
             fobj = open_file(filename)
             idx = 0
             for line in fobj:
-                line = line.decode('ascii', errors='ignore')
+                line = line.decode("ascii", errors="ignore")
                 # Remove ansible std_lines list now
                 line = remove_ansible_std_lines_lists(line)
-                for sub_line in line.split(r'\r'):
+                for sub_line in line.split(r"\r"):
                     sub_line = model.process_line(sub_line)
                     if sub_line:
                         binsz = len(sub_line.split())
