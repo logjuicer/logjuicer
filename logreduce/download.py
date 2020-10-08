@@ -61,6 +61,8 @@ class RecursiveDownload:
     def __init__(self, url, dest, threads=4, trim=None,
                  exclude_files=[], exclude_paths=[], exclude_extensions=[]):
         self.url = url
+        parsed = urllib.parse.urlparse(url)
+        self.base_url = parsed.scheme + '://' + parsed.netloc
         self.dest = dest
         self.exclude_files = exclude_files
         self.exclude_paths = exclude_paths
@@ -102,7 +104,7 @@ class RecursiveDownload:
                 html = await response.read()
                 urls = []
                 for line in html.decode('utf-8').split('\n'):
-                    m = re.match(r'.*<a href="([a-zA-Z0-9][^"]+)">',
+                    m = re.match(r'.*<a href="([\/a-zA-Z0-9][^"]+)">',
                                  line)
                     if m:
                         obj_name = m.groups()[0]
@@ -116,7 +118,20 @@ class RecursiveDownload:
                         if [True for ign in self.exclude_files
                                 if re.match(ign, obj_name)]:
                             continue
-                        curl = "%s%s" % (url, obj_name)
+
+                        if obj_name[0] == '/':
+                            # When links are absolute, use the initial base_url
+                            base_url = self.base_url
+                        else:
+                            # Otherwise links are relative, use the current url
+                            base_url = url
+
+                        curl = "%s%s" % (base_url, obj_name)
+
+                        if len(curl) < len(url):
+                            # When new url is smaller than the current url
+                            # skip download to prevent going up the tree
+                            continue
                         if [True for ign in self.exclude_paths
                                 if re.search(ign, curl)]:
                             continue
