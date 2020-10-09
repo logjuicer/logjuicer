@@ -122,7 +122,7 @@ class ProcessTests(unittest.TestCase):
             clf.merge_distance = 0
             clf.before_context = 0
             clf.after_context = 0
-            clf.train(baseline)
+            clf.train([baseline])
             for file_result in clf.test(target):
                 filename, _, model, outliers, test_time = file_result
                 assert len(outliers) == 1

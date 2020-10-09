@@ -341,16 +341,13 @@ def open_file(p: LogObject) -> OpenedFile:
 
 
 def files_iterator(
-    paths: Union[LogObject, Sequence[LogObject]],
+    paths: Sequence[LogObject],
     ign_files: List[str] = [],
     ign_paths: List[str] = [],
 ) -> Generator[Tuple[LogObject, str], None, None]:
     """Walk directory and yield (path, rel_path)"""
-    if not isinstance(paths, list):
-        paths = [paths]  # type: ignore
-    else:
-        # Copy path list
-        paths = list(paths)
+    # Copy path list
+    paths = list(paths)
     for path in paths:
         if isinstance(path, dict):
             # This is a build object, return the log's local path
