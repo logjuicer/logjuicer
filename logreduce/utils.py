@@ -29,7 +29,7 @@ except ImportError:
     journal_installed = False
 
 from typing import Union, BinaryIO, Sequence, List, Generator, Tuple
-from logreduce.data import LogObject
+from logreduce.data import LogObject, FileLike
 
 
 # Avoid those files that aren't useful for words analysis
@@ -173,7 +173,7 @@ FACILITY2NAME = {
 }
 
 
-class Journal:
+class Journal(FileLike):
     def __init__(self, since, previous=False):
         if not journal_installed:
             raise RuntimeError("Please run dnf install -y python3-systemd to continue")
@@ -203,9 +203,6 @@ class Journal:
         self.journal.close()
         del self.journal
 
-    def __iter__(self):
-        return self
-
     def __next__(self):
         entry = self.journal.get_next()
         ts = entry.get("__REALTIME_TIMESTAMP", datetime.datetime(1970, 1, 1))
@@ -227,14 +224,11 @@ class Journal:
         return "Journal of %s" % self.name
 
 
-class AraReport:
+class AraReport(FileLike):
     def __init__(self, db_path):
         self.db_path = db_path
         self.lines = []
         self.idx = 0
-
-    def __iter__(self):
-        return self
 
     def __next__(self):
         if self.idx >= len(self.lines):
@@ -325,17 +319,15 @@ def json_dumps(report):
     return json.dumps(report, cls=JSONEncoder)
 
 
-File = Union[AraReport, Journal, str]
-OpenedFile = Union[AraReport, Journal, BinaryIO, gzip.GzipFile, lzma.LZMAFile]
+OpenedFile = Union[FileLike, BinaryIO, gzip.GzipFile, lzma.LZMAFile]
 
 
-def open_file(p: File) -> OpenedFile:
-    if isinstance(p, Journal):
+def open_file(p: LogObject) -> OpenedFile:
+    if isinstance(p, FileLike):
         p.open()
         return p
-    elif isinstance(p, AraReport):
-        p.open()
-        return p
+    elif isinstance(p, dict):
+        raise RuntimeError("Can't open a build!")
     elif p.endswith(".gz"):
         # check if really gzip, logs.openstack.org return decompressed files
         if open(p, "rb").read(2) == b"\x1f\x8b":
@@ -352,7 +344,7 @@ def files_iterator(
     paths: Union[LogObject, Sequence[LogObject]],
     ign_files: List[str] = [],
     ign_paths: List[str] = [],
-) -> Generator[Tuple[File, str], None, None]:
+) -> Generator[Tuple[LogObject, str], None, None]:
     """Walk directory and yield (path, rel_path)"""
     if not isinstance(paths, list):
         paths = [paths]  # type: ignore
@@ -365,6 +357,8 @@ def files_iterator(
             path = path["local_path"]
         if isinstance(path, Journal):
             yield (path, "")
+        elif not isinstance(path, str):
+            raise RuntimeError("%s: unknown uri" % path)
         elif os.path.isfile(path):
             if path.endswith("ara-report/ansible.sqlite"):
                 yield (AraReport(path), "report/ansible.sqlite")

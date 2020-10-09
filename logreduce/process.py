@@ -45,7 +45,7 @@ from logreduce.data import Result, LogObject
 from logreduce.models import Model, models
 from logreduce.tokenizer import remove_ansible_std_lines_lists
 from logreduce.tokenizer import Tokenizer
-from logreduce.utils import files_iterator, File
+from logreduce.utils import files_iterator
 from logreduce.utils import format_speed
 from logreduce.utils import open_file
 
@@ -71,6 +71,7 @@ class Classifier:
         self.merge_distance = 5
         self.before_context = 2
         self.after_context = 2
+        self.include_path = None
         self.exclude_paths: List[str] = []
         self.exclude_files: List[str] = []
         self.exclude_lines = None
@@ -112,7 +113,12 @@ class Classifier:
             raise RuntimeError("Invalid version")
 
     @staticmethod
-    def load(fileobj, exclude_paths=[], exclude_files=[], exclude_lines=[]):
+    def load(
+        fileobj,
+        exclude_paths: List[str] = [],
+        exclude_files: List[str] = [],
+        exclude_lines: List[str] = [],
+    ) -> "Classifier":
         """Load a saved model"""
         if isinstance(fileobj, str):
             fileobj = open(fileobj, "rb")
@@ -200,7 +206,7 @@ class Classifier:
         self.baselines = baselines
 
         # Group similar files for the same model
-        to_train: Dict[str, List[File]] = {}
+        to_train: Dict[str, List[LogObject]] = {}
         for filename, filename_rel in files_iterator(
             baselines, self.exclude_files, self.exclude_paths
         ):
@@ -230,8 +236,8 @@ class Classifier:
                 fobj = None
                 try:
                     fobj = open_file(filename)
-                    for line in fobj:
-                        line = line.decode("ascii", errors="ignore")
+                    for bline in fobj:
+                        line = bline.decode("ascii", errors="ignore")
                         # Special case to not train ourself
                         if self._is_log_classify_invocation(model_name, line):
                             break
@@ -398,8 +404,8 @@ class Classifier:
             try:
                 fobj = open_file(filename)
                 idx = 0
-                for line in fobj:
-                    line = line.decode("ascii", errors="ignore")
+                for bline in fobj:
+                    line = bline.decode("ascii", errors="ignore")
                     # Special case to not test ourself
                     if self._is_log_classify_invocation(model_name, line):
                         break

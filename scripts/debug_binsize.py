@@ -40,8 +40,8 @@ for group_name, files in sorted(groups.items()):
         try:
             fobj = open_file(filename)
             idx = 0
-            for line in fobj:
-                line = line.decode("ascii", errors="ignore")
+            for bline in fobj:
+                line = bline.decode("ascii", errors="ignore")
                 # Remove ansible std_lines list now
                 line = remove_ansible_std_lines_lists(line)
                 for sub_line in line.split(r"\r"):

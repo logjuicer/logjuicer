@@ -37,32 +37,39 @@ DEFAULT_ZUUL_WEB = os.environ.get(
 class Cli:
     log = logging.getLogger("LogReduce")
 
-    def __init__(self):
+    def __init__(self) -> None:
+        self.job = "unknown-job"
+        self.exclude_file = logreduce.utils.DEFAULT_IGNORE_FILES
+        self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
+        self.exclude_line: List[str] = []
+        self.include_path = None
+        self.test_prefix = None
+        self.ara_database = False
         self.context_length = None
         self.json = None
         self.html = None
-        self.threshold = None
-        self.merge_distance = None
+        self.threshold = 0.2
+        self.merge_distance = 5
+        self.before_context = 3
+        self.after_context = 1
+        self.max_age = 7
+        self.range = "week"
         self.static_location = None
         self.pipeline = None
         self.branch = None
         self.project = None
         self.count = None
-        self.tmp_dir = None
+        self.tmp_dir = os.getcwd()
         self.model_type = None
+        self.cacheonly = False
+
+        # Parse args
         parser = self.usage()
         args = parser.parse_args()
         if not args.func:
             parser.print_help()
             exit(4)
         logreduce.utils.setup_logging(args.debug)
-        self.job = None
-        self.exclude_file = logreduce.utils.DEFAULT_IGNORE_FILES
-        self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
-        self.exclude_line = []
-        self.include_path = []
-        self.test_prefix = None
-        self.ara_database = False
         kwargs = {}
         for k, v in args.__dict__.items():
             if k == "exclude_file":
@@ -112,7 +119,7 @@ class Cli:
         parser.set_defaults(func=None)
         parser.add_argument("--config", help="Config file for defaults filters")
         parser.add_argument("--debug", action="store_true", help="Print debug")
-        parser.add_argument("--tmp-dir", default=os.getcwd())
+        parser.add_argument("--tmp-dir", default=self.tmp_dir)
         parser.add_argument(
             "--cacheonly", action="store_true", help="Do not download any logs"
         )
@@ -184,14 +191,14 @@ class Cli:
             s.add_argument(
                 "-t",
                 "--threshold",
-                default=0.2,
+                default=self.threshold,
                 type=float,
                 help="Anomalies distance threshold [%(default)s]",
             )
             s.add_argument(
                 "-M",
                 "--merge-distance",
-                default=5,
+                default=self.merge_distance,
                 type=int,
                 help="Distance between chunks to merge in a continuous one"
                 " [%(default)s]",
@@ -199,14 +206,14 @@ class Cli:
             s.add_argument(
                 "-B",
                 "--before-context",
-                default=3,
+                default=self.before_context,
                 type=int,
                 help="Amount of lines to include before the anomaly" " [%(default)s]",
             )
             s.add_argument(
                 "-A",
                 "--after-context",
-                default=1,
+                default=self.after_context,
                 type=int,
                 help="Amount of lines to include after the anomaly" " [%(default)s]",
             )
@@ -222,7 +229,7 @@ class Cli:
                 "-m",
                 "--max-age",
                 type=int,
-                default=7,
+                default=self.max_age,
                 help="Maximum age of a model [%(default)s]",
             )
 
@@ -231,7 +238,7 @@ class Cli:
                 "-r",
                 "--range",
                 choices=("day", "week", "month"),
-                default="week",
+                default=self.range,
                 help="Training/testing time frame range " " [%(default)s]",
             )
 
@@ -364,7 +371,7 @@ class Cli:
         diff_usage(sub_parser)
         return parser
 
-    def model_check(self, model_file):
+    def model_check(self, model_file: str) -> None:
         max_age_sec = self.max_age * 24 * 3600
         if (
             not os.path.exists(model_file)
@@ -376,22 +383,24 @@ class Cli:
         except Exception as e:
             raise RuntimeError("%s: %s" % (model_file, e))
 
-    def model_run(self, model_file, target):
+    def model_run(
+        self, model_file: str, target: Union[LogObject, Sequence[LogObject]]
+    ) -> None:
         clf = self._get_classifier(model_file)
         self._report(clf, target)
 
     # Local file usage
-    def dir_train(self, model_file, baseline):
+    def dir_train(self, model_file: str, baseline: str) -> Classifier:
         clf = self._get_classifier()
         clf.train(baseline)
         clf.save(model_file)
         return clf
 
-    def dir_run(self, model_file, target):
+    def dir_run(self, model_file: str, target: str) -> None:
         clf = self._get_classifier(model_file)
         self._report(clf, target)
 
-    def dir_allinone(self, baseline, target):
+    def dir_allinone(self, baseline: str, target: str) -> None:
         model_file = os.path.join(
             self.tmp_dir, "_models", baseline.replace("/", "_") + ".clf"
         )
@@ -457,7 +466,7 @@ class Cli:
         if build:
             self._report(clf, build)
 
-    def job_allinone(self, logs_url):
+    def job_allinone(self, logs_url: str) -> None:
         if self.job is None:
             self.job = logs_url.split("/")[-3]
         model_name = self.job + ".clf"
@@ -475,7 +484,8 @@ class Cli:
 
         target = self.download_logs(logs_url)
         build = self._get_build(target)
-        self._report(clf, build)
+        if build:
+            self._report(clf, build)
 
     def _get_build(self, target: str) -> Optional[Build]:
         build_cache = os.path.join(target, "zuul-info/build.json")
@@ -502,19 +512,19 @@ class Cli:
         return build
 
     # Jounrald usage
-    def journal_train(self, model_file):
+    def journal_train(self, model_file: str) -> Classifier:
         baseline = logreduce.utils.Journal(self.range, previous=True)
         clf = self._get_classifier()
         clf.train(baseline)
         clf.save(model_file)
         return clf
 
-    def journal_run(self, model_file):
+    def journal_run(self, model_file: str) -> None:
         clf = self._get_classifier(model_file)
         target = logreduce.utils.Journal(self.range)
         self._report(clf, target)
 
-    def journal_allinone(self):
+    def journal_allinone(self) -> None:
         model_file = os.path.join(
             self.tmp_dir, "_models", "jounral-%s.clf" % self.range
         )
@@ -529,12 +539,12 @@ class Cli:
         target = logreduce.utils.Journal(self.range)
         self._report(clf, target)
 
-    def diff(self, baseline, target):
+    def diff(self, baseline: str, target: str) -> None:
         clf = self._get_classifier()
         clf.train(baseline)
         self._report(clf, target)
 
-    def download_logs(self, logs_url, target_dir=None):
+    def download_logs(self, logs_url: str, target_dir=None) -> str:
         if logs_url.endswith("/job-output.txt.gz"):
             logs_url = logs_url[: -len("/job-output.txt.gz")]
         if logs_url[-1] != "/":

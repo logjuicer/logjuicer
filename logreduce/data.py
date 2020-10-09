@@ -41,14 +41,31 @@ def show_build(build: Build) -> str:
     return "<ZuulBuild %s>" % inf
 
 
+class FileLike:
+    def __next__(self) -> bytes:
+        pass
+
+    def __str__(self) -> str:
+        pass
+
+    def open(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def __iter__(self) -> "FileLike":
+        return self
+
+
 # Logreduce inputs can be a path or a build
-LogObject = Union[str, Build]
+LogObject = Union[str, Build, FileLike]
 
 
 def show_logobject(obj: LogObject) -> str:
     if isinstance(obj, dict):
         return show_build(obj)
-    return obj
+    return str(obj)
 
 
 Result = TypedDict(
