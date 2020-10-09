@@ -390,7 +390,7 @@ class Cli:
         self._report(clf, target)
 
     # Local file usage
-    def dir_train(self, model_file: str, baseline: str) -> Classifier:
+    def dir_train(self, model_file: str, baseline: List[str]) -> Classifier:
         clf = self._get_classifier()
         clf.train(baseline)
         clf.save_file(model_file)
@@ -411,7 +411,7 @@ class Cli:
             except Exception:
                 self.log.exception("Couldn't reuse %s" % model_file)
         if clf is None:
-            clf = self.dir_train(model_file, baseline)
+            clf = self.dir_train(model_file, [baseline])
         self._report(clf, target)
 
     # Zuul job usage
@@ -515,7 +515,7 @@ class Cli:
     def journal_train(self, model_file: str) -> Classifier:
         baseline = logreduce.utils.Journal(self.range, previous=True)
         clf = self._get_classifier()
-        clf.train(baseline)
+        clf.train([baseline])
         clf.save_file(model_file)
         return clf
 

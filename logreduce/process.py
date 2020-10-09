@@ -199,17 +199,12 @@ class Classifier:
             "TASK [log-classify " in line or "TASK [Generate ara report]" in line
         )
 
-    def train(
-        self, baselines: Union[LogObject, Sequence[LogObject]], command=sys.argv
-    ) -> int:
+    def train(self, baselines: Sequence[LogObject], command=sys.argv) -> int:
         """Train the model, baselines can be path(s) or build dict(s)"""
         start_time = time.monotonic()
         self.train_command = " ".join(command)
         self.training_lines_count = 0
         self.training_size = 0
-        # TODO: remove non list baselines
-        if not isinstance(baselines, list):
-            baselines = [baselines]  # type: ignore
         if not len(baselines):
             raise RuntimeError("Empty training baselines")
 
