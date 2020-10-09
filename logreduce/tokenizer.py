@@ -124,39 +124,3 @@ class Tokenizer:
             if token in strip.lower():
                 strip += " %sA %sB %sC %sD" % (token, token, token, token)
         return strip
-
-
-def remove_ansible_std_lines_lists(line):
-    """Remove stdout_lines: [] list while taking into account nested run"""
-    for i in ("stdout", "stderr"):
-        token = '"%s_lines": ' % i
-        if '"%s": ' % i in line and token in line:
-            start_pos = line.index(token)
-            pos = start_pos + len(token)
-            if line[pos:].startswith("[]"):
-                # Nothing to remove
-                continue
-            # Sanity check
-            if not line[pos:].startswith('["'):
-                print("Ooops: couldn't find %s beginning '[' in %s" % (token, line))
-                return line
-            quote = False
-            escape = False
-            while pos < len(line):
-                if not escape:
-                    if line[pos] == '"':
-                        quote = not quote
-                    if not quote and line[pos] == "]":
-                        break
-                if line[pos] == "\\":
-                    escape = True
-                else:
-                    escape = False
-                pos += 1
-            if pos == len(line):
-                # Ooops
-                print("Ooops: couldn't find %s ending ']' in %s" % (token, line))
-                return line
-            line = line[:start_pos] + line[pos:]
-            line.replace('"%s": ' % token, r"\n")
-    return line

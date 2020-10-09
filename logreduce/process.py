@@ -42,7 +42,6 @@ from typing import (
 
 from logreduce.data import Result, LogObject
 from logreduce.models import Model, models
-from logreduce.tokenizer import remove_ansible_std_lines_lists
 from logreduce.tokenizer import Tokenizer
 from logreduce.utils import files_iterator
 from logreduce.utils import format_speed
@@ -224,6 +223,7 @@ class Classifier:
         for filename, filename_rel in files_iterator(
             baselines, self.exclude_files, self.exclude_paths
         ):
+            # TODO: add this logic to the files_iterator
             if filename_rel:
                 if isinstance(filename, str) and [
                     True
@@ -255,14 +255,7 @@ class Classifier:
                         # Special case to not train ourself
                         if self._is_log_classify_invocation(model_name, line):
                             break
-                        # Remove ansible std_lines list now
-                        line = remove_ansible_std_lines_lists(line)
-                        for sub_line in line.split(r"\r"):
-                            if self.is_filtered(sub_line):
-                                continue
-                            sub_line = model.process_line(sub_line)
-                            if sub_line:
-                                train_data.add(sub_line)
+                        train_data.add(model.process_line(line))
                         model.count += 1
                     try:
                         if isinstance(filename, str):
@@ -359,6 +352,7 @@ class Classifier:
         for filename, filename_rel in files_iterator(
             targets, self.exclude_files, self.exclude_paths
         ):
+            # TODO: add this logic to the files_iterator
             if filename_rel:
                 if isinstance(filename, str) and [
                     True
@@ -399,8 +393,6 @@ class Classifier:
             test_data: List[str] = []
             test_data_set: Set[str] = set()
             model = self.get(model_name)
-            # store duplicate line position to initial position in dup_pos
-            dup_pos = {}
 
             fobj = None
             try:
@@ -411,19 +403,12 @@ class Classifier:
                     # Special case to not test ourself
                     if self._is_log_classify_invocation(model_name, line):
                         break
-                    # Remove ansible std_lines list now
-                    line = remove_ansible_std_lines_lists(line)
                     data.append(line)
-                    for sub_line in line.split(r"\r"):
-                        if self.is_filtered(sub_line):
-                            continue
-                        sub_line = model.process_line(sub_line)
-                        if sub_line in test_data_set:
-                            dup_pos[idx] = test_data.index(sub_line)
-                        elif sub_line:
-                            test_data.append(sub_line)
-                            test_data_set.add(sub_line)
-                            test_data_pos.append(idx)
+                    line = model.process_line(line)
+                    if not self.is_filtered(line) and line not in test_data_set:
+                        test_data.append(line)
+                        test_data_set.add(line)
+                        test_data_pos.append(idx)
                     idx += 1
                 del test_data_set
                 try:
@@ -468,11 +453,7 @@ class Classifier:
                     distance = distances[test_data_pos.index(line_pos)][0]
                 except ValueError:
                     # Line wasn't in test data
-                    try:
-                        distance = distances[dup_pos[line_pos]][0]
-                    except KeyError:
-                        # Line wasn't a duplicate
-                        distance = 0.0
+                    distance = 0.0
                 return (distance, line)
 
             # Store (line_pos, distance, line) in outliers
