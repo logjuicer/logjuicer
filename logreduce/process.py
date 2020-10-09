@@ -92,19 +92,20 @@ class Classifier:
     def get(self, model_name: str) -> Model:
         return self.models.setdefault(model_name, models[self.model_name](model_name))
 
-    def save(self, fileobj: Union[str, BinaryIO]) -> None:
+    def save_file(self, file_path: str) -> None:
+        if os.path.dirname(file_path):
+            os.makedirs(os.path.dirname(file_path), 0o700, exist_ok=True)
+        self.save(open(file_path, "wb"))
+
+    def save(self, fileobj: BinaryIO) -> None:
         """Save the model"""
-        if isinstance(fileobj, str):
-            if os.path.dirname(fileobj):
-                os.makedirs(os.path.dirname(fileobj), 0o700, exist_ok=True)
-            fileobj = open(fileobj, "wb")
         fileobj.write(b"LGRD")
         fileobj.write(struct.pack("I", self.version))
         joblib.dump(self, fileobj, compress=True)
         self.log.debug("%s: written" % fileobj.name)
 
     @staticmethod
-    def check(fileobj):
+    def check(fileobj: BinaryIO) -> None:
         hdr = fileobj.read(4)
         if hdr != b"LGRD":
             raise RuntimeError("Invalid header")
@@ -113,15 +114,24 @@ class Classifier:
             raise RuntimeError("Invalid version")
 
     @staticmethod
+    def load_file(
+        file_path: str,
+        exclude_paths: List[str] = [],
+        exclude_files: List[str] = [],
+        exclude_lines: List[str] = [],
+    ) -> "Classifier":
+        return Classifier.load(
+            open(file_path, "rb"), exclude_paths, exclude_files, exclude_lines
+        )
+
+    @staticmethod
     def load(
-        fileobj,
+        fileobj: BinaryIO,
         exclude_paths: List[str] = [],
         exclude_files: List[str] = [],
         exclude_lines: List[str] = [],
     ) -> "Classifier":
         """Load a saved model"""
-        if isinstance(fileobj, str):
-            fileobj = open(fileobj, "rb")
         Classifier.check(fileobj)
         obj = joblib.load(fileobj)
         if not exclude_lines:

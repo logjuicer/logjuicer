@@ -30,13 +30,13 @@ class ProcessTests(unittest.TestCase):
         assert clf.exclude_lines == expected_exclude_lines
         assert clf.exclude_files == expected_exclude_files
         with tempfile.NamedTemporaryFile() as tmpfile:
-            clf.save(tmpfile.name)
-            clf = logreduce.process.Classifier.load(tmpfile.name)
+            clf.save_file(tmpfile.name)
+            clf = logreduce.process.Classifier.load_file(tmpfile.name)
             assert clf.exclude_lines == expected_exclude_lines
             assert clf.exclude_files == expected_exclude_files
 
             # Also test exclude can be overriden on load
-            clf = logreduce.process.Classifier.load(
+            clf = logreduce.process.Classifier.load_file(
                 tmpfile.name, exclude_files=["test.txt", "new.txt"]
             )
             assert clf.exclude_files == ["test.txt", "new.txt"]
@@ -46,7 +46,7 @@ class ProcessTests(unittest.TestCase):
         clf = logreduce.process.Classifier()
         baseline = __file__
         target = os.path.join(os.path.dirname(baseline), "test_download.py")
-        clf.train(baseline)
+        clf.train([baseline])
         for file_result in clf.test(target):
             filename, filename_orig, model, outliers, test_time = file_result
             assert os.path.basename(model.sources[0]) == "test_process.py"

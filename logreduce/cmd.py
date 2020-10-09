@@ -393,7 +393,7 @@ class Cli:
     def dir_train(self, model_file: str, baseline: str) -> Classifier:
         clf = self._get_classifier()
         clf.train(baseline)
-        clf.save(model_file)
+        clf.save_file(model_file)
         return clf
 
     def dir_run(self, model_file: str, target: str) -> None:
@@ -452,7 +452,7 @@ class Cli:
         # Train model
         clf = self._get_classifier()
         clf.train(baselines)
-        clf.save(model_file)
+        clf.save_file(model_file)
         print("%s: built with %s" % (model_file, " ".join(map(show_build, baselines))))
         return clf
 
@@ -516,7 +516,7 @@ class Cli:
         baseline = logreduce.utils.Journal(self.range, previous=True)
         clf = self._get_classifier()
         clf.train(baseline)
-        clf.save(model_file)
+        clf.save_file(model_file)
         return clf
 
     def journal_run(self, model_file: str) -> None:
@@ -580,7 +580,7 @@ class Cli:
 
     def _get_classifier(self, model_file: str = None) -> Classifier:
         if model_file is not None:
-            clf = Classifier.load(
+            clf = Classifier.load_file(
                 model_file, self.exclude_path, self.exclude_file, self.exclude_line
             )
             if clf.include_path != self.include_path:
