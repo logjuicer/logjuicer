@@ -16,7 +16,7 @@ Logreduce data type definitions
 The TypedDict are used as a transition to proper dataclass.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 try:
     # Python <3.8
@@ -24,13 +24,40 @@ try:
 except ImportError:
     from typing import TypedDict  # type: ignore
 
+Build = TypedDict(
+    "Build",
+    {"log_url": str, "local_path": str, "uuid": str, "ref": str, "project": str},
+)
+
+
+def show_build(build: Build) -> str:
+    inf = "id=%s ref=%s" % (build["uuid"][:7], build["ref"])
+    if build.get("project"):
+        inf += " project=%s" % build["project"]
+    if build.get("local_path"):
+        inf += " local_path=%s" % build["local_path"]
+    if build.get("log_url"):
+        inf += " log_url=%s" % build["log_url"]
+    return "<ZuulBuild %s>" % inf
+
+
+# Logreduce inputs can be a path or a build
+LogObject = Union[str, Build]
+
+
+def show_logobject(obj: LogObject) -> str:
+    if isinstance(obj, dict):
+        return show_build(obj)
+    return obj
+
+
 Result = TypedDict(
     "Result",
     {
         "files": Dict[str, Any],
         "models": Dict[str, Any],
         "targets": List[Any],
-        "baselines": List[Any],
+        "baselines": List[LogObject],
         "train_command": str,
         "test_command": str,
         "anomalies_count": int,

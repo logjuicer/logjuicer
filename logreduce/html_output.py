@@ -15,7 +15,7 @@ import os.path
 import pkg_resources
 
 from typing import Any, List, Tuple
-from logreduce.data import Result
+from logreduce.data import Result, show_logobject
 
 LOGO = """
 iVBORw0KGgoAAAANSUhEUgAAABcAAAAXBAMAAAASBMmTAAAAFVBMVEU6feU9geVjl+WMsOUicOXA
@@ -133,7 +133,10 @@ def render_result_info(dom: List[str], output: Result):
         ["Targets", "%s" % " ".join(map(html.escape, map(str, output["targets"])))]
     )
     rows.append(
-        ["Baselines", "%s" % " ".join(map(html.escape, map(str, output["baselines"])))]
+        [
+            "Baselines",
+            "%s" % " ".join(map(html.escape, map(show_logobject, output["baselines"]))),
+        ]
     )
     rows.append(["Anomalies count", str(output["anomalies_count"])])
     rows.append(["Run time", "%.2f seconds" % output["total_time"]])

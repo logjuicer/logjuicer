@@ -22,7 +22,8 @@ import yaml
 import logreduce.download
 import logreduce.utils
 
-from typing import List, Optional
+from typing import List, Optional, Union, Sequence
+from logreduce.data import Build, LogObject, show_build
 from logreduce.process import Classifier
 from logreduce.html_output import render_html
 from logreduce.models import models
@@ -43,6 +44,12 @@ class Cli:
         self.threshold = None
         self.merge_distance = None
         self.static_location = None
+        self.pipeline = None
+        self.branch = None
+        self.project = None
+        self.count = None
+        self.tmp_dir = None
+        self.model_type = None
         parser = self.usage()
         args = parser.parse_args()
         if not args.func:
@@ -399,9 +406,9 @@ class Cli:
         self._report(clf, target)
 
     # Zuul job usage
-    def job_train(self, model_file):
+    def job_train(self, model_file: str) -> Classifier:
         # Discover baseline
-        baselines = []
+        baselines: List[Build] = []
         if self.pipeline:
             pipelines = [self.pipeline]
         else:
@@ -437,17 +444,18 @@ class Cli:
         clf = self._get_classifier()
         clf.train(baselines)
         clf.save(model_file)
-        print("%s: built with %s" % (model_file, " ".join(map(str, baselines))))
+        print("%s: built with %s" % (model_file, " ".join(map(show_build, baselines))))
         return clf
 
-    def job_run(self, model_file, logs_url):
+    def job_run(self, model_file: str, logs_url: str) -> None:
         clf = self._get_classifier(model_file)
         if os.path.exists(logs_url):
             target = logs_url
         else:
             target = self.download_logs(logs_url)
         build = self._get_build(target)
-        self._report(clf, build)
+        if build:
+            self._report(clf, build)
 
     def job_allinone(self, logs_url):
         if self.job is None:
@@ -469,10 +477,10 @@ class Cli:
         build = self._get_build(target)
         self._report(clf, build)
 
-    def _get_build(self, target):
+    def _get_build(self, target: str) -> Optional[Build]:
         build_cache = os.path.join(target, "zuul-info/build.json")
         if os.path.exists(build_cache):
-            return logreduce.download.ZuulBuild(json.load(open(build_cache)))
+            return json.load(open(build_cache))
         inv_path = os.path.join(target, "zuul-info/inventory.yaml")
         try:
             inv = yaml.safe_load(open(inv_path))
@@ -560,7 +568,7 @@ class Cli:
             ).wait()
         return target_dir
 
-    def _get_classifier(self, model_file=None):
+    def _get_classifier(self, model_file: str = None) -> Classifier:
         if model_file is not None:
             clf = Classifier.load(
                 model_file, self.exclude_path, self.exclude_file, self.exclude_line
@@ -578,7 +586,7 @@ class Cli:
     def _report(
         self,
         clf: Classifier,
-        target_dirs: List[str],
+        target_dirs: Union[LogObject, Sequence[LogObject]],
         target_source: Optional[str] = None,
     ) -> None:
         if self.context_length is not None:

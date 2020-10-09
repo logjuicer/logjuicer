@@ -29,9 +29,9 @@ except ImportError:
     # Recent sklearn library doesn't vendor joblib anymore
     import joblib
 
-from typing import List, Optional
+from typing import List, Optional, Union, BinaryIO, Dict, Sequence, Any
 
-from logreduce.data import Result
+from logreduce.data import Result, LogObject
 from logreduce.models import models
 from logreduce.tokenizer import remove_ansible_std_lines_lists
 from logreduce.tokenizer import Tokenizer
@@ -81,7 +81,7 @@ class Classifier:
     def get(self, model_name):
         return self.models.setdefault(model_name, models[self.model_name](model_name))
 
-    def save(self, fileobj):
+    def save(self, fileobj: Union[str, BinaryIO]) -> None:
         """Save the model"""
         if isinstance(fileobj, str):
             if os.path.dirname(fileobj):
@@ -173,21 +173,24 @@ class Classifier:
             "TASK [log-classify " in line or "TASK [Generate ara report]" in line
         )
 
-    def train(self, baselines, command=sys.argv):
+    def train(
+        self, baselines: Union[LogObject, Sequence[LogObject]], command=sys.argv
+    ) -> int:
         """Train the model, baselines can be path(s) or build dict(s)"""
         start_time = time.monotonic()
         self.train_command = " ".join(command)
         self.training_lines_count = 0
         self.training_size = 0
+        # TODO: remove non list baselines
         if not isinstance(baselines, list):
-            baselines = [baselines]
+            baselines = [baselines]  # type: ignore
         if not len(baselines):
             raise RuntimeError("Empty training baselines")
 
         self.baselines = baselines
 
         # Group similar files for the same model
-        to_train = {}
+        to_train: Dict[str, Any] = {}
         for filename, filename_rel in files_iterator(
             baselines, self.exclude_files, self.exclude_paths
         ):
@@ -252,7 +255,7 @@ class Classifier:
                         build_prefix = "%s/" % build.get("local_path", "").rstrip("/")
                         if filename.startswith(build_prefix):
                             forig = os.path.join(
-                                build.get("log_url"), filename[len(build_prefix) :]
+                                build["log_url"], filename[len(build_prefix) :]
                             )
                             break
                 model.sources.append(forig)
@@ -481,7 +484,7 @@ class Classifier:
 
     def process(
         self,
-        path: List[str],
+        path: Union[LogObject, Sequence[LogObject]],
         path_source: Optional[str] = None,
         threshold: float = 0.2,
         merge_distance: int = 5,
