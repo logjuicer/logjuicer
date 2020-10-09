@@ -195,7 +195,7 @@ class Classifier:
             baselines, self.exclude_files, self.exclude_paths
         ):
             if filename_rel:
-                if [
+                if isinstance(filename, str) and [
                     True
                     for ign in self.exclude_files
                     if re.match(ign, os.path.basename(filename))
@@ -235,7 +235,8 @@ class Classifier:
                                 train_data.add(sub_line)
                         model.count += 1
                     try:
-                        model.size += os.stat(filename).st_size
+                        if isinstance(filename, str):
+                            model.size += os.stat(filename).st_size
                     except TypeError:
                         pass
                 except UnicodeDecodeError:
@@ -253,7 +254,9 @@ class Classifier:
                 for build in self.baselines:
                     if isinstance(build, dict):
                         build_prefix = "%s/" % build.get("local_path", "").rstrip("/")
-                        if filename.startswith(build_prefix):
+                        if isinstance(filename, str) and filename.startswith(
+                            build_prefix
+                        ):
                             forig = os.path.join(
                                 build["log_url"], filename[len(build_prefix) :]
                             )

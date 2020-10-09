@@ -28,6 +28,9 @@ try:
 except ImportError:
     journal_installed = False
 
+from typing import Union, BinaryIO, Sequence, List, Generator, Tuple
+from logreduce.data import LogObject
+
 
 # Avoid those files that aren't useful for words analysis
 DEFAULT_IGNORE_PATHS = [
@@ -322,14 +325,18 @@ def json_dumps(report):
     return json.dumps(report, cls=JSONEncoder)
 
 
-def open_file(p):
+File = Union[AraReport, Journal, str]
+OpenedFile = Union[AraReport, Journal, BinaryIO, gzip.GzipFile, lzma.LZMAFile]
+
+
+def open_file(p: File) -> OpenedFile:
     if isinstance(p, Journal):
         p.open()
         return p
-    if isinstance(p, AraReport):
+    elif isinstance(p, AraReport):
         p.open()
         return p
-    if p.endswith(".gz"):
+    elif p.endswith(".gz"):
         # check if really gzip, logs.openstack.org return decompressed files
         if open(p, "rb").read(2) == b"\x1f\x8b":
             return gzip.open(p, mode="r")
@@ -337,19 +344,23 @@ def open_file(p):
         return lzma.open(p, mode="r")
     fobj = open(p, "rb")
     # Try to decode the first few byte to detect binary files
-    fobj.peek(32).decode("utf-8")
+    fobj.peek(32).decode("utf-8")  # type: ignore
     return fobj
 
 
-def files_iterator(paths, ign_files=[], ign_paths=[]):
+def files_iterator(
+    paths: Union[LogObject, Sequence[LogObject]],
+    ign_files: List[str] = [],
+    ign_paths: List[str] = [],
+) -> Generator[Tuple[File, str], None, None]:
     """Walk directory and yield (path, rel_path)"""
     if not isinstance(paths, list):
-        paths = [paths]
+        paths = [paths]  # type: ignore
     else:
         # Copy path list
         paths = list(paths)
     for path in paths:
-        if isinstance(path, dict) and path.get("local_path"):
+        if isinstance(path, dict):
             # This is a build object, return the log's local path
             path = path["local_path"]
         if isinstance(path, Journal):
