@@ -22,7 +22,7 @@ import yaml
 import logreduce.download
 import logreduce.utils
 
-from typing import List, Optional, Union, Sequence
+from typing import List, Optional, Sequence
 from logreduce.data import Build, LogObject, show_build
 from logreduce.process import Classifier
 from logreduce.html_output import render_html
@@ -383,11 +383,9 @@ class Cli:
         except Exception as e:
             raise RuntimeError("%s: %s" % (model_file, e))
 
-    def model_run(
-        self, model_file: str, target: Union[LogObject, Sequence[LogObject]]
-    ) -> None:
+    def model_run(self, model_file: str, targets: Sequence[LogObject]) -> None:
         clf = self._get_classifier(model_file)
-        self._report(clf, target)
+        self._report(clf, targets)
 
     # Local file usage
     def dir_train(self, model_file: str, baseline: List[str]) -> Classifier:
@@ -464,7 +462,7 @@ class Cli:
             target = self.download_logs(logs_url)
         build = self._get_build(target)
         if build:
-            self._report(clf, build)
+            self._report(clf, [build])
 
     def job_allinone(self, logs_url: str) -> None:
         if self.job is None:
@@ -485,7 +483,7 @@ class Cli:
         target = self.download_logs(logs_url)
         build = self._get_build(target)
         if build:
-            self._report(clf, build)
+            self._report(clf, [build])
 
     def _get_build(self, target: str) -> Optional[Build]:
         build_cache = os.path.join(target, "zuul-info/build.json")
@@ -522,7 +520,7 @@ class Cli:
     def journal_run(self, model_file: str) -> None:
         clf = self._get_classifier(model_file)
         target = logreduce.utils.Journal(self.range)
-        self._report(clf, target)
+        self._report(clf, [target])
 
     def journal_allinone(self) -> None:
         model_file = os.path.join(
@@ -537,7 +535,7 @@ class Cli:
         if clf is None:
             clf = self.journal_train(model_file)
         target = logreduce.utils.Journal(self.range)
-        self._report(clf, target)
+        self._report(clf, [target])
 
     def diff(self, baseline: str, target: str) -> None:
         clf = self._get_classifier()
@@ -596,7 +594,7 @@ class Cli:
     def _report(
         self,
         clf: Classifier,
-        target_dirs: Union[LogObject, Sequence[LogObject]],
+        target_dirs: Sequence[LogObject],
         target_source: Optional[str] = None,
     ) -> None:
         if self.context_length is not None:

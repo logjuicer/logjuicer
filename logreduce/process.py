@@ -32,7 +32,6 @@ except ImportError:
 from typing import (
     List,
     Optional,
-    Union,
     BinaryIO,
     Dict,
     Sequence,
@@ -48,6 +47,16 @@ from logreduce.tokenizer import Tokenizer
 from logreduce.utils import files_iterator
 from logreduce.utils import format_speed
 from logreduce.utils import open_file
+
+TestResult = Tuple[
+    # Filename relative path
+    str,
+    # Original file uri
+    str,
+    Optional[Model],
+    Optional[List[Tuple[int, float, str]]],
+    Optional[float],
+]
 
 
 class Classifier:
@@ -334,19 +343,7 @@ class Classifier:
         return self.training_lines_count
 
     #    @profile
-    def test(
-        self, targets: Union[LogObject, Sequence[LogObject]]
-    ) -> Generator[
-        Tuple[
-            str,
-            str,
-            Optional[Model],
-            Optional[List[Tuple[int, float, str]]],
-            Optional[float],
-        ],
-        None,
-        None,
-    ]:
+    def test(self, targets: Sequence[LogObject]) -> Generator[TestResult, None, None]:
         """Return outliers, target can be path(s) or build dict(s)"""
         start_time = time.monotonic()
         self.testing_lines_count = 0
@@ -521,7 +518,7 @@ class Classifier:
 
     def process(
         self,
-        path: Union[LogObject, Sequence[LogObject]],
+        path: Sequence[LogObject],
         path_source: Optional[str] = None,
         threshold: float = 0.2,
         merge_distance: int = 5,
