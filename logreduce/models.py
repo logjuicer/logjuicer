@@ -37,6 +37,9 @@ class Model:
         self.sources = []
         self.train_time = 0
         self.info = ""
+        self.size = 0
+        self.count = 0
+        self.uuid = ""
 
     def process_line(self, line):
         """Process log lines"""

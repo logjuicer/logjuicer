@@ -29,13 +29,23 @@ except ImportError:
     # Recent sklearn library doesn't vendor joblib anymore
     import joblib
 
-from typing import List, Optional, Union, BinaryIO, Dict, Sequence, Any
+from typing import (
+    List,
+    Optional,
+    Union,
+    BinaryIO,
+    Dict,
+    Sequence,
+    Tuple,
+    Generator,
+    Set,
+)
 
 from logreduce.data import Result, LogObject
-from logreduce.models import models
+from logreduce.models import Model, models
 from logreduce.tokenizer import remove_ansible_std_lines_lists
 from logreduce.tokenizer import Tokenizer
-from logreduce.utils import files_iterator
+from logreduce.utils import files_iterator, File
 from logreduce.utils import format_speed
 from logreduce.utils import open_file
 
@@ -49,11 +59,11 @@ class Classifier:
     def __init__(
         self,
         model="bag-of-words_nn",
-        exclude_paths=[],
-        exclude_files=[],
-        exclude_lines=[],
+        exclude_paths: List[str] = [],
+        exclude_files: List[str] = [],
+        exclude_lines: List[str] = [],
     ):
-        self.models = {}
+        self.models: Dict[str, Model] = {}
         self.model_name = model
         self.test_prefix = None
         # Default
@@ -61,8 +71,8 @@ class Classifier:
         self.merge_distance = 5
         self.before_context = 2
         self.after_context = 2
-        self.exclude_paths = []
-        self.exclude_files = []
+        self.exclude_paths: List[str] = []
+        self.exclude_files: List[str] = []
         self.exclude_lines = None
         self.set_filters(exclude_paths, exclude_files, exclude_lines)
 
@@ -78,7 +88,7 @@ class Classifier:
     def is_filtered(self, line):
         return self.exclude_lines and self.exclude_lines.match(line)
 
-    def get(self, model_name):
+    def get(self, model_name: str) -> Model:
         return self.models.setdefault(model_name, models[self.model_name](model_name))
 
     def save(self, fileobj: Union[str, BinaryIO]) -> None:
@@ -114,7 +124,7 @@ class Classifier:
         return obj
 
     @staticmethod
-    def filename2modelname(filename):
+    def filename2modelname(filename: str) -> str:
         """Create a modelname based on filename"""
         # Special case for job-output which is stored at top-level
         if filename.startswith("job-output.txt"):
@@ -167,7 +177,7 @@ class Classifier:
         return re.subn(r"[^a-zA-Z\/\._-]*", "", shortfilename)[0]
 
     @staticmethod
-    def _is_log_classify_invocation(model_name, line):
+    def _is_log_classify_invocation(model_name: str, line: str) -> bool:
         """ Returns True if the line is related to log-classify"""
         return model_name == "job-output.txt" and (
             "TASK [log-classify " in line or "TASK [Generate ara report]" in line
@@ -190,7 +200,7 @@ class Classifier:
         self.baselines = baselines
 
         # Group similar files for the same model
-        to_train: Dict[str, Any] = {}
+        to_train: Dict[str, List[File]] = {}
         for filename, filename_rel in files_iterator(
             baselines, self.exclude_files, self.exclude_paths
         ):
@@ -313,14 +323,26 @@ class Classifier:
         return self.training_lines_count
 
     #    @profile
-    def test(self, targets):
+    def test(
+        self, targets: Union[LogObject, Sequence[LogObject]]
+    ) -> Generator[
+        Tuple[
+            str,
+            str,
+            Optional[Model],
+            Optional[List[Tuple[int, float, str]]],
+            Optional[float],
+        ],
+        None,
+        None,
+    ]:
         """Return outliers, target can be path(s) or build dict(s)"""
         start_time = time.monotonic()
         self.testing_lines_count = 0
         self.testing_size = 0
         self.outlier_lines_count = 0
         if not isinstance(targets, list):
-            targets = [targets]
+            targets = [targets]  # type: ignore
         if not len(targets):
             raise RuntimeError("Empty testing targets")
 
@@ -330,7 +352,7 @@ class Classifier:
             targets, self.exclude_files, self.exclude_paths
         ):
             if filename_rel:
-                if [
+                if isinstance(filename, str) and [
                     True
                     for ign in self.exclude_files
                     if re.match(ign, os.path.basename(filename))
@@ -366,8 +388,8 @@ class Classifier:
             data = []
             test_data_pos = []
             # Tokenize and store all lines in test_data
-            test_data = []
-            test_data_set = set()
+            test_data: List[str] = []
+            test_data_set: Set[str] = set()
             model = self.get(model_name)
             # store duplicate line position to initial position in dup_pos
             dup_pos = {}
@@ -397,7 +419,8 @@ class Classifier:
                     idx += 1
                 del test_data_set
                 try:
-                    self.testing_size += os.stat(filename).st_size
+                    if isinstance(filename, str):
+                        self.testing_size += os.stat(filename).st_size
                 except TypeError:
                     pass
                 self.testing_lines_count += idx
@@ -445,7 +468,7 @@ class Classifier:
                 return (distance, line)
 
             # Store (line_pos, distance, line) in outliers
-            outliers = []
+            outliers: List[Tuple[int, float, str]] = []
             last_outlier = 0
             remaining_after_context = 0
             for line_pos in range(len(data)):
@@ -544,19 +567,21 @@ class Classifier:
                 % (filename, " ".join(list(map(str, model.sources))))
             )
 
-            for pos, distance, outlier in outliers:
-                # Expand one-liner outputs (e.g. ansible)
-                for line in outlier[:-1].split(r"\n"):
-                    line = line.replace(r"\t", "\t")
-                    file_info["scores"].append((pos, distance))
-                    file_info["lines"].append(line)
-                    if console_output:
-                        if last_pos and last_pos != pos and pos - last_pos != 1:
-                            print("--")
-                        print(
-                            "%1.3f | %s:%04d:\t%s" % (distance, filename, pos + 1, line)
-                        )
-                        last_pos = pos
+            if outliers:
+                for pos, distance, outlier in outliers:
+                    # Expand one-liner outputs (e.g. ansible)
+                    for line in outlier[:-1].split(r"\n"):
+                        line = line.replace(r"\t", "\t")
+                        file_info["scores"].append((pos, distance))
+                        file_info["lines"].append(line)
+                        if console_output:
+                            if last_pos and last_pos != pos and pos - last_pos != 1:
+                                print("--")
+                            print(
+                                "%1.3f | %s:%04d:\t%s"
+                                % (distance, filename, pos + 1, line)
+                            )
+                            last_pos = pos
 
             # Compute mean distances of outliers
             mean_distance = 0
