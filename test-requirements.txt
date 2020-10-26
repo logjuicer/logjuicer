@@ -1,3 +1,8 @@
 pytest
 mock
-systemd-python
+# server tests requirements
+cherrypy
+voluptuous
+alembic
+gear
+routes

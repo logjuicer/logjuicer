@@ -22,7 +22,9 @@
               nodes:
                 - name: testrunner
                   label: pod-fedora-31
-        - tox-py37:
+        - tox:
+            vars:
+              tox_envlist: "unit"
             nodeset:
               nodes:
                 - name: testrunner
