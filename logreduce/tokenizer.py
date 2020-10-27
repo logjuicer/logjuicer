@@ -13,6 +13,7 @@
 # under the License.
 
 import re
+import os
 
 # Tokenizer
 DAYS = "sunday|monday|tuesday|wednesday|thursday|friday|saturday"
@@ -124,3 +125,56 @@ class Tokenizer:
             if token in strip.lower():
                 strip += " %sA %sB %sC %sD" % (token, token, token, token)
         return strip
+
+
+def filename2modelname(filename: str) -> str:
+    """Create a modelname based on filename"""
+    # Special case for job-output which is stored at top-level
+    if filename.startswith("job-output.txt"):
+        return "job-output.txt"
+    # Special case for k8s logs
+    basename = os.path.basename(filename)
+    if basename.startswith("k8s_"):
+        return basename.split("-")[0]
+    # Only keep parent directory and first component of the basename
+    shortfilename = os.path.join(
+        re.subn(
+            r"[a-z0-9]*[0-9][a-z0-9]*[^\s\/-]*",
+            "",
+            os.path.basename(os.path.dirname(filename)),
+        )[0],
+        os.path.basename(filename).split(".")[0],
+    )
+    # Detect pipeline in path and add job name
+    for pipeline in ("check", "gate", "post", "periodic"):
+        pipedir = "/%s/" % pipeline
+        if pipedir in filename:
+            job_name = filename.split(pipedir)[-1].split("/")[0]
+            shortfilename = os.path.join(job_name, shortfilename)
+            break
+    if shortfilename == "":
+        # Reduction was too agressive, just keep the filename in this case
+        shortfilename = os.path.basename(filename).split(".")[0]
+    # Append relevant extensions
+    for ext in (
+        ".conf",
+        ".audit",
+        ".yaml",
+        ".orig",
+        ".log",
+        ".xml",
+        ".html",
+        ".txt",
+        ".py",
+        ".json",
+        ".yml",
+    ):
+        if ext in filename:
+            shortfilename += ext
+    # Merge .log.txt with .log because containers stdout
+    # may be split between .log and .log.txt files...:
+    shortfilename = shortfilename.replace(".log.txt", ".log")
+    # Remove UUID in filename
+    shortfilename = Tokenizer.uuid_re.subn("", shortfilename)[0]
+    # Remove numbers and symbols
+    return re.subn(r"[^a-zA-Z\/\._-]*", "", shortfilename)[0]

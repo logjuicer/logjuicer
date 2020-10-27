@@ -579,13 +579,19 @@ class Cli:
     def _get_classifier(self, model_file: str = None) -> Classifier:
         if model_file is not None:
             clf = Classifier.load_file(
-                model_file, self.exclude_path, self.exclude_file, self.exclude_line
+                model_file,
+                exclude_paths=self.exclude_path,
+                exclude_files=self.exclude_file,
+                exclude_lines=self.exclude_line,
             )
             if clf.include_path != self.include_path:
                 raise RuntimeError("Included paths changed, need re-train")
         else:
             clf = Classifier(
-                self.model_type, self.exclude_path, self.exclude_file, self.exclude_line
+                self.model_type,
+                exclude_paths=self.exclude_path,
+                exclude_files=self.exclude_file,
+                exclude_lines=self.exclude_line,
             )
         clf.test_prefix = self.test_prefix
         clf.include_path = self.include_path
