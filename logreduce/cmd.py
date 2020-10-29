@@ -43,7 +43,6 @@ class Cli:
         self.exclude_file = logreduce.utils.DEFAULT_IGNORE_FILES
         self.exclude_path = logreduce.utils.DEFAULT_IGNORE_PATHS
         self.exclude_line: List[str] = []
-        self.include_path = None
         self.test_prefix = None
         self.ara_database = False
         self.context_length = None
@@ -133,7 +132,6 @@ class Cli:
 
         # Common arguments
         def path_filters(s):
-            s.add_argument("-i", "--include-path", help="Logserver extra logs path")
             s.add_argument(
                 "-x",
                 "--exclude-file",
@@ -559,22 +557,14 @@ class Cli:
 
         os.makedirs(target_dir, exist_ok=True)
 
-        logs_path = ["job-output.txt.gz", "zuul-info/inventory.yaml"]
-        if self.ara_database:
-            logs_path.append("ara-report/ansible.sqlite")
-        if self.include_path:
-            logs_path.append(self.include_path)
-
-        for sub_path in logs_path:
-            url = os.path.join(logs_url, sub_path)
-            logreduce.download.RecursiveDownload(
-                url,
-                target_dir,
-                trim=logs_url,
-                exclude_files=self.exclude_file,
-                exclude_paths=self.exclude_path,
-                exclude_extensions=logreduce.utils.BLACKLIST_EXTENSIONS,
-            ).wait()
+        logreduce.download.RecursiveDownload(
+            logs_url,
+            target_dir,
+            trim=logs_url,
+            exclude_files=self.exclude_file,
+            exclude_paths=self.exclude_path,
+            exclude_extensions=logreduce.utils.BLACKLIST_EXTENSIONS,
+        ).wait()
         return target_dir
 
     def _get_classifier(self, model_file: str = None) -> Classifier:
@@ -584,8 +574,6 @@ class Cli:
                 keep_file=keep_file(self.exclude_file, self.exclude_path),
                 process_line=process_line(self.exclude_line),
             )
-            if clf.include_path != self.include_path:
-                raise RuntimeError("Included paths changed, need re-train")
         else:
             clf = Classifier(
                 self.model_type,
@@ -593,7 +581,6 @@ class Cli:
                 process_line=process_line(self.exclude_line),
             )
         clf.test_prefix = self.test_prefix
-        clf.include_path = self.include_path
         return clf
 
     def _report(

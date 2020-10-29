@@ -87,7 +87,6 @@ class Classifier:
         self.merge_distance = 5
         self.before_context = 2
         self.after_context = 2
-        self.include_path = None
 
     def get(self, model_name: str) -> Model:
         return self.models.setdefault(model_name, models[self.model_name](model_name))
