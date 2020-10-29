@@ -18,7 +18,7 @@ import sys
 from logreduce.utils import files_iterator, open_file
 from logreduce.process import Classifier
 from logreduce.models import Model
-from logreduce.tokenizer import filename2modelname
+from logreduce.tokenizer import Tokenizer, filename2modelname
 
 try:
     path = sys.argv[1]
@@ -42,7 +42,7 @@ for group_name, files in sorted(groups.items()):
             idx = 0
             for bline in fobj:
                 line = bline.decode("ascii", errors="ignore")
-                line = model.process_line(line)
+                line = Tokenizer.process(line)
                 if line:
                     binsz = len(line.split())
                     if binsz not in binsize:

@@ -13,7 +13,6 @@
 
 import logging
 import os
-import re
 import struct
 import sys
 import time
@@ -43,7 +42,7 @@ from typing import (
 
 from logreduce.data import Result, LogObject
 from logreduce.models import Model, models
-from logreduce.tokenizer import filename2modelname
+from logreduce.tokenizer import Tokenizer, filename2modelname
 from logreduce.utils import files_iterator
 from logreduce.utils import format_speed
 from logreduce.utils import open_file
@@ -68,19 +67,20 @@ class Classifier:
     log = logging.getLogger("logreduce.Classifier")
     # Bump this version when models created with earlier versions
     # should be rejected
-    version = 6
+    version = 7
 
     def __init__(
         self,
         model="bag-of-words_nn",
         filename_to_modelname: Callable[[str], str] = filename2modelname,
         keep_file: Callable[[str], bool] = keep_all,
-        exclude_lines: List[str] = [],
+        process_line: Callable[[str], str] = Tokenizer.process,
     ):
         self.models: Dict[str, Model] = {}
         self.model_name = model
         self.filename_to_modelname = filename_to_modelname
         self.keep_file = keep_file
+        self.process_line = process_line
         self.test_prefix = None
         # Default
         self.threshold = 0.2
@@ -88,13 +88,6 @@ class Classifier:
         self.before_context = 2
         self.after_context = 2
         self.include_path = None
-        self.exclude_lines = (
-            re.compile(r"|".join(exclude_lines)) if exclude_lines else None
-        )
-        self.exclude_lines_raw = exclude_lines
-
-    def is_filtered(self, line):
-        return self.exclude_lines and self.exclude_lines.match(line)
 
     def get(self, model_name: str) -> Model:
         return self.models.setdefault(model_name, models[self.model_name](model_name))
@@ -111,6 +104,7 @@ class Classifier:
         # Remove functional attributes
         del self.filename_to_modelname
         del self.keep_file
+        del self.process_line
         joblib.dump(self, fileobj, compress=True)
         self.log.debug("%s: written" % fileobj.name)
 
@@ -128,20 +122,25 @@ class Classifier:
         file_path: str,
         filename_to_modelname: Callable[[str], str] = filename2modelname,
         keep_file: Callable[[str], bool] = keep_all,
+        process_line: Callable[[str], str] = Tokenizer.process,
     ) -> "Classifier":
-        return Classifier.load(open(file_path, "rb"), filename_to_modelname, keep_file)
+        return Classifier.load(
+            open(file_path, "rb"), filename_to_modelname, keep_file, process_line
+        )
 
     @staticmethod
     def load(
         fileobj: BinaryIO,
         filename_to_modelname: Callable[[str], str] = filename2modelname,
         keep_file: Callable[[str], bool] = keep_all,
+        process_line: Callable[[str], str] = Tokenizer.process,
     ) -> "Classifier":
         """Load a saved model"""
         Classifier.check(fileobj)
         obj = joblib.load(fileobj)
         obj.keep_file = keep_file
-        obj.filename2modelname = filename_to_modelname
+        obj.filename_to_modelname = filename_to_modelname
+        obj.process_line = process_line
         return obj
 
     @staticmethod
@@ -187,7 +186,7 @@ class Classifier:
                         # Special case to not train ourself
                         if self._is_log_classify_invocation(model_name, line):
                             break
-                        train_data.add(model.process_line(line))
+                        train_data.add(self.process_line(line))
                         model.count += 1
                     try:
                         if isinstance(filename, str):
@@ -324,8 +323,8 @@ class Classifier:
                     if self._is_log_classify_invocation(model_name, line):
                         break
                     data.append(line)
-                    line = model.process_line(line)
-                    if not self.is_filtered(line) and line not in test_data_set:
+                    line = self.process_line(line)
+                    if line and line not in test_data_set:
                         test_data.append(line)
                         test_data_set.add(line)
                         test_data_pos.append(idx)

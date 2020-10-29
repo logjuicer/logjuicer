@@ -12,22 +12,25 @@
 
 import unittest
 import os
-import re
 import tempfile
 
 import logreduce.process
+from logreduce.utils import process_line
 
 
 class ProcessTests(unittest.TestCase):
     def test_model_save_load(self):
         # Create a model
-        clf = logreduce.process.Classifier(exclude_lines=["foo", "bar"])
-        expected_exclude_lines = re.compile(r"|".join(["foo", "bar"]))
-        assert clf.exclude_lines == expected_exclude_lines
+        test_process = process_line(["foo", "bar"])
+
+        clf = logreduce.process.Classifier(process_line=test_process)
+        assert clf.process_line == test_process
         with tempfile.NamedTemporaryFile() as tmpfile:
             clf.save_file(tmpfile.name)
-            clf = logreduce.process.Classifier.load_file(tmpfile.name)
-            assert clf.exclude_lines == expected_exclude_lines
+            clf = logreduce.process.Classifier.load_file(
+                tmpfile.name, process_line=test_process
+            )
+            assert clf.process_line == test_process
 
     def test_process_diff(self):
         # Compare two python test files
@@ -95,7 +98,7 @@ class ProcessTests(unittest.TestCase):
                 bad.write("XXXXXXXXXXXXXXXXXXXXXXXXX\n")
 
             clf = logreduce.process.Classifier(
-                exclude_lines=["^[Ff]alse positive line$", "^[A-Z]{25}$"]
+                process_line=process_line(["^[Ff]alse positive line$", "^[A-Z]{25}$"])
             )
             clf.merge_distance = 0
             clf.before_context = 0
