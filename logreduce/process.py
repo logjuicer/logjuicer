@@ -52,8 +52,11 @@ TestResult = Tuple[
     str,
     # Original file uri
     str,
+    # The model used containing the associated baseline
     Optional[Model],
+    # The list of anomalous line: (line number, distance between 0 and 1, line content)
     Optional[List[Tuple[int, float, str]]],
+    # test time
     Optional[float],
 ]
 
@@ -67,11 +70,11 @@ class Classifier:
     log = logging.getLogger("logreduce.Classifier")
     # Bump this version when models created with earlier versions
     # should be rejected
-    version = 7
+    version = 8
 
     def __init__(
         self,
-        model="bag-of-words_nn",
+        model="hashing_nn",
         filename_to_modelname: Callable[[str], str] = filename2modelname,
         keep_file: Callable[[str], bool] = keep_all,
         process_line: Callable[[str], str] = Tokenizer.process,

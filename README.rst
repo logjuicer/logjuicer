@@ -63,8 +63,8 @@ Install
   pip install --user logreduce
 
 
-Usage
------
+Command Line Interface Usage
+----------------------------
 
 Logreduce needs a **baseline** for success log training, and a **target**
 for the log to reduce.
@@ -173,6 +173,42 @@ filters configuration file:
        - "^tap[^ ]*$"
        # IPA cookies
        - "^.*[Cc]ookie.*ipa_session="
+
+
+Python Module API
+-----------------
+
+Logreduce can be used as a python module for custom use-case.
+
+First you need to create a classifier object:
+
+.. code-block:: python
+
+   from logreduce import Classifier, Tokenizer, render_html
+
+   clf = Classifier(
+       # A function to normalize filename, for example to remove dates or id
+       filename_to_modelname=lambda fn: fn,
+       # A function to ignore some file, for example configuration file
+       keep_file=lambda _: True,
+       # A function to process line
+       process_line=Tokenizer.process
+   )
+
+Then you train the object on baseline:
+
+.. code-black:: python
+
+   clf.train(["./success-logs/"])
+
+
+And you test target and create a report:
+
+.. code-black:: python
+
+  result = clf.process(["./failed-logs/"])
+  with open("report.html", "w") as of:
+      of.write(render_html(result))
 
 
 logreduce-tests
