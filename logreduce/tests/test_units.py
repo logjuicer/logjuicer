@@ -12,8 +12,7 @@
 
 import unittest
 
-from logreduce.process import Classifier
-from logreduce.tokenizer import Tokenizer
+from logreduce.tokenizer import Tokenizer, filename2modelname
 
 
 class TokenizerTests(unittest.TestCase):
@@ -95,5 +94,5 @@ class TokenizerTests(unittest.TestCase):
             ("conf.d/00-base.conf.txt.gz", "conf.d/-base.conf.txt"),
             ("jobs/test-sleep-217/config.xml", "test-sleep-/config.xml"),
         ):
-            name = Classifier.filename2modelname(fname)
+            name = filename2modelname(fname)
             self.assertEqual(name, modelname)

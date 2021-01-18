@@ -38,11 +38,12 @@ from typing import (
     Tuple,
     Generator,
     Set,
+    Callable,
 )
 
 from logreduce.data import Result, LogObject
 from logreduce.models import Model, models
-from logreduce.tokenizer import Tokenizer
+from logreduce.tokenizer import filename2modelname
 from logreduce.utils import files_iterator
 from logreduce.utils import format_speed
 from logreduce.utils import open_file
@@ -67,12 +68,14 @@ class Classifier:
     def __init__(
         self,
         model="bag-of-words_nn",
+        filename_to_modelname: Callable[[str], str] = filename2modelname,
         exclude_paths: List[str] = [],
         exclude_files: List[str] = [],
         exclude_lines: List[str] = [],
     ):
         self.models: Dict[str, Model] = {}
         self.model_name = model
+        self.filename_to_modelname = filename_to_modelname
         self.test_prefix = None
         # Default
         self.threshold = 0.2
@@ -109,6 +112,8 @@ class Classifier:
         """Save the model"""
         fileobj.write(b"LGRD")
         fileobj.write(struct.pack("I", self.version))
+        # Remove functional attributes
+        del self.filename_to_modelname
         joblib.dump(self, fileobj, compress=True)
         self.log.debug("%s: written" % fileobj.name)
 
@@ -124,17 +129,23 @@ class Classifier:
     @staticmethod
     def load_file(
         file_path: str,
+        filename2modelname_fun: Callable[[str], str] = filename2modelname,
         exclude_paths: List[str] = [],
         exclude_files: List[str] = [],
         exclude_lines: List[str] = [],
     ) -> "Classifier":
         return Classifier.load(
-            open(file_path, "rb"), exclude_paths, exclude_files, exclude_lines
+            open(file_path, "rb"),
+            filename2modelname_fun,
+            exclude_paths,
+            exclude_files,
+            exclude_lines,
         )
 
     @staticmethod
     def load(
         fileobj: BinaryIO,
+        filename2modelname_fun: Callable[[str], str] = filename2modelname,
         exclude_paths: List[str] = [],
         exclude_files: List[str] = [],
         exclude_lines: List[str] = [],
@@ -145,60 +156,8 @@ class Classifier:
         if not exclude_lines:
             exclude_lines = obj.exclude_lines_raw
         obj.set_filters(exclude_paths, exclude_files, exclude_lines)
+        obj.filename2modelname = filename2modelname_fun
         return obj
-
-    @staticmethod
-    def filename2modelname(filename: str) -> str:
-        """Create a modelname based on filename"""
-        # Special case for job-output which is stored at top-level
-        if filename.startswith("job-output.txt"):
-            return "job-output.txt"
-        # Special case for k8s logs
-        basename = os.path.basename(filename)
-        if basename.startswith("k8s_"):
-            return basename.split("-")[0]
-        # Only keep parent directory and first component of the basename
-        shortfilename = os.path.join(
-            re.subn(
-                r"[a-z0-9]*[0-9][a-z0-9]*[^\s\/-]*",
-                "",
-                os.path.basename(os.path.dirname(filename)),
-            )[0],
-            os.path.basename(filename).split(".")[0],
-        )
-        # Detect pipeline in path and add job name
-        for pipeline in ("check", "gate", "post", "periodic"):
-            pipedir = "/%s/" % pipeline
-            if pipedir in filename:
-                job_name = filename.split(pipedir)[-1].split("/")[0]
-                shortfilename = os.path.join(job_name, shortfilename)
-                break
-        if shortfilename == "":
-            # Reduction was too agressive, just keep the filename in this case
-            shortfilename = os.path.basename(filename).split(".")[0]
-        # Append relevant extensions
-        for ext in (
-            ".conf",
-            ".audit",
-            ".yaml",
-            ".orig",
-            ".log",
-            ".xml",
-            ".html",
-            ".txt",
-            ".py",
-            ".json",
-            ".yml",
-        ):
-            if ext in filename:
-                shortfilename += ext
-        # Merge .log.txt with .log because containers stdout
-        # may be split between .log and .log.txt files...:
-        shortfilename = shortfilename.replace(".log.txt", ".log")
-        # Remove UUID in filename
-        shortfilename = Tokenizer.uuid_re.subn("", shortfilename)[0]
-        # Remove numbers and symbols
-        return re.subn(r"[^a-zA-Z\/\._-]*", "", shortfilename)[0]
 
     @staticmethod
     def _is_log_classify_invocation(model_name: str, line: str) -> bool:
@@ -233,7 +192,7 @@ class Classifier:
                     continue
                 if [True for ign in self.exclude_paths if re.search(ign, filename_rel)]:
                     continue
-            model_name = Classifier.filename2modelname(filename_rel)
+            model_name = self.filename_to_modelname(filename_rel)
             to_train.setdefault(model_name, []).append(filename)
 
         # Train each model
@@ -374,7 +333,7 @@ class Classifier:
                 filename_orig = filename_rel
             if len(self.models) > 1:
                 # Get model name based on filename
-                model_name = Classifier.filename2modelname(filename_rel)
+                model_name = self.filename_to_modelname(filename_rel)
                 if model_name not in self.models:
                     self.log.debug(
                         "Skipping unknown file %s (%s)" % (filename, model_name)
