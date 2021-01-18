@@ -413,6 +413,9 @@ def setup_logging(debug=False):
 
 def format_speed(count, size, elapsed_time):
     """Return speed in MB/s and kilo-line count/s"""
+    # On windows, time.monotonic measurement seems to be of 15ms increment,
+    # to prevent division by zero, pick the minimum value:
+    elapsed_time = 0.015 if elapsed_time == 0 else elapsed_time
     return "%.03fs at %.03fMB/s (%0.3fkl/s) (%.03f MB - %.03f kilo-lines)" % (
         elapsed_time,
         (size / (1024 * 1024)) / elapsed_time,
