@@ -21,9 +21,15 @@ Requires:       python3-aiohttp
 Requires:       python3-requests
 Requires:       python3-scikit-learn
 Requires:       python3-pyyaml
+Requires:       python3-typing-extensions
 
 %description
 Extract anomalies from log files
+
+
+%prep
+%autosetup -n logreduce-%{version} -p1
+rm -Rf requirements.txt test-requirements.txt *.egg-info
 
 
 %build

@@ -15,7 +15,6 @@
 - name: Create directories
   file:
     path: "{{ item }}"
-    owner: "{{ ansible_user }}"
     mode: 0700
     state: directory
   with_items:
@@ -46,7 +45,6 @@
       --count {{ logclassify_model_job_count }}
       --zuul-web {{ logclassify_zuul_web }}
       {% if logclassify_ara_database %}--ara-database {% endif %}
-      {% if logclassify_logserver_dir %}--include-path {{ logclassify_logserver_dir }}{% endif %}
       {% for _path in logclassify_exclude_paths %}--exclude-path {{ _path }}{% endfor %}
       {% for _path in logclassify_exclude_files %}--exclude-file {{ _path }}{% endfor %}
   register: _model_build
@@ -127,3 +125,15 @@
   when:
     - _model_check.rc == 4
     - _model_build.rc == 0
+
+- name: Return the report artifact
+  when:
+    - _model_check.rc == 0 or _model_build.rc == 0
+    - _model_run.rc == 0
+  delegate_to: localhost
+  zuul_return:
+    data:
+      zuul:
+        artifacts:
+          - name: "LogReduce report"
+            url: "log-classify.html"
