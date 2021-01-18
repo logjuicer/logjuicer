@@ -28,7 +28,7 @@ try:
 except ImportError:
     journal_installed = False
 
-from typing import Union, BinaryIO, Sequence, List, Generator, Tuple
+from typing import Callable, Union, BinaryIO, Sequence, List, Generator, Tuple
 from logreduce.data import LogObject, FileLike
 
 
@@ -171,6 +171,19 @@ FACILITY2NAME = {
     22: "local6",
     23: "local7",
 }
+
+
+# An adapter function for the legacy keep_file behaviors
+def keep_file(
+    exclude_files: List[str], exclude_paths: List[str]
+) -> Callable[[str], bool]:
+    def fun(path: str) -> bool:
+        basename = os.path.basename(path)
+        return any([True for ign in exclude_files if re.match(ign, basename)]) or any(
+            [True for ign in exclude_paths if re.search(ign, path)]
+        )
+
+    return fun
 
 
 class Journal(FileLike):
@@ -342,8 +355,7 @@ def open_file(p: LogObject) -> OpenedFile:
 
 def files_iterator(
     paths: Sequence[LogObject],
-    ign_files: List[str] = [],
-    ign_paths: List[str] = [],
+    keep_file: Callable[[str], bool] = lambda s: True,
 ) -> Generator[Tuple[LogObject, str], None, None]:
     """Walk directory and yield (path, rel_path)"""
     # Copy path list
@@ -366,8 +378,11 @@ def files_iterator(
                 path = "%s/" % path
             for dname, _, fnames in os.walk(path):
                 for fname in fnames:
-                    if [True for ign in ign_files if re.match(ign, fname)]:
+                    fpath = os.path.join(dname, fname)
+                    rel_path = fpath[len(path) :]
+                    if not keep_file(rel_path):
                         continue
+
                     if fname != "ansible.sqlite" and [
                         True
                         for skip in BLACKLIST_EXTENSIONS
@@ -379,7 +394,6 @@ def files_iterator(
                         or fname.endswith("%s.xz" % skip)
                     ]:
                         continue
-                    fpath = os.path.join(dname, fname)
 
                     # Skip empty files
                     try:
@@ -391,9 +405,6 @@ def files_iterator(
                     except Exception:
                         pass
 
-                    rel_path = fpath[len(path) :]
-                    if [True for ign in ign_paths if re.search(ign, rel_path)]:
-                        continue
                     if fname == "ansible.sqlite":
                         yield (AraReport(fpath), "report/ansible.sqlite")
                     else:

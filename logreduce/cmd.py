@@ -27,6 +27,7 @@ from logreduce.data import Build, LogObject, show_build
 from logreduce.process import Classifier
 from logreduce.html_output import render_html
 from logreduce.models import models
+from logreduce.utils import keep_file
 
 
 DEFAULT_ZUUL_WEB = os.environ.get(
@@ -580,17 +581,14 @@ class Cli:
         if model_file is not None:
             clf = Classifier.load_file(
                 model_file,
-                exclude_paths=self.exclude_path,
-                exclude_files=self.exclude_file,
-                exclude_lines=self.exclude_line,
+                keep_file=keep_file(self.exclude_file, self.exclude_path),
             )
             if clf.include_path != self.include_path:
                 raise RuntimeError("Included paths changed, need re-train")
         else:
             clf = Classifier(
                 self.model_type,
-                exclude_paths=self.exclude_path,
-                exclude_files=self.exclude_file,
+                keep_file=keep_file(self.exclude_file, self.exclude_path),
                 exclude_lines=self.exclude_line,
             )
         clf.test_prefix = self.test_prefix

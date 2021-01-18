@@ -59,6 +59,11 @@ TestResult = Tuple[
 ]
 
 
+# The default behavior is to classify all the files
+def keep_all(_fn: str) -> bool:
+    return True
+
+
 class Classifier:
     log = logging.getLogger("logreduce.Classifier")
     # Bump this version when models created with earlier versions
@@ -69,13 +74,13 @@ class Classifier:
         self,
         model="bag-of-words_nn",
         filename_to_modelname: Callable[[str], str] = filename2modelname,
-        exclude_paths: List[str] = [],
-        exclude_files: List[str] = [],
+        keep_file: Callable[[str], bool] = keep_all,
         exclude_lines: List[str] = [],
     ):
         self.models: Dict[str, Model] = {}
         self.model_name = model
         self.filename_to_modelname = filename_to_modelname
+        self.keep_file = keep_file
         self.test_prefix = None
         # Default
         self.threshold = 0.2
@@ -83,18 +88,9 @@ class Classifier:
         self.before_context = 2
         self.after_context = 2
         self.include_path = None
-        self.exclude_paths: List[str] = []
-        self.exclude_files: List[str] = []
-        self.exclude_lines = None
-        self.set_filters(exclude_paths, exclude_files, exclude_lines)
-
-    def set_filters(self, exclude_paths, exclude_files, exclude_lines):
-        if exclude_paths:
-            self.exclude_paths = exclude_paths
-        if exclude_files:
-            self.exclude_files = exclude_files
-        if exclude_lines:
-            self.exclude_lines = re.compile(r"|".join(exclude_lines))
+        self.exclude_lines = (
+            re.compile(r"|".join(exclude_lines)) if exclude_lines else None
+        )
         self.exclude_lines_raw = exclude_lines
 
     def is_filtered(self, line):
@@ -114,6 +110,7 @@ class Classifier:
         fileobj.write(struct.pack("I", self.version))
         # Remove functional attributes
         del self.filename_to_modelname
+        del self.keep_file
         joblib.dump(self, fileobj, compress=True)
         self.log.debug("%s: written" % fileobj.name)
 
@@ -129,34 +126,22 @@ class Classifier:
     @staticmethod
     def load_file(
         file_path: str,
-        filename2modelname_fun: Callable[[str], str] = filename2modelname,
-        exclude_paths: List[str] = [],
-        exclude_files: List[str] = [],
-        exclude_lines: List[str] = [],
+        filename_to_modelname: Callable[[str], str] = filename2modelname,
+        keep_file: Callable[[str], bool] = keep_all,
     ) -> "Classifier":
-        return Classifier.load(
-            open(file_path, "rb"),
-            filename2modelname_fun,
-            exclude_paths,
-            exclude_files,
-            exclude_lines,
-        )
+        return Classifier.load(open(file_path, "rb"), filename_to_modelname, keep_file)
 
     @staticmethod
     def load(
         fileobj: BinaryIO,
-        filename2modelname_fun: Callable[[str], str] = filename2modelname,
-        exclude_paths: List[str] = [],
-        exclude_files: List[str] = [],
-        exclude_lines: List[str] = [],
+        filename_to_modelname: Callable[[str], str] = filename2modelname,
+        keep_file: Callable[[str], bool] = keep_all,
     ) -> "Classifier":
         """Load a saved model"""
         Classifier.check(fileobj)
         obj = joblib.load(fileobj)
-        if not exclude_lines:
-            exclude_lines = obj.exclude_lines_raw
-        obj.set_filters(exclude_paths, exclude_files, exclude_lines)
-        obj.filename2modelname = filename2modelname_fun
+        obj.keep_file = keep_file
+        obj.filename2modelname = filename_to_modelname
         return obj
 
     @staticmethod
@@ -179,19 +164,7 @@ class Classifier:
 
         # Group similar files for the same model
         to_train: Dict[str, List[LogObject]] = {}
-        for filename, filename_rel in files_iterator(
-            baselines, self.exclude_files, self.exclude_paths
-        ):
-            # TODO: add this logic to the files_iterator
-            if filename_rel:
-                if isinstance(filename, str) and [
-                    True
-                    for ign in self.exclude_files
-                    if re.match(ign, os.path.basename(filename))
-                ]:
-                    continue
-                if [True for ign in self.exclude_paths if re.search(ign, filename_rel)]:
-                    continue
+        for filename, filename_rel in files_iterator(baselines, self.keep_file):
             model_name = self.filename_to_modelname(filename_rel)
             to_train.setdefault(model_name, []).append(filename)
 
@@ -308,19 +281,7 @@ class Classifier:
 
         self.targets = targets
 
-        for filename, filename_rel in files_iterator(
-            targets, self.exclude_files, self.exclude_paths
-        ):
-            # TODO: add this logic to the files_iterator
-            if filename_rel:
-                if isinstance(filename, str) and [
-                    True
-                    for ign in self.exclude_files
-                    if re.match(ign, os.path.basename(filename))
-                ]:
-                    continue
-                if [True for ign in self.exclude_paths if re.search(ign, filename_rel)]:
-                    continue
+        for filename, filename_rel in files_iterator(targets, self.keep_file):
             test_start_time = time.monotonic()
 
             if self.test_prefix:
