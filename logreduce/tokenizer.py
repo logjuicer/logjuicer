@@ -90,7 +90,7 @@ class Tokenizer:
     hash_re = re.compile(r"SHA256:[\w+/]{43}\b")
 
     @staticmethod
-    def process(line):
+    def process(line: str) -> str:
         # Ignore some raw pattern first
         if Tokenizer.rawline_re.search(line):
             return ""

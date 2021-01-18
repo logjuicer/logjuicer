@@ -21,8 +21,6 @@ from sklearn.feature_extraction.text import HashingVectorizer
 
 # from sklearn import svm
 
-from logreduce.tokenizer import Tokenizer
-
 # Query chunk size, it seems to improve memory footprint of kneighbors call
 CHUNK_SIZE = int(os.environ.get("LR_CHUNK_SIZE", 512))
 # Disable multiprocessing by default
@@ -40,10 +38,6 @@ class Model:
         self.size = 0
         self.count = 0
         self.uuid = ""
-
-    def process_line(self, line):
-        """Process log lines"""
-        return Tokenizer.process(line)
 
     def train(self, train_data):
         """Fit the model with train_datas"""
