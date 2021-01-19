@@ -13,6 +13,7 @@
 import unittest
 
 from logreduce.tokenizer import Tokenizer, filename2modelname
+from logreduce.utils import keep_file
 
 
 class TokenizerTests(unittest.TestCase):
@@ -96,3 +97,24 @@ class TokenizerTests(unittest.TestCase):
         ):
             name = filename2modelname(fname)
             self.assertEqual(name, modelname)
+
+
+class KeepFileTests(unittest.TestCase):
+    def test_excluded_file(self):
+        self.assertEqual(
+            ["/var/log/message"],
+            list(
+                filter(keep_file(["audit"], []), ["/var/log/message", "/var/log/audit"])
+            ),
+        )
+
+    def test_excluded_path(self):
+        self.assertEqual(
+            ["/var/log/message"],
+            list(
+                filter(
+                    keep_file([], [r"^.*\/log\/audit$"]),
+                    ["/var/log/message", "/var/log/audit"],
+                )
+            ),
+        )

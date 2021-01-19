@@ -178,11 +178,12 @@ FACILITY2NAME = {
 def keep_file(
     exclude_files: List[str], exclude_paths: List[str]
 ) -> Callable[[str], bool]:
+    # The function returns False for excluded path
     def fun(path: str) -> bool:
         basename = os.path.basename(path)
-        return any([True for ign in exclude_files if re.match(ign, basename)]) or any(
-            [True for ign in exclude_paths if re.search(ign, path)]
-        )
+        excluded_file = any([True for ign in exclude_files if re.match(ign, basename)])
+        excluded_path = any([True for ign in exclude_paths if re.search(ign, path)])
+        return not excluded_file and not excluded_path
 
     return fun
 
