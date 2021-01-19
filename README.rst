@@ -197,14 +197,14 @@ First you need to create a classifier object:
 
 Then you train the object on baseline:
 
-.. code-black:: python
+.. code-block:: python
 
    clf.train(["./success-logs/"])
 
 
 And you test target and create a report:
 
-.. code-black:: python
+.. code-block:: python
 
   result = clf.process(["./failed-logs/"])
   with open("report.html", "w") as of:
@@ -290,5 +290,5 @@ Contribute
 Contribution are most welcome, use **git-review** to propose a change.
 Setup your ssh keys after sign in https://softwarefactory-project.io/auth/login
 
-Code style is managed with `black https://github.com/psf/black#readme`_,
+Code style is managed with `black <https://github.com/psf/black#readme>`_,
 run `black logreduce` before commit to format the source file.
