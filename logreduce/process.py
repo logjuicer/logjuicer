@@ -147,7 +147,7 @@ class Classifier:
 
     @staticmethod
     def _is_log_classify_invocation(model_name: str, line: str) -> bool:
-        """ Returns True if the line is related to log-classify"""
+        """Returns True if the line is related to log-classify"""
         return model_name == "job-output.txt" and (
             "TASK [log-classify " in line or "TASK [Generate ara report]" in line
         )

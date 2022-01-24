@@ -10,7 +10,7 @@
     nodeset:
       nodes:
         - name: container
-          label: pod-fedora-31
+          label: pod-fedora-33
 
 - project:
     name: logreduce
@@ -21,14 +21,14 @@
             nodeset:
               nodes:
                 - name: testrunner
-                  label: pod-fedora-31
+                  label: pod-fedora-33
         - tox:
             vars:
               tox_envlist: "unit"
             nodeset:
               nodes:
                 - name: testrunner
-                  label: pod-fedora-31
+                  label: pod-fedora-33
     gate: *jobs
     release:
       jobs:
