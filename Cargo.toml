@@ -1,0 +1,16 @@
+[package]
+name = "logreduce-tokenizer"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+name = "logreduce_tokenizer"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies.pyo3]
+version = "0.15.1"
+features = ["extension-module"]
+
+[dependencies]
+regex = "1"
+lazy_static = "1.4.0"
