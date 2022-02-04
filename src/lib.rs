@@ -5,8 +5,11 @@ use pyo3::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
 
+pub mod tokenizer;
+
+#[allow(dead_code)]
 #[pyfunction]
-fn process(line: &str) -> String {
+fn process_base(line: &str) -> String {
     lazy_static! {
         static ref MONTH_RE: Regex = Regex::new("january|february|march|april|may|june|july|august|september|october|november|december").unwrap();
         static ref HTTP_RE: Regex = Regex::new("http[^ ]*").unwrap();
@@ -15,6 +18,11 @@ fn process(line: &str) -> String {
     let line = HTTP_RE.replace_all(&line, "URL");
     let line = MONTH_RE.replace_all(&line, "MONTH");
     line.to_string()
+}
+
+#[pyfunction]
+fn process(line: &str) -> String {
+    tokenizer::process(line)
 }
 
 #[pymodule]
@@ -30,7 +38,7 @@ mod tests {
 
     #[test]
     fn test_tokenizer() {
-        assert_eq!(process("Hello"), "hello");
-        assert_eq!(process("http://test"), "URL");
+        assert_eq!(process_base("Hello"), "hello");
+        assert_eq!(process_base("http://test"), "URL");
     }
 }

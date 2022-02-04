@@ -12,3 +12,9 @@ Bench:
 ```
 python bench.py
 ```
+
+Test perf:
+
+```
+RUSTFLAGS="-C target-cpu=native" cargo build --release
+```

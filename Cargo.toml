@@ -3,6 +3,11 @@ name = "logreduce-tokenizer"
 version = "0.1.0"
 edition = "2018"
 
+[profile.release]
+lto = true
+codegen-units = 1
+# panic = "abort"
+
 [lib]
 name = "logreduce_tokenizer"
 crate-type = ["cdylib", "rlib"]
@@ -14,3 +19,10 @@ features = ["extension-module"]
 [dependencies]
 regex = "1"
 lazy_static = "1.4.0"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "bench"
+harness = false

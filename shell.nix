@@ -3,5 +3,18 @@
   { } }:
 
 let
-  python = pkgs.python39.withPackages (ps: with ps; [ setuptools-rust wheel ]);
-in pkgs.mkShell { buildInputs = [ python pkgs.cargo pkgs.rustc ]; }
+  python = pkgs.python39.withPackages (ps:
+    with ps; [
+      setuptools-rust
+      wheel
+      scikit-learn
+      numpy
+      twine
+      pbr
+      pip
+      aiohttp
+      requests
+      scipy
+      pyyaml
+    ]);
+in pkgs.mkShell { buildInputs = [ python pkgs.blas pkgs.cargo pkgs.rustc ]; }
