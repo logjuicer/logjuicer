@@ -370,6 +370,11 @@ class Cli:
         diff_usage(sub_parser)
         return parser
 
+    def mk_model_path(self, name: str) -> str:
+        return os.path.join(
+            self.tmp_dir, "_models", "%s-%s.clf" % (self.model_type, name)
+        )
+
     def model_check(self, model_file: str) -> None:
         max_age_sec = self.max_age * 24 * 3600
         if (
@@ -378,7 +383,7 @@ class Cli:
         ):
             raise RuntimeError("%s: does not exists or too old" % model_file)
         try:
-            Classifier.check(open(model_file, "rb"))
+            Classifier.check(open(model_file, "rb"), self.model_type)
         except Exception as e:
             raise RuntimeError("%s: %s" % (model_file, e))
 
@@ -398,9 +403,7 @@ class Cli:
         self._report(clf, target)
 
     def dir_allinone(self, baseline: str, target: str) -> None:
-        model_file = os.path.join(
-            self.tmp_dir, "_models", baseline.replace("/", "_") + ".clf"
-        )
+        model_file = self.mk_model_path(baseline.replace("/", "_"))
         clf = None
         if os.path.exists(model_file):
             try:
@@ -466,10 +469,10 @@ class Cli:
     def job_allinone(self, logs_url: str) -> None:
         if self.job is None:
             self.job = logs_url.split("/")[-3]
-        model_name = self.job + ".clf"
+        model_name = self.job
         if self.project is not None:
             model_name = os.path.join(self.project, model_name)
-        model_file = os.path.join(self.tmp_dir, "_models", model_name)
+        model_file = self.mk_model_path(model_name)
         clf = None
         if os.path.exists(model_file):
             try:
@@ -522,9 +525,7 @@ class Cli:
         self._report(clf, [target])
 
     def journal_allinone(self) -> None:
-        model_file = os.path.join(
-            self.tmp_dir, "_models", "jounral-%s.clf" % self.range
-        )
+        model_file = self.mk_model_path("jounral-%s" % self.range)
         clf = None
         if os.path.exists(model_file):
             try:

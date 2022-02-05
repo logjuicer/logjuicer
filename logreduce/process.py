@@ -42,7 +42,7 @@ from typing import (
 
 from logreduce.data import Result, LogObject
 from logreduce.models import Model, models
-from logreduce.tokenizer import Tokenizer, filename2modelname
+from logreduce.tokenizer import filename2modelname
 from logreduce.utils import files_iterator
 from logreduce.utils import format_speed
 from logreduce.utils import open_file
@@ -68,22 +68,22 @@ def keep_all(_fn: str) -> bool:
 
 class Classifier:
     log = logging.getLogger("logreduce.Classifier")
-    # Bump this version when models created with earlier versions
-    # should be rejected
-    version = 8
 
     def __init__(
         self,
-        model="hashing_nn",
+        model_name="hashing_nn",
         filename_to_modelname: Callable[[str], str] = filename2modelname,
         keep_file: Callable[[str], bool] = keep_all,
-        process_line: Callable[[str], str] = Tokenizer.process,
+        process_line: Optional[Callable[[str], str]] = None,
     ):
         self.models: Dict[str, Model] = {}
-        self.model_name = model
+        self.model_name = model_name
+        self.version = getattr(models[model_name], "version")
         self.filename_to_modelname = filename_to_modelname
         self.keep_file = keep_file
-        self.process_line = process_line
+        self.process_line = (
+            process_line if process_line else getattr(models[model_name], "tokenizer")
+        )
         self.test_prefix = None
         # Default
         self.threshold = 0.2
@@ -111,38 +111,46 @@ class Classifier:
         self.log.debug("%s: written" % fileobj.name)
 
     @staticmethod
-    def check(fileobj: BinaryIO) -> None:
+    def check(fileobj: BinaryIO, model_name="hashing_nn") -> None:
         hdr = fileobj.read(4)
         if hdr != b"LGRD":
             raise RuntimeError("Invalid header")
         version = struct.unpack("I", fileobj.read(4))[0]
-        if version != Classifier.version:
+        if version != getattr(models[model_name], "version"):
             raise RuntimeError("Invalid version")
 
     @staticmethod
     def load_file(
         file_path: str,
+        model_name="hashing_nn",
         filename_to_modelname: Callable[[str], str] = filename2modelname,
         keep_file: Callable[[str], bool] = keep_all,
-        process_line: Callable[[str], str] = Tokenizer.process,
+        process_line: Optional[Callable[[str], str]] = None,
     ) -> "Classifier":
         return Classifier.load(
-            open(file_path, "rb"), filename_to_modelname, keep_file, process_line
+            open(file_path, "rb"),
+            model_name,
+            filename_to_modelname,
+            keep_file,
+            process_line,
         )
 
     @staticmethod
     def load(
         fileobj: BinaryIO,
+        model_name="hashing_nn",
         filename_to_modelname: Callable[[str], str] = filename2modelname,
         keep_file: Callable[[str], bool] = keep_all,
-        process_line: Callable[[str], str] = Tokenizer.process,
+        process_line: Optional[Callable[[str], str]] = None,
     ) -> "Classifier":
         """Load a saved model"""
-        Classifier.check(fileobj)
+        Classifier.check(fileobj, model_name)
         obj = joblib.load(fileobj)
         obj.keep_file = keep_file
         obj.filename_to_modelname = filename_to_modelname
-        obj.process_line = process_line
+        obj.process_line = (
+            process_line if process_line else getattr(models[model_name], "tokenizer")
+        )
         return obj
 
     @staticmethod

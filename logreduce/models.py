@@ -18,6 +18,7 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 from sklearn.feature_extraction.text import HashingVectorizer
+from logreduce.tokenizer import Tokenizer
 
 # from sklearn import svm
 
@@ -30,6 +31,10 @@ os.environ["JOBLIB_MULTIPROCESSING"] = os.environ.get("LR_MULTIPROCESSING", "0")
 class Model:
     """Base class for model"""
 
+    # Bump this version when models created with earlier versions
+    # should be rejected
+    version = 8
+
     def __init__(self, name):
         self.name = name
         self.sources = []
@@ -38,6 +43,10 @@ class Model:
         self.size = 0
         self.count = 0
         self.uuid = ""
+
+    @staticmethod
+    def tokenizer(line):
+        return Tokenizer.process(line)
 
     def train(self, train_data):
         """Fit the model with train_datas"""
@@ -98,7 +107,7 @@ class HashingNeighbors(Model):
         super().__init__(name)
         self.vectorizer = HashingVectorizer(
             binary=True,
-            n_features=2 ** 18,
+            n_features=2**18,
             analyzer=str.split,
             lowercase=False,
             tokenizer=None,
@@ -194,7 +203,7 @@ class HashingAnnoy(Model):
         except ImportError:
             raise RuntimeError("Install annoy library first")
         super().__init__(name)
-        features = 2 ** 13
+        features = 2**13
         self.vectorizer = HashingVectorizer(
             binary=True,
             n_features=features,
