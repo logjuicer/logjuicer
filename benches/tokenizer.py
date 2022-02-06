@@ -5,7 +5,6 @@
 import re
 import os
 
-# Tokenizer
 DAYS = "sunday|monday|tuesday|wednesday|thursday|friday|saturday"
 MONTHS = (
     "january|february|march|april|may|june|july|august|september|"

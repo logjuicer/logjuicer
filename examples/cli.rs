@@ -1,7 +1,8 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-pub mod tokenizer;
+//! A cli demo to run the tokenizer on stdin.
+use logreduce_tokenizer::{tokenizer};
 
 use std::io::Write;
 use std::io::{self};

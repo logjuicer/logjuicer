@@ -10,11 +10,17 @@ export PYTHONPATH=$(pwd)/build/lib
 Bench:
 
 ```
-python bench.py
+python benches/bench.py
 ```
 
 Test perf:
 
 ```
 RUSTFLAGS="-C target-cpu=native" cargo build --release
+```
+
+Build CLI:
+
+```
+RUSTFLAGS="-C target-cpu=native" cargo build --example logreduce-tokenizer-cli --release
 ```

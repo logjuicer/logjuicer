@@ -1,6 +1,37 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
+//! The tokenizer logic
+//!
+//! The main function is [process]. The output is designed for further feature extraction,
+//! for example with a bag of words or hashing vectorizer. It looks like this:
+//!
+//! ```rust
+//! # use logreduce_tokenizer::tokenizer::{process};
+//! assert_eq!(process(
+//!    "2017-06-24 02:52:17.732 22627 tempest.lib.common.rest_client [req-b932e095-6706-4f5a-bd75-241c407a9d01 ] Request (main): 201 POST https://10.0.1.9/identity/v3/auth/tokens"),
+//!    "%ID %ID %ID tempest.lib.common.rest_client %BIG%NUM  Request main%NUM%EQ %NUM  POST %URL")
+//! ```
+//!
+//! Here are some use cases:
+//!
+//! ```rust
+//! # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+//! tokens_eq!("+ export ZUUL_REF=refs/zuul/master/6546b192211a4531859db9d8b9375154",
+//!            "+ export ZUUL_REF=refs/zuul/master/9249f6066a2041bbbeb838e2ca1cf2b4");
+//! tokens_eq!("2017-06-23 20:10:06,848 INFO:dlrn-build:DEBUG: writing output... [ 90%] configuration",
+//!            "2017-06-24 13:35:57,754 INFO:dlrn-build:DEBUG: writing output... [ 88%] configuration");
+//! tokens_eq!("tempest.lib.common.rest_client [req-b932e095-6706-4f5a-bd75-241c407a9d01 ] Request (main): 201 POST https://10.0.1.9/identity/v3/auth/tokens",
+//!            "tempest.lib.common.rest_client [req-08043549-3227-4c61-aa3b-9d02fc8437c3 ] Request (main): 201 POST https://104.130.217.34/identity/v3/auth/tokens");
+//! ```
+//!
+//! TODO: decode json object and re-order the key to pass this test:
+//! ```should_panic
+//! # use logreduce_tokenizer::tokenizer::{process};
+//! assert_eq!(process("{\"key\": true, \"oth\": 1}"), process("{\"oth\": 1, \"key\": true}"));
+//! ```
+
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use regex::Split;
@@ -12,6 +43,11 @@ fn words(line: &str) -> Split {
     RE.split(line)
 }
 
+/// Apply global filter to skip specific lines.
+/// ```rust
+/// # use logreduce_tokenizer::tokenizer::{process};
+/// assert_eq!(process("iptables -N RULES42 -L"), "%GL_FILTER");
+/// ```
 fn global_filter(line: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
@@ -26,6 +62,11 @@ fn global_filter(line: &str) -> bool {
     line.len() < 5 || RE.is_match(line)
 }
 
+/// Replace numbers sequences with `N`.
+/// ```rust
+/// # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+/// tokens_eq!("running test42", "running test43");
+/// ```
 fn remove_numbers(word: &str) -> String {
     lazy_static! {
         static ref RE: Regex = Regex::new("[0-9]+").unwrap();
@@ -33,6 +74,11 @@ fn remove_numbers(word: &str) -> String {
     RE.replace_all(word, "N").to_string()
 }
 
+/// Check if a word matches a date.
+/// ```rust
+/// # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+/// tokens_eq!("Sunday February 6th - message", "Monday February 7th - message");
+/// ```
 fn is_date(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
@@ -46,12 +92,14 @@ fn is_date(word: &str) -> bool {
     RE.is_match(word)
 }
 
+/// Check if a word matches an error prefix.
 fn is_error(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
             "(?i-u:^(",
             "error|failure|failed|warning|",
             "err|fail|warn|",
+            "assert|assertion|non-zero|",
             "exception|traceback",
             ")$)"
         ))
@@ -60,6 +108,11 @@ fn is_error(word: &str) -> bool {
     RE.is_match(word)
 }
 
+/// Check if a word contains weird char, likely in generated id.
+/// ```rust
+/// # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+/// tokens_eq!("A{$@42", "$A%TE");
+/// ```
 fn contains_odd_char(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"[<>{}%$,*]").unwrap();
@@ -82,6 +135,10 @@ fn is_url(word: &str) -> bool {
     RE.is_match(word)
 }
 
+/// ```
+/// # use logreduce_tokenizer::{tokens_eq, tokenizer::{process}};
+/// tokens_eq!("md5:d41d8cd98f00b204e9800998ecf8427e", "md5:e7b26fc34f528b5b19c4450867b9d597")
+/// ```
 fn is_hash(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!("(?i:^", "(hash|sha|md)[0-9]*:", ")")).unwrap();
@@ -104,6 +161,10 @@ fn is_refs(word: &str) -> bool {
     word.starts_with("refs/") || word.starts_with("repos/") || RE.is_match(word)
 }
 
+/// ```
+/// # use logreduce_tokenizer::{tokens_eq, tokenizer::{process}};
+/// tokens_eq!("key=01:02:ff", "key=aa:bb:cc")
+/// ```
 fn is_key_value(word: &str) -> Option<(&str, &str)> {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!("[:=]")).unwrap();
@@ -121,6 +182,11 @@ fn is_key_value(word: &str) -> Option<(&str, &str)> {
     }
 }
 
+/// ```
+/// # use logreduce_tokenizer::{tokens_eq, tokenizer::{process}};
+/// tokens_eq!("port-ea42", "port-eb51");
+/// tokens_eq!("test-copysrc", "dat-copysrc");
+/// ```
 fn is_terminated_by_dash(word: &str) -> Option<&str> {
     let parts: Vec<&str> = word.split_inclusive('-').collect();
     match parts[..] {
@@ -153,6 +219,11 @@ mod re_tests {
     use super::*;
 
     #[test]
+    fn test_remove_numbers() {
+        assert_eq!(remove_numbers("test42-check"), "testN-check");
+    }
+
+    #[test]
     fn test_date() {
         assert!(vec!["sunday", "saturday", "Monday"]
             .into_iter()
@@ -160,6 +231,11 @@ mod re_tests {
         assert!(vec!["sunday ", " saturday", " jan ", "sund"]
             .into_iter()
             .all(|v| !is_date(v)));
+    }
+
+    #[test]
+    fn test_is_error() {
+        assert!(is_error("FAIL"));
     }
 
     #[test]
@@ -186,6 +262,7 @@ mod re_tests {
     fn test_composite() {
         assert_eq!(is_key_value("key=value"), Some(("key", "value")));
         assert_eq!(is_key_value("keyvalue"), None);
+        assert_eq!(is_key_value("!KEY=value"), None);
     }
 
     #[test]
@@ -201,7 +278,7 @@ mod re_tests {
     }
 }
 
-pub fn parse_literal(word: &str) -> Option<&str> {
+fn parse_literal(word: &str) -> Option<&str> {
     if is_date(word) {
         Some("%DATE")
     } else if is_hash(word) {
@@ -242,7 +319,7 @@ fn trim_pid(word: &str) -> Option<&str> {
     }
 }
 
-pub fn trim_num_and_sep(word: &str) -> Option<&str> {
+fn trim_num_and_sep(word: &str) -> Option<&str> {
     let strip = word.trim_matches(|c| {
         (c >= '0' && c <= '9')
             || c == '('
@@ -262,17 +339,27 @@ pub fn trim_num_and_sep(word: &str) -> Option<&str> {
     }
 }
 
-pub fn push_error(word: &str, result: &mut String) {
+/// Makes error token appears bigger.
+/// ```rust
+/// # use logreduce_tokenizer::tokenizer::*;
+/// assert_eq!(process("Test Fail"), "Test Fail Fail%A Fail%B Fail%C Fail%D");
+/// ```
+fn push_error(word: &str, result: &mut String) {
     // Make the error takes more space
+    result.push_str(word);
+    result.push(' ');
     result.push_str(word);
     result.push_str("%A ");
     result.push_str(word);
     result.push_str("%B ");
-    result.push_str(word)
+    result.push_str(word);
+    result.push_str("%C ");
+    result.push_str(word);
+    result.push_str("%D ");
 }
 
-/// The tokenizer main (recursive) function, which tries to remove word's noise
-pub fn do_process(word: &str, result: &mut String) {
+/// The tokenizer main (recursive) function
+fn do_process(word: &str, result: &mut String) {
     // First we handle 3 letters word
     if word.len() <= 3 {
         // This is currently confusing the hashing vectorizer,
@@ -327,7 +414,7 @@ pub fn do_process(word: &str, result: &mut String) {
     }
 }
 
-/// The tokenizer entry point, call do_process per words
+/// The tokenizer entry point
 pub fn process(line: &str) -> String {
     // the current logreduce process provides cr terminated line
     // and it's easier to remove it here to avoid regexp confusion.
@@ -335,7 +422,7 @@ pub fn process(line: &str) -> String {
 
     // check for global filter first
     if global_filter(line) {
-        return "".to_string();
+        return "%GL_FILTER".to_string();
     }
 
     // split the line into space separated words.
@@ -347,6 +434,15 @@ pub fn process(line: &str) -> String {
     result.trim().to_string()
 }
 
+/// Helper macro to write short tests. `tokens_eq!("a", "b")` is `assert_eq!(process("a"), process("b"))`
+#[macro_export]
+macro_rules! tokens_eq {
+    // macth like arm for macro
+    ($a:expr,$b:expr) => {
+        assert_eq!(process($a), process($b))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -354,14 +450,14 @@ mod tests {
     #[test]
     fn test_process_nl() {
         assert_eq!(process("testy\r\n"), "testy");
-        assert_eq!(process("* mirror: 42\n"), "");
+        assert_eq!(process("* mirror: 42\n"), "%GL_FILTER");
     }
 
     #[test]
     fn test_process() {
         assert_eq!(
             process("error hash mismatch 'sha256:42'"),
-            "error%A error%B error hash mismatch %HASH'"
+            "error error%A error%B error%C error%D  hash mismatch %HASH'"
         );
         assert_eq!(
             process("getting \"http://local:4242/test\""),
@@ -393,7 +489,7 @@ mod tests {
         );
         assert_eq!(
             process("[Zuul] Job complete, result: FAILURE"),
-            "Zuul%NUM  complete' result%EQ  FAILURE%A FAILURE%B FAILURE"
+            "Zuul%NUM  complete' result%EQ  FAILURE FAILURE%A FAILURE%B FAILURE%C FAILURE%D"
         );
         assert_eq!(
             process("controller | +3}QP5CJuNBP65S%c:y>o"),
@@ -403,9 +499,9 @@ mod tests {
             process("   \"contents\": \"3}QP5CJuNBP65S%c:y>o\""),
             process("   \"contents\": \"U%aNO^b5ITFU^xTTa9rV\",")
         );
-        assert_eq!(
-            process("ZUUL_REF=Z60f0ad207fbb4c55a07d665ef44131a4"),
-            process("ZUUL_REF=Zbffe5ccbe3ef4ab48c016783ea185dfa")
+        tokens_eq!(
+            "ZUUL_REF=Z60f0ad207fbb4c55a07d665ef44131a4",
+            "ZUUL_REF=Zbffe5ccbe3ef4ab48c016783ea185dfa"
         );
     }
 
