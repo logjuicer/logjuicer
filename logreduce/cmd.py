@@ -572,6 +572,7 @@ class Cli:
         if model_file is not None:
             clf = Classifier.load_file(
                 model_file,
+                self.model_type,
                 keep_file=keep_file(self.exclude_file, self.exclude_path),
                 process_line=process_line(self.exclude_line),
             )

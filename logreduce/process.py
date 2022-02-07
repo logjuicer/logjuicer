@@ -12,6 +12,7 @@
 
 
 import logging
+import copy
 import os
 import struct
 import sys
@@ -103,11 +104,12 @@ class Classifier:
         """Save the model"""
         fileobj.write(b"LGRD")
         fileobj.write(struct.pack("I", self.version))
+        obj = copy.copy(self)
         # Remove functional attributes
-        del self.filename_to_modelname
-        del self.keep_file
-        del self.process_line
-        joblib.dump(self, fileobj, compress=True)
+        del obj.filename_to_modelname
+        del obj.keep_file
+        del obj.process_line
+        joblib.dump(obj, fileobj, compress=True)
         self.log.debug("%s: written" % fileobj.name)
 
     @staticmethod
