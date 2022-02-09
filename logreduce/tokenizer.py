@@ -145,6 +145,8 @@ def filename2modelname(filename: str) -> str:
         )[0],
         os.path.basename(filename).split(".")[0],
     )
+    if shortfilename.startswith("qemu/instance-"):
+        return "qemu/instance"
     # Detect pipeline in path and add job name
     for pipeline in ("check", "gate", "post", "periodic"):
         pipedir = "/%s/" % pipeline

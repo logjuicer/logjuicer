@@ -97,6 +97,16 @@ class TokenizerTests(unittest.TestCase):
         ):
             name = filename2modelname(fname)
             self.assertEqual(name, modelname)
+        for fnames in [
+            [
+                "containers/libvirt/qemu/instance-0000001d.log.txt.gz",
+                "libvirt/qemu/instance-000000ec.log.txt.gz",
+            ]
+        ]:
+            modelnames = set(map(filename2modelname, fnames))
+            self.assertEqual(
+                len(modelnames), 1, "model names does not match: %s" % modelnames
+            )
 
 
 class KeepFileTests(unittest.TestCase):
