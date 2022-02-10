@@ -28,7 +28,7 @@ try:
 except ImportError:
     journal_installed = False
 
-from typing import Callable, Union, BinaryIO, Sequence, List, Generator, Tuple
+from typing import Callable, Optional, Union, BinaryIO, Sequence, List, Generator, Tuple
 from logreduce.data import LogObject, FileLike
 from logreduce.tokenizer import Tokenizer
 
@@ -189,8 +189,11 @@ def keep_file(
 
 
 # An adapter function for the legacy exclude_line behavior
-def process_line(exclude_lines: List[str]) -> Callable[[str], str]:
-    exclude_lines_re = re.compile(r"|".join(exclude_lines)) if exclude_lines else None
+def process_line(exclude_lines: List[str]) -> Optional[Callable[[str], str]]:
+    if not exclude_lines:
+        return None
+
+    exclude_lines_re = re.compile(r"|".join(exclude_lines))
 
     def fun(line: str) -> str:
         if exclude_lines_re and exclude_lines_re.match(line):
