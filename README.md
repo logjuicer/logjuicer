@@ -1,5 +1,7 @@
 # logreduce-tokenizer
 
+[![crates.io](https://img.shields.io/crates/v/logreduce-tokenizer.svg)](https://crates.io/crates/logreduce-tokenizer)
+
 Build:
 
 ```
