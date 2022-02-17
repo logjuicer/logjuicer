@@ -276,12 +276,10 @@ mod re_tests {
 
     #[test]
     fn test_date() {
-        assert!(vec!["sunday", "saturday", "Monday"]
-            .into_iter()
-            .all(is_date));
-        assert!(vec!["sunday ", " saturday", " jan ", "sund"]
-            .into_iter()
-            .all(|v| !is_date(v)));
+        assert!(IntoIterator::into_iter(["sunday", "saturday", "Monday"]).all(is_date));
+        assert!(
+            IntoIterator::into_iter(["sunday ", " saturday", " jan ", "sund"]).all(|v| !is_date(v))
+        );
     }
 
     #[test]
@@ -291,14 +289,13 @@ mod re_tests {
 
     #[test]
     fn test_id() {
-        assert!(vec![
+        assert!(IntoIterator::into_iter([
             "aa:bb:cc:00:ff",
             "42.24.21.12",
             "abab-efef",
             "2022-02-03",
             "18:01:00.1"
-        ]
-        .into_iter()
+        ])
         .all(is_uid))
     }
 
