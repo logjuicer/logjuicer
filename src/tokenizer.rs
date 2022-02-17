@@ -46,20 +46,10 @@ fn trim_quote_and_punctuation(word: &str) -> &str {
     word.trim_start_matches("u\"")
         .trim_start_matches("u'")
         .trim_matches(|c| {
-            c == '\''
-                || c == '"'
-                || c == ','
-                || c == '.'
-                || c == ';'
-                || c == '('
-                || c == ')'
-                || c == '['
-                || c == ']'
-                || c == '{'
-                || c == '}'
-                || c == '>'
-                || c == '<'
-                || c == '\\'
+            matches!(
+                c,
+                '\'' | '"' | ',' | ';' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | '\\'
+            )
         })
 }
 
@@ -253,7 +243,7 @@ fn is_key_value(word: &str) -> Option<(&str, &str)> {
 
 /// Separate attached words like `DHCPOFFER(ipaddr)` in `DHCPOFFER ipaddr`
 fn is_two_words(word: &str) -> Option<(&str, &str)> {
-    match word.split_once(|c| c == '[' || c == '(' || c == '\\' || c == '@') {
+    match word.split_once(|c| matches!(c, '[' | '(' | '\\' | '@')) {
         Some((k, v)) => Some((k, v.trim_end_matches(|c| c == ']' || c == ')'))),
         None => None,
     }
