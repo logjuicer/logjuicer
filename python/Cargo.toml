@@ -1,0 +1,26 @@
+[package]
+name = "logreduce-python"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce-tokenizer"
+documentation = "https://docs.rs/logreduce-tokenizer/"
+authors = ["TristanCacqueray"]
+readme = "README.md"
+
+description = "A python binding for the logreduce project."
+
+edition = "2018"
+
+[lib]
+name = "logreduce_binding"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies.pyo3]
+version = "0.15.1"
+features = ["extension-module"]
+
+[dependencies]
+regex = "1"
+lazy_static = "1.4.0"
+logreduce-tokenizer = { path = "../tokenizer" }

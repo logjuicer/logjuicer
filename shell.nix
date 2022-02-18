@@ -3,6 +3,7 @@
   { } }:
 
 let
+  # dependencies of the current python implementation
   python = pkgs.python39.withPackages (ps:
     with ps; [
       setuptools-rust
@@ -16,5 +17,8 @@ let
       requests
       scipy
       pyyaml
+      pkgs.blas
     ]);
-in pkgs.mkShell { buildInputs = [ python pkgs.blas pkgs.cargo pkgs.rustc ]; }
+  # dependencies for the new implementation
+  rust = [ pkgs.cargo pkgs.rustc pkgs.rustfmt ];
+in pkgs.mkShell { buildInputs = [ python ] ++ rust; }

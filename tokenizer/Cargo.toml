@@ -1,0 +1,30 @@
+[package]
+name = "logreduce-tokenizer"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce-tokenizer"
+documentation = "https://docs.rs/logreduce-tokenizer/"
+authors = ["TristanCacqueray"]
+readme = "README.md"
+
+description = "A tokenizer function for the logreduce project."
+
+keywords = ["parser", "machine-learning", "logreduce"]
+categories = ["compression", "development-tools", "parsing", "text-processing"]
+
+edition = "2018"
+
+[lib]
+name = "logreduce_tokenizer"
+
+[dependencies]
+regex = "1"
+lazy_static = "1.4.0"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "bench-tokenizer"
+harness = false
