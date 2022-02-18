@@ -20,5 +20,5 @@ let
       pkgs.blas
     ]);
   # dependencies for the new implementation
-  rust = [ pkgs.cargo pkgs.rustc pkgs.rustfmt ];
+  rust = [ pkgs.cargo pkgs.rustc pkgs.rustfmt pkgs.clippy ];
 in pkgs.mkShell { buildInputs = [ python ] ++ rust; }

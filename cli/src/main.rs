@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! A cli demo to run the tokenizer on stdin.
-use logreduce_tokenizer::{tokenizer};
+use logreduce_tokenizer::tokenizer;
 
 use std::io::Write;
 use std::io::{self};

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![warn(missing_docs)]
+#![allow(clippy::manual_range_contains)]
 
 //! This library provides a tokenizer function for the [logreduce](https://github.com/logreduce/logreduce) project.
 //!

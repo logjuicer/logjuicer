@@ -7,8 +7,6 @@
 
 use pyo3::prelude::*;
 
-use logreduce_tokenizer;
-
 /// The python function
 #[pyfunction]
 fn process(line: &str) -> String {

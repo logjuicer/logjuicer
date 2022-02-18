@@ -243,10 +243,8 @@ fn is_key_value(word: &str) -> Option<(&str, &str)> {
 
 /// Separate attached words like `DHCPOFFER(ipaddr)` in `DHCPOFFER ipaddr`
 fn is_two_words(word: &str) -> Option<(&str, &str)> {
-    match word.split_once(|c| matches!(c, '[' | '(' | '\\' | '@')) {
-        Some((k, v)) => Some((k, v.trim_end_matches(|c| c == ']' || c == ')'))),
-        None => None,
-    }
+    word.split_once(|c| matches!(c, '[' | '(' | '\\' | '@'))
+        .map(|(k, v)| (k, v.trim_end_matches(|c| c == ']' || c == ')')))
 }
 
 fn is_key_for_id(word: &str) -> bool {
@@ -317,7 +315,7 @@ mod re_tests {
     fn test_random_path() {
         assert!(is_random_path("/tmp/test"));
         assert!(is_random_path("/var/tmp/key"));
-        assert_eq!(is_random_path("/usr"), false);
+        assert!(!is_random_path("/usr"));
     }
 
     #[test]
@@ -352,7 +350,7 @@ fn parse_literal(word: &str) -> Option<&str> {
 
 fn trim_pid(word: &str) -> Option<&str> {
     word.trim_end_matches(|c| c >= '0' && c <= '9')
-        .strip_suffix("[")
+        .strip_suffix('[')
 }
 
 /// Makes error token appears bigger.

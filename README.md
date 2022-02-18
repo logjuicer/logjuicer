@@ -10,6 +10,8 @@ Run tests:
 
 ```
 cargo test
+cargo fmt
+cargo clippy
 ```
 
 ## CLI
