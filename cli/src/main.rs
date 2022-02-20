@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! A cli demo to run the tokenizer on stdin.
-use logreduce_tokenizer::tokenizer;
+use logreduce_tokenizer::process;
 
 use std::io::Write;
 use std::io::{self};
@@ -15,7 +15,7 @@ fn main() -> io::Result<()> {
     let mut lock = stdout.lock();
 
     while stdin.read_line(&mut line)? != 0 {
-        writeln!(lock, "{}", tokenizer::process(&line))?;
+        writeln!(lock, "{}", process(&line))?;
         line.clear();
     }
     Ok(())

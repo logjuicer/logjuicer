@@ -1,13 +1,18 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! The tokenizer logic
+#![warn(missing_docs)]
+#![allow(clippy::manual_range_contains)]
+
+//! This library provides a tokenizer function for the [logreduce](https://github.com/logreduce/logreduce) project.
+//!
+//! The goal is to replace varying words with fixed tokens (e.g. `sha256://...` is converted to `%HASH`).
 //!
 //! The main function is [process]. The output is designed for further feature extraction,
 //! for example with a bag of words or hashing vectorizer. It looks like this:
 //!
 //! ```rust
-//! # use logreduce_tokenizer::tokenizer::{process};
+//! # use logreduce_tokenizer::{process};
 //! assert_eq!(process(
 //!    "2017-06-24 02:52:17.732 22627 tempest.lib.common.rest_client [req-b932e095-6706-4f5a-bd75-241c407a9d01 ] Request (main): 201 POST https://10.0.1.9/identity/v3/auth/tokens"),
 //!    "%ID %ID %ID tempest.lib.common.rest_client %COOKIE Request main%EQ %ID POST %URL")
@@ -16,7 +21,7 @@
 //! Here are some use cases:
 //!
 //! ```rust
-//! # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+//! # use logreduce_tokenizer::*;
 //! tokens_eq!("+ export ZUUL_REF=refs/zuul/master/6546b192211a4531859db9d8b9375154",
 //!            "+ export ZUUL_REF=refs/zuul/master/9249f6066a2041bbbeb838e2ca1cf2b4");
 //! tokens_eq!("2017-06-23 20:10:06,848 INFO:dlrn-build:DEBUG: writing output... [ 90%] configuration",
@@ -27,7 +32,7 @@
 //!
 //! TODO: decode json object and re-order the key to pass this test:
 //! ```should_panic
-//! # use logreduce_tokenizer::tokenizer::{process};
+//! # use logreduce_tokenizer::{process};
 //! assert_eq!(process("{\"key\": true, \"oth\": 1}"), process("{\"oth\": 1, \"key\": true}"));
 //! ```
 
@@ -55,7 +60,7 @@ fn trim_quote_and_punctuation(word: &str) -> &str {
 
 /// Apply global filter to skip specific lines.
 /// ```rust
-/// # use logreduce_tokenizer::tokenizer::{process};
+/// # use logreduce_tokenizer::{process};
 /// assert_eq!(process("iptables -N RULES42 -L"), "%GL_FILTER");
 /// assert_eq!(process("e2b607f0bb193c9bfed94af532ba1>33 STORED"), "%GL_FILTER");
 /// assert_eq!(process("s/5bf8>28 sending key"), "%GL_FILTER");
@@ -85,7 +90,7 @@ fn global_filter(line: &str) -> bool {
 
 /// Replace numbers sequences with `N`.
 /// ```rust
-/// # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+/// # use logreduce_tokenizer::*;
 /// tokens_eq!("running test42", "running test43");
 /// ```
 fn remove_numbers(word: &str) -> String {
@@ -97,7 +102,7 @@ fn remove_numbers(word: &str) -> String {
 
 /// Check if a word matches a date.
 /// ```rust
-/// # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+/// # use logreduce_tokenizer::*;
 /// tokens_eq!("Sunday February 6th - message", "Monday February 7th - message");
 /// ```
 fn is_date(word: &str) -> bool {
@@ -132,7 +137,7 @@ fn is_error(word: &str) -> bool {
 
 /// Check if a word contains weird char, likely in generated id.
 /// ```rust
-/// # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+/// # use logreduce_tokenizer::*;
 /// tokens_eq!("A{$@42", "$A%TE");
 /// ```
 fn contains_odd_char(word: &str) -> bool {
@@ -144,7 +149,7 @@ fn contains_odd_char(word: &str) -> bool {
 
 /// Check if a word only contains hexa and sep char.
 /// ```rust
-/// # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+/// # use logreduce_tokenizer::*;
 /// tokens_eq!("the_ip is 127.0.0.1", "the_ip is ::1");
 /// tokens_eq!("the_mac is aa:bb:cc", "the_mac is 00:11:cc");
 /// tokens_eq!("the_num is 0x4243", "the_num is 0x4142");
@@ -193,7 +198,7 @@ fn is_url(word: &str) -> bool {
 }
 
 /// ```rust
-/// # use logreduce_tokenizer::{tokens_eq, tokenizer::*};
+/// # use logreduce_tokenizer::*;
 /// tokens_eq!("MqoplXLA2LPnJKTNMQW5JpGyMLJcLxRDDEejzh6b1im8KV/5TRKDsg7b5FwBJJoN", "fJkzOzsJdqxvhSvDFkUlAP7a/+kOBCYi1Yp1pz0v/mHLi0r1z5xtx3BemXVYHbom");
 /// tokens_eq!("a EqTsSXKlOsEjfIdFld+uwopnIIqvKI+Xu6e0RcAGYJEfj56/MG2IdH7/h1JmQ///\\nn2RZ/ocRcL5as2EHQES0b+/I12a2Gj+W+ub0OQAGDq8iL5o8P0/ogEWrpZmoBC+oi",
 ///            "a MqoplXLA2LPnJKTNMQW5JpGyMLJcLxRDDEejzh6b1im8KV/5TRKDsg7b5FwBJJoN fJkzOzsJdqxvhSvDFkUlAP7a/+kOBCYi1Yp1pz0v/mHLi0r1z5xtx3BemXVYHbom");
@@ -206,7 +211,7 @@ fn is_base64(word: &str) -> bool {
 }
 
 /// ```
-/// # use logreduce_tokenizer::{tokens_eq, tokenizer::{process}};
+/// # use logreduce_tokenizer::*;
 /// tokens_eq!("md5:d41d8cd98f00b204e9800998ecf8427e", "md5:e7b26fc34f528b5b19c4450867b9d597")
 /// ```
 fn is_hash(word: &str) -> bool {
@@ -224,7 +229,7 @@ fn is_refs(word: &str) -> bool {
 }
 
 /// ```
-/// # use logreduce_tokenizer::{tokens_eq, tokenizer::{process}};
+/// # use logreduce_tokenizer::*;
 /// tokens_eq!("key=01:02:ff", "key=aa:bb:cc")
 /// ```
 // TODO: check for word terminated by `:`, where the value is the next word
@@ -355,7 +360,7 @@ fn trim_pid(word: &str) -> Option<&str> {
 
 /// Makes error token appears bigger.
 /// ```rust
-/// # use logreduce_tokenizer::tokenizer::*;
+/// # use logreduce_tokenizer::*;
 /// assert_eq!(process("Test Fail"), "Test Fail Fail%A Fail%B Fail%C Fail%D");
 /// ```
 fn push_error(word: &str, result: &mut String) {

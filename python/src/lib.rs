@@ -10,7 +10,7 @@ use pyo3::prelude::*;
 /// The python function
 #[pyfunction]
 fn process(line: &str) -> String {
-    logreduce_tokenizer::tokenizer::process(line)
+    logreduce_tokenizer::process(line)
 }
 
 /// The python module

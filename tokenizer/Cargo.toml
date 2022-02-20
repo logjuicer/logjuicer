@@ -17,6 +17,7 @@ edition = "2018"
 
 [lib]
 name = "logreduce_tokenizer"
+path = "src/tokenizer.rs"
 
 [dependencies]
 regex = "1"
