@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "tokenizer",
+  "index",
   "cli",
   "python",
   "generate",
