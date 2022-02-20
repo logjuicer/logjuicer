@@ -15,12 +15,16 @@ edition = "2018"
 [lib]
 name = "logreduce_binding"
 crate-type = ["cdylib", "rlib"]
+path = "src/bindings.rs"
 
 [dependencies.pyo3]
 version = "0.15.1"
 features = ["extension-module"]
+# Use latest version for capsule ( https://github.com/PyO3/pyo3/pull/1980 )
+git = "https://github.com/PyO3/pyo3"
+branch = "main"
 
 [dependencies]
-regex = "1"
-lazy_static = "1.4.0"
 logreduce-tokenizer = { path = "../tokenizer" }
+logreduce-generate = { path = "../generate" }
+logreduce-index = { path = "../index" }
