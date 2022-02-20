@@ -2,5 +2,6 @@
 members = [
   "tokenizer",
   "cli",
-  "python"
+  "python",
+  "generate",
 ]

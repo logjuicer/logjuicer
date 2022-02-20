@@ -1,0 +1,21 @@
+[package]
+name = "logreduce-generate"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce-rust"
+documentation = "https://docs.rs/logreduce-generate/"
+authors = ["TristanCacqueray"]
+readme = "README.md"
+
+description = "Logfile generator for testing the logreduce project."
+
+edition = "2018"
+
+[lib]
+name = "logreduce_generate"
+path = "src/generate.rs"
+
+[dependencies]
+rand = "0.8"
+rand_chacha = "0.3"
