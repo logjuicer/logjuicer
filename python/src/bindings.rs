@@ -48,5 +48,23 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
         logreduce_index::search(model, &target)
     }
 
+    /// Return an opaque Capsule with the model
+    #[pyfn(m)]
+    fn index_mat(py: Python<'_>, baselines: Vec<String>) -> Result<&PyCapsule, PyErr> {
+        let name = CString::new("model").unwrap();
+        let model = logreduce_index::index_mat(&mut baselines.into_iter());
+        PyCapsule::new(py, model, &name)
+    }
+
+    #[pyfn(m)]
+    fn search_mat(py: Python<'_>, pymodel: Py<PyCapsule>, targets: Vec<String>) -> Vec<f32> {
+        let model = unsafe {
+            pymodel
+                .as_ref(py)
+                .reference::<logreduce_index::FeaturesMatrix>()
+        };
+        logreduce_index::search_mat(model, &mut targets.into_iter())
+    }
+
     Ok(())
 }

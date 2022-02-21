@@ -13,13 +13,11 @@ test_data = data[-512:]
 def python():
     model = logreduce.models.HashingNeighbors()
     model.train(train_data)
-    for test in test_data:
-        model.test([test])
+    model.test(test_data)
 
 def rust():
-    model = logreduce_rust.index(train_data)
-    for test in test_data:
-        logreduce_rust.search(model, test)
+    model = logreduce_rust.index_mat(train_data)
+    logreduce_rust.search_mat(model, test_data)
 
 def bench(process):
     return timeit.timeit(lambda: process(), number=10) * 10
