@@ -8,6 +8,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyCapsule;
 use std::ffi::CString;
+use logreduce_index::F;
 
 /// Tokenize a line
 #[pyfunction]
@@ -39,7 +40,7 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     }
 
     #[pyfn(m)]
-    fn search(py: Python<'_>, pymodel: Py<PyCapsule>, target: String) -> f32 {
+    fn search(py: Python<'_>, pymodel: Py<PyCapsule>, target: String) -> F {
         let model = unsafe {
             pymodel
                 .as_ref(py)
@@ -57,7 +58,7 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     }
 
     #[pyfn(m)]
-    fn search_mat(py: Python<'_>, pymodel: Py<PyCapsule>, targets: Vec<String>) -> Vec<f32> {
+    fn search_mat(py: Python<'_>, pymodel: Py<PyCapsule>, targets: Vec<String>) -> Vec<F> {
         let model = unsafe {
             pymodel
                 .as_ref(py)

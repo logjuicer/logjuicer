@@ -5,18 +5,20 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use fxhash::hash;
+use fxhash::hash32;
+// use fasthash::murmur3::hash32;
 use itertools::Itertools;
 use sprs::*;
 use std::collections::HashMap;
 
-type SparseVec = CsVecBase<Vec<usize>, Vec<f32>, f32>;
-pub type FeaturesMatrix = CsMatBase<f32, usize, Vec<usize>, Vec<usize>, Vec<f32>>;
+pub type F = f32;
+type SparseVec = CsVecBase<Vec<usize>, Vec<F>, F>;
+pub type FeaturesMatrix = CsMatBase<F, usize, Vec<usize>, Vec<usize>, Vec<F>>;
 
 /// A SparseVec with the norm pre computed
 #[derive(Debug)]
 pub struct Features {
-    norm: f32,
+    norm: F,
     vector: SparseVec,
 }
 
@@ -35,7 +37,7 @@ pub fn index(lines: &mut impl Iterator<Item = String>) -> Vec<Features> {
 
 /// Compute the distance of a given line to a list of features, returns a number between 0.0 and 1.0
 /// (0. means the line is in the baseline)
-pub fn search(baselines: &[Features], line: &str) -> f32 {
+pub fn search(baselines: &[Features], line: &str) -> F {
     let features = into_feature(line);
     1.0 - baselines.iter().fold(0.0, |acc, baseline| {
         similarity(&features, baseline).max(acc)
@@ -48,13 +50,10 @@ pub fn index_mat(lines: &mut impl Iterator<Item = String>) -> FeaturesMatrix {
 }
 
 /// Another implementation for search using a matrix product
-pub fn search_mat(
-    baselines: &FeaturesMatrix,
-    lines: &mut impl Iterator<Item = String>,
-) -> Vec<f32> {
+pub fn search_mat(baselines: &FeaturesMatrix, lines: &mut impl Iterator<Item = String>) -> Vec<F> {
     let mut targets = index_mat(lines);
     targets.transpose_mut();
-    cosine_distance(&baselines, &targets)
+    cosine_distance(baselines, &targets)
 }
 
 /// Create a normalized matrix
@@ -70,7 +69,7 @@ fn create_mat(vectors: &[SparseVec]) -> FeaturesMatrix {
 }
 
 /// Compute the cosine distance between two noramlized matrix
-fn cosine_distance(baselines: &FeaturesMatrix, targets: &FeaturesMatrix) -> Vec<f32> {
+fn cosine_distance(baselines: &FeaturesMatrix, targets: &FeaturesMatrix) -> Vec<F> {
     // TODO: slices the targets in chunk when it doesn't fit in memory.
     let mut distances_mat = baselines * targets;
     distances_mat.transpose_mut();
@@ -79,36 +78,39 @@ fn cosine_distance(baselines: &FeaturesMatrix, targets: &FeaturesMatrix) -> Vec<
     // Only keep the closest value
     distances_mat_dense
         .outer_iter()
-        .map(|row| row.iter().fold(1.0, |acc: f32, v| acc.min(1.0 - v)))
+        .map(|row| row.iter().fold(1.0, |acc: F, v| acc.min(1.0 - v)))
         .collect::<Vec<_>>()
 }
 
-const SIZE: usize = 100000;
+const SIZE: usize = 260000;
 
 // result = vector()
 // for each word:
 //    result[hash(word)] = 1
 fn vectorize(line: &str) -> SparseVec {
-    let mut hashes = HashMap::new();
-    for word in line.split(' ') {
-        let key = hash(word) % SIZE;
-        let count = match hashes.get(&key) {
-            Some(prev) => *prev + 1.0,
-            _ => 1.0,
-        };
-        hashes.insert(key, count as f32);
-    }
-    let mut keys = Vec::new();
-    let mut values = Vec::new();
-    for key in hashes.keys().sorted() {
-        keys.push(*key);
-        values.push(*hashes.get(key).unwrap());
-    }
+    let (keys, values) = line
+        .split(' ')
+        .map(|word| {
+            let hash = hash32(word);
+            // alternate sign to improve inner product preservation in the hashed space
+            let sign = if hash >= 2147483648 { 1.0 } else { -1.0 };
+            ((hash as usize) % SIZE, sign)
+        })
+        .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
+        // Here we sum the duplicate, but turns out,
+        // it seems like sklearn hashing vectorizer doesn't do that. e.g.:
+        // >>> from sklearn.feature_extraction.text import HashingVectorizer
+        // >>> HashingVectorizer().transform(["abc abc"])[0,158726]
+        // -1.0
+        /*.dedup_with_count()
+        .map(|(value, (key, sign))| (key, sign * value as F))*/
+        .dedup_by(|a, b| a.0 == b.0)
+        .unzip();
     CsVec::new(SIZE, keys, values)
 }
 
 /// Returns a number between 1.0 and 0.0, 0.0 being the closest value.
-fn similarity(a: &Features, b: &Features) -> f32 {
+fn similarity(a: &Features, b: &Features) -> F {
     let norms = a.norm * b.norm;
     (a.vector.dot(&b.vector)) / norms.sqrt()
 }
@@ -123,7 +125,7 @@ mod tests {
         let l2 = into_feature("the second test is the 42");
         assert_eq!(similarity(&l1, &l1), 1.0);
         let dist = dbg!(similarity(&l1, &l2));
-        assert!(dist > 0.8 && dist < 0.9);
+        assert!(dist >= 0.8 && dist < 0.9);
     }
 
     #[test]
@@ -177,7 +179,7 @@ mod tests {
 
         let distances = distances_mat_dense
             .outer_iter()
-            .map(|row| row.iter().fold(1.0, |acc: f32, v| acc.min(1.0 - v)))
+            .map(|row| row.iter().fold(1.0, |acc: F, v| acc.min(1.0 - v)))
             .collect::<Vec<_>>();
 
         dbg!(distances);
