@@ -7,6 +7,7 @@
 
 use fxhash::hash32;
 // use fasthash::murmur3::hash32;
+use bincode::{deserialize, serialize};
 use itertools::Itertools;
 use sprs::*;
 use std::collections::HashMap;
@@ -42,6 +43,14 @@ pub fn search(baselines: &[Features], line: &str) -> F {
     1.0 - baselines.iter().fold(0.0, |acc, baseline| {
         similarity(&features, baseline).max(acc)
     })
+}
+
+pub fn save_mat(mat: &FeaturesMatrix) -> Vec<u8> {
+    serialize(mat).unwrap()
+}
+
+pub fn load_mat(buf: &[u8]) -> FeaturesMatrix {
+    deserialize(buf).unwrap()
 }
 
 /// Another implementation for index using a matrix storage
@@ -87,6 +96,7 @@ const SIZE: usize = 260000;
 // result = vector()
 // for each word:
 //    result[hash(word)] = 1
+// TODO: vectorize directly into a FeaturesMatrix
 fn vectorize(line: &str) -> SparseVec {
     let (keys, values) = line
         .split(' ')

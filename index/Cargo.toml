@@ -17,10 +17,11 @@ name = "logreduce_index"
 path = "src/index.rs"
 
 [dependencies]
-sprs = "0.11"
+sprs = { version = "0.11", features = ["serde"] }
 fxhash = "0.2"
 itertools = "0.10"
 # fasthash = "0.4"
+bincode = "1.3"
 
 [dev-dependencies]
 criterion = "0.3"
