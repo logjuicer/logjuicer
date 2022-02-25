@@ -20,9 +20,9 @@ def rust():
     logreduce_rust.search_mat(model, test_data)
 
 def bench(process):
-    return timeit.timeit(lambda: process(), number=10) * 10
+    return timeit.timeit(lambda: process(), number=10) * 100
 
 py = bench(python)
-print("Python   {:.0f}ms".format(py))
+print("Python {:>6.1f}ms".format(py))
 rs = bench(rust)
-print("Rust     {:.0f}ms ({:.1f} times faster)".format(rs, py / rs))
+print("Rust   {:>6.1f}ms ({:.1f} times faster)".format(rs, py / rs))
