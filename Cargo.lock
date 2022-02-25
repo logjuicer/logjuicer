@@ -381,6 +381,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "logreduce-model"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "logreduce-generate",
+ "logreduce-index",
+ "logreduce-iterator",
+ "logreduce-tokenizer",
+ "serde",
+ "walkdir",
+]
+
+[[package]]
 name = "logreduce-python"
 version = "0.1.0"
 dependencies = [

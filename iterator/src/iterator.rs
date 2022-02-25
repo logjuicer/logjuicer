@@ -256,6 +256,10 @@ impl<R: Read> BytesLines<R> {
     }
 }
 
+pub fn clone_bytes_to_string(bytes: &Bytes) -> Option<String> {
+    std::str::from_utf8(&bytes[..]).ok().map(|s| s.to_string())
+}
+
 #[test]
 fn test_iterator() {
     let get_lines = |reader| -> Vec<LogLine> {

@@ -3,6 +3,7 @@ members = [
   "iterator",
   "tokenizer",
   "index",
+  "model",
   "cli",
   "python",
   "generate",
