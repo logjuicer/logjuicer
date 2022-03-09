@@ -54,16 +54,15 @@ enum State {
     Scanning(Sep),
 }
 
+/// The BytesLines struct holds a single buffer to store the read data and it yields immutable memory slice.
 pub struct BytesLines<R: Read> {
     reader: R,
     buf: BytesMut,
     state: State,
     line_count: usize,
+    chunk_size: usize,
+    max_line_length: usize,
 }
-
-// TODO: make this configurable.
-const BUF_SIZE: usize = 4096;
-const MAX_LINE_LEN: usize = 200;
 
 /// Logline is a tuple (content, line number).
 pub type LogLine = (Bytes, usize);
@@ -83,10 +82,15 @@ impl<R: Read> Iterator for BytesLines<R> {
 impl<R: Read> BytesLines<R> {
     /// Creates a new BytesLines.
     pub fn new(reader: R) -> BytesLines<R> {
+        // TODO: make these configurable
+        let chunk_size = 8192;
+        let max_line_length = 6000;
         BytesLines {
             reader,
+            max_line_length,
+            chunk_size,
             state: State::Scanning(Sep::NewLine),
-            buf: BytesMut::with_capacity(BUF_SIZE),
+            buf: BytesMut::with_capacity(chunk_size),
             line_count: 0,
         }
     }
@@ -94,22 +98,17 @@ impl<R: Read> BytesLines<R> {
     // Read a new chunk and call get_slice
     fn read_slice(&mut self) -> Option<Result<LogLine>> {
         let pos = self.buf.len();
-        self.buf.resize(pos + BUF_SIZE, 0);
+        self.buf.resize(pos + self.chunk_size, 0);
         match self.reader.read(&mut self.buf[pos..]) {
             // We read some data.
             Ok(n) if n > 0 => {
-                if n < BUF_SIZE {
-                    self.buf.truncate(pos + n);
-                }
+                self.buf.truncate(pos + n);
                 self.get_slice()
             }
 
-            // We reached the end of the reader, and there are left-overs.
+            // We reached the end of the reader, but we have left-overs.
             Ok(_) if pos > 0 => {
-                if self.state == State::Scanning(Sep::NewLine) {
-                    self.line_count += 1
-                }
-                self.state = State::EoF;
+                self.update_line_counter(State::EoF);
                 Some(Ok((self.buf.split_to(pos).freeze(), self.line_count)))
             }
 
@@ -123,40 +122,31 @@ impl<R: Read> BytesLines<R> {
 
     // Find the next line in the buffer
     fn get_slice(&mut self) -> Option<Result<LogLine>> {
-        let next_line_pos = self.find_next_line();
-        // Here we check what is the current line minimum length
-        let (min_line_length, sep) = match next_line_pos {
-            // We found the end of the line at pos.
-            Some((pos, t)) => (pos, Some(t)),
-            // We haven't found the end of the line, so the len is at least the buffer size.
-            None => (self.buf.len(), None),
-        };
+        match self.find_next_line() {
+            // The current line is over the limit, and we don't know where it ends.
+            None if self.buf.len() > self.max_line_length => {
+                self.buf.clear();
+                self.buf.reserve(self.chunk_size);
+                self.drop_until_next_line()
+            }
 
-        match (min_line_length > MAX_LINE_LEN, next_line_pos) {
             // The current line is over the limit, we need to discard it.
-            (true, _) if min_line_length < self.buf.len() => {
-                // The next line already in the buffer, so we can just advance.
-                self.buf.advance(min_line_length + sep.unwrap().len());
+            Some((pos, sep)) if pos > self.max_line_length => {
+                // The next line is already in the buffer, so we can just advance.
+                self.buf.advance(pos + sep.len());
                 self.get_slice()
             }
 
-            // The current line is over the limit, and we don't know where it ends.
-            (true, _) => {
-                self.buf.clear();
-                self.buf.reserve(BUF_SIZE);
-                self.drain_line()
-            }
-
             // We haven't found the end of the line, we need more data.
-            (_, None) => {
-                // reserve() will attempt to reclaim space in the existing buffer.
-                self.buf.reserve(BUF_SIZE);
+            None => {
+                // reserve() will attempt to reclaim space in the buffer.
+                self.buf.reserve(self.chunk_size);
                 self.read_slice()
             }
 
             // We found the end of the line, we can return it now.
-            (_, Some((pos, t))) => {
-                // This create a new zero copy reference to the existing before.
+            Some((pos, t)) => {
+                // split_to() creates a new zero copy reference to the buffer.
                 let res = self.buf.split_to(pos).freeze();
                 self.buf.advance(t.len());
                 Some(Ok((res, self.line_count)))
@@ -166,57 +156,55 @@ impl<R: Read> BytesLines<R> {
 
     // Find the next line position and update the line count
     fn find_next_line(&mut self) -> Option<(usize, Sep)> {
-        let mut iter = self.buf.clone().into_iter().enumerate().peekable();
-        // Here we scan each byte in a single pass.
-        while let Some((pos, c)) = iter.next() {
-            let sep = match c as char {
-                // A new line separator is at pos
+        let slice = self.buf.as_ref();
+        let size = slice.len();
+        let char_is = |pos: usize, c: char| pos < size && slice[pos] == (c as u8);
+        for pos in 0..size {
+            let c: char = slice[pos] as char;
+            let sep = match c {
                 '\n' => Some(Sep::NewLine),
-
-                // A '\\' is at pos, let's peek the next char to see if it's a 'n'
-                '\\' => iter.peek().and_then(|(_, c)| {
-                    if *c as char == 'n' {
-                        Some(Sep::SubLine)
-                    } else {
-                        None
-                    }
-                }),
-
-                // Current character is not a separator
+                '\\' if char_is(pos + 1, 'n') => Some(Sep::SubLine),
                 _ => None,
             };
             if let Some(sep) = sep {
                 // We found a separator.
-                if self.state == State::Scanning(Sep::NewLine) {
-                    self.line_count += 1
-                }
-                self.state = State::Scanning(sep);
+                self.update_line_counter(State::Scanning(sep));
                 return Some((pos, sep));
             }
         }
         None
     }
 
+    fn update_line_counter(&mut self, state: State) {
+        // We only increase the line counter when the last separator was a new line.
+        if self.state == State::Scanning(Sep::NewLine) {
+            self.line_count += 1
+        }
+        self.state = state;
+    }
+
     // Drop until we find the next line
-    fn drain_line(&mut self) -> Option<Result<LogLine>> {
-        self.buf.resize(BUF_SIZE, 0);
+    fn drop_until_next_line(&mut self) -> Option<Result<LogLine>> {
+        self.buf.resize(self.chunk_size, 0);
         match self.reader.read(&mut self.buf) {
             // We read some data.
             Ok(n) if n > 0 => match self.find_next_line() {
-                Some((n, t)) if n < BUF_SIZE => {
-                    // the next line is already in the buffer
-                    self.buf.advance(n + t.len());
-                    self.get_slice()
-                }
-                Some(_) => {
-                    // the line terminated at the end of the buffer.
+                // the long line terminated at the end of the buffer.
+                Some(_) if n == self.chunk_size => {
                     self.buf.clear();
                     self.read_slice()
                 }
+
+                // the next line is already in the buffer
+                Some((n, t)) => {
+                    self.buf.advance(n + t.len());
+                    self.get_slice()
+                }
+
+                // No line terminator found, keep on draining.
                 None => {
-                    // No line terminator found, keep on draining.
                     self.buf.clear();
-                    self.drain_line()
+                    self.drop_until_next_line()
                 }
             },
 
@@ -232,10 +220,11 @@ impl<R: Read> BytesLines<R> {
 #[test]
 fn test_iterator() {
     let get_lines = |reader| -> Vec<LogLine> {
-        let lines: Result<Vec<LogLine>> = BytesLines::new(reader).collect();
+        let lines: Result<Vec<LogLine>> = BytesLines::new(std::io::Cursor::new(reader)).collect();
         lines.unwrap()
     };
-    let lines = get_lines(std::io::Cursor::new("first\nsecond\nthird\nfourth\\nsub4"));
+
+    let lines = get_lines("first\nsecond\nthird\nfourth\\nsub4");
     assert_eq!(
         lines,
         vec![
@@ -246,4 +235,7 @@ fn test_iterator() {
             ("sub4".into(), 4),
         ]
     );
+
+    let lines = get_lines("first\\n");
+    assert_eq!(lines, vec![("first".into(), 1)]);
 }
