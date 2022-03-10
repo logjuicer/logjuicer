@@ -54,15 +54,38 @@ pub fn load_mat(buf: &[u8]) -> FeaturesMatrix {
 }
 
 /// Another implementation for index using a matrix storage
-pub fn index_mat(lines: &mut impl Iterator<Item = String>) -> FeaturesMatrix {
-    create_mat(&lines.map(|s| vectorize(&s)).collect::<Vec<_>>())
+pub fn index_mat(lines: &[String]) -> FeaturesMatrix {
+    create_mat(&lines.iter().map(|s| vectorize(s)).collect::<Vec<_>>())
 }
 
 /// Another implementation for search using a matrix product
-pub fn search_mat(baselines: &FeaturesMatrix, lines: &mut impl Iterator<Item = String>) -> Vec<F> {
-    let mut targets = index_mat(lines);
+pub fn search_mat(baselines: &FeaturesMatrix, lines: &[String]) -> Vec<F> {
+    let target_vectors = lines.iter().map(|s| vectorize(s)).collect::<Vec<_>>();
+    let mut targets = create_mat(&target_vectors);
     targets.transpose_mut();
     cosine_distance(baselines, &targets)
+}
+
+/// Another impementation using baselines chunk
+pub fn search_mat_chunk(baselines: &[FeaturesMatrix], lines: &[String]) -> Vec<F> {
+    let target_vectors = lines.iter().map(|s| vectorize(s)).collect::<Vec<_>>();
+    let mut targets = create_mat(&target_vectors);
+    targets.transpose_mut();
+    cosine_distance_chunk(baselines, &targets)
+}
+
+fn cosine_distance_chunk(baselines: &[FeaturesMatrix], targets: &FeaturesMatrix) -> Vec<F> {
+    // The targets are transposed, the column is the log line number.
+    let mut result = vec![1.0; targets.cols()];
+
+    baselines.iter().for_each(|baseline| {
+        let distances_mat = baseline * targets;
+
+        distances_mat
+            .iter()
+            .for_each(|(v, (_, col))| result[col] = (1.0 - v).min(result[col]));
+    });
+    result
 }
 
 /// Create a normalized matrix
@@ -79,16 +102,13 @@ fn create_mat(vectors: &[SparseVec]) -> FeaturesMatrix {
 
 /// Compute the cosine distance between two noramlized matrix
 fn cosine_distance(baselines: &FeaturesMatrix, targets: &FeaturesMatrix) -> Vec<F> {
-    // TODO: slices the targets in chunk when it doesn't fit in memory.
-    let mut distances_mat = baselines * targets;
-    distances_mat.transpose_mut();
-    let distances_mat_dense = distances_mat.to_dense();
-
-    // Only keep the closest value
-    distances_mat_dense
-        .outer_iter()
-        .map(|row| row.iter().fold(1.0, |acc: F, v| acc.min(1.0 - v)))
-        .collect::<Vec<_>>()
+    // The targets are transposed, the column is the log line number.
+    let mut result = vec![1.0; targets.cols()];
+    let distances_mat = baselines * targets;
+    distances_mat
+        .iter()
+        .for_each(|(v, (_, col))| result[col] = (1.0 - v).min(result[col]));
+    result
 }
 
 const SIZE: usize = 260000;
@@ -153,18 +173,20 @@ mod tests {
 
     #[test]
     fn test_search_mat() {
-        let mut baselines = IntoIterator::into_iter([
-            "the first line",
-            "the second line",
-            "the third line is a warning",
-        ])
-        .map(|s| s.to_string());
-        let mut targets =
-            IntoIterator::into_iter(["a new error", "the second line"]).map(|s| s.to_string());
-        let model = index_mat(&mut baselines);
-        let distances = search_mat(&model, &mut targets);
+        let baselines = vec![
+            "the first line".to_string(),
+            "the second line".to_string(),
+            "the third line is a warning".to_string(),
+        ];
+        let targets = vec!["a new error".to_string(), "the second line".to_string()];
+        let model = index_mat(&baselines);
+        let distances = search_mat(&model, &targets);
         // The first target is definitely not in the baseline
-        assert_eq!(distances, vec![0.7642977, 0.000000059604645]);
+        let expected = vec![0.7642977, 0.000000059604645];
+        assert_eq!(distances, expected);
+
+        let distances = search_mat_chunk(&[model], &targets);
+        assert_eq!(distances, expected);
     }
 
     // A test playground that was used for the search_mat implementation

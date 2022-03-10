@@ -5,10 +5,10 @@
 
 //! This library provides python bindings for the [logreduce](https://github.com/logreduce/logreduce) project.
 
+use logreduce_index::F;
 use pyo3::prelude::*;
 use pyo3::types::PyCapsule;
 use std::ffi::CString;
-use logreduce_index::F;
 
 /// Tokenize a line
 #[pyfunction]
@@ -53,7 +53,7 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m)]
     fn index_mat(py: Python<'_>, baselines: Vec<String>) -> Result<&PyCapsule, PyErr> {
         let name = CString::new("model").unwrap();
-        let model = logreduce_index::index_mat(&mut baselines.into_iter());
+        let model = logreduce_index::index_mat(&baselines);
         PyCapsule::new(py, model, &name)
     }
 
@@ -64,7 +64,7 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
                 .as_ref(py)
                 .reference::<logreduce_index::FeaturesMatrix>()
         };
-        logreduce_index::search_mat(model, &mut targets.into_iter())
+        logreduce_index::search_mat(model, &targets)
     }
 
     #[pyfn(m)]
