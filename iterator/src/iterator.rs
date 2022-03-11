@@ -24,6 +24,8 @@
 //! assert_eq!(lines_iter.next(), Some(("extra".into(), 2)));
 //! assert_eq!(lines_iter.next(), None);
 //! ```
+//!
+//! You can zero-copy convert a [Bytes] to [&str] using: `std::str::from_utf8(&bytes[..])`.
 
 use bytes::{Buf, Bytes, BytesMut};
 use std::io::{Read, Result};
@@ -55,6 +57,41 @@ enum State {
 }
 
 /// The BytesLines struct holds a single buffer to store the read data and it yields immutable memory slice.
+///
+// Here is the main sequence diagram:
+//
+//     ⭩- the buffer starts here.
+// A: [                          ]          < the buffer is empty, we read a chunk.
+// B: [aaaaaaaaaaaa\nbbbbb\nccccc]          < there is a line separator.
+// C:  ╰-----------⮡ next slice
+// D:               ⭨
+// B: [              bbbbb\nccccc]
+// C:                ╰----⮡ next slice
+// D:                      ⭨
+// E: [                     ccccc]          < the line is incomplete.
+// F:       ⭩ we reserve more space and move the left-overs at the begining of the buffer.
+// G: [ccccc                           ]    < we read another chunk after the left-overs.
+// B: [ccccccc\ndddddddddddddd\neeeeeee]
+// C:  ╰------⮡ next slice
+// D:          ⭨
+// B: [         dddddddddddddd\neeeeeee]
+// C:           ╰-------------⮡ next slice
+// D:                          ⭨
+// E: [                         eeeeeee]    < the line is incomplete.
+// F:         ⭩ we reserve more space and move the left-overs at the begining of the buffer.
+// G: [eeeeeee                           ]  < we read another chunk after the left-overs.
+// H: [eeeeeeeee\n                       ]  < we reach the end of file.
+// H   ╰--------⮡ the last slice
+//
+//
+// There are two situations to handle lines that are over the length limits:
+//
+// I: [XXXXXXXXXXXXXXXXXXXX\nbbbb]          < the next line if in the buffer.
+// I:                        ⭩- the buffer position advance
+// I: [                      bbbb]          < we resume the iterator.
+//
+// J: [XXXXXXXXXXXXXXXXXXXXXXXXXX]          < the next line is not in the buffer.
+// J: [                          ]          < we clear the buffer and repeat until we reach Step I.
 pub struct BytesLines<R: Read> {
     reader: R,
     buf: BytesMut,
@@ -98,6 +135,7 @@ impl<R: Read> BytesLines<R> {
     // Read a new chunk and call get_slice
     fn read_slice(&mut self) -> Option<Result<LogLine>> {
         let pos = self.buf.len();
+        // When pos is at 0, we are at Step A, otherwise this is Step G
         self.buf.resize(pos + self.chunk_size, 0);
         match self.reader.read(&mut self.buf[pos..]) {
             // We read some data.
@@ -106,7 +144,7 @@ impl<R: Read> BytesLines<R> {
                 self.get_slice()
             }
 
-            // We reached the end of the reader, but we have left-overs.
+            // Step H: We reached the end of the reader, but we have left-overs.
             Ok(_) if pos > 0 => {
                 self.update_line_counter(State::EoF);
                 Some(Ok((self.buf.split_to(pos).freeze(), self.line_count)))
@@ -123,32 +161,33 @@ impl<R: Read> BytesLines<R> {
     // Find the next line in the buffer
     fn get_slice(&mut self) -> Option<Result<LogLine>> {
         match self.find_next_line() {
-            // The current line is over the limit, and we don't know where it ends.
+            // Step J: The current line is over the limit, and we don't know where it ends.
             None if self.buf.len() > self.max_line_length => {
                 self.buf.clear();
                 self.buf.reserve(self.chunk_size);
                 self.drop_until_next_line()
             }
 
-            // The current line is over the limit, we need to discard it.
+            // Step I: The current line is over the limit, we need to discard it.
             Some((pos, sep)) if pos > self.max_line_length => {
                 // The next line is already in the buffer, so we can just advance.
                 self.buf.advance(pos + sep.len());
                 self.get_slice()
             }
 
-            // We haven't found the end of the line, we need more data.
+            // Step E: We haven't found the end of the line, we need more data.
             None => {
-                // reserve() will attempt to reclaim space in the buffer.
+                // Step F: reserve() will attempt to reclaim space in the buffer.
                 self.buf.reserve(self.chunk_size);
                 self.read_slice()
             }
 
-            // We found the end of the line, we can return it now.
-            Some((pos, t)) => {
-                // split_to() creates a new zero copy reference to the buffer.
+            // Step B: We found the end of the line, we can return it now.
+            Some((pos, sep)) => {
+                // Step C: split_to() creates a new zero copy reference to the buffer.
                 let res = self.buf.split_to(pos).freeze();
-                self.buf.advance(t.len());
+                // Step D: advance the starting position
+                self.buf.advance(sep.len());
                 Some(Ok((res, self.line_count)))
             }
         }
@@ -196,8 +235,8 @@ impl<R: Read> BytesLines<R> {
                 }
 
                 // the next line is already in the buffer
-                Some((n, t)) => {
-                    self.buf.advance(n + t.len());
+                Some((pos, sep)) => {
+                    self.buf.advance(pos + sep.len());
                     self.get_slice()
                 }
 
