@@ -198,8 +198,8 @@ impl<R: Read> BytesLines<R> {
         let slice = self.buf.as_ref();
         let size = slice.len();
         let char_is = |pos: usize, c: char| pos < size && slice[pos] == (c as u8);
-        for pos in 0..size {
-            let c: char = slice[pos] as char;
+        for (pos, c) in slice.iter().enumerate().take(size) {
+            let c = *c as char;
             let sep = match c {
                 '\n' => Some(Sep::NewLine),
                 '\\' if char_is(pos + 1, 'n') => Some(Sep::SubLine),

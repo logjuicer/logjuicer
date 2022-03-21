@@ -43,6 +43,12 @@ jobs:
           command: test
           args: --verbose
 
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --verbose
+
   bench:
     name: Bench
     runs-on: ubuntu-latest
