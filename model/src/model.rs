@@ -38,10 +38,10 @@ type Baselines = Vec<Content>;
 
 /// An archive of baselines that is used to search anomaly.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Model<I: ChunkIndex> {
+pub struct Model {
     created_at: SystemTime,
     baselines: Baselines,
-    indexes: HashMap<IndexName, Index<I>>,
+    indexes: HashMap<IndexName, Index>,
 }
 
 /// A LogModelName is an identifier that is used to group similar source.
@@ -57,9 +57,9 @@ impl IndexName {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Index<I: ChunkIndex> {
+pub struct Index {
     train_time: Duration,
-    index: I,
+    index: ChunkIndex,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -88,8 +88,8 @@ pub struct Report {
     pub targets: Vec<LogReport>,
 }
 
-impl<I: ChunkIndex> Index<I> {
-    pub fn train(sources: &[Source], mut index: I) -> Result<Index<I>> {
+impl Index {
+    pub fn train(sources: &[Source], mut index: ChunkIndex) -> Result<Index> {
         let start_time = SystemTime::now();
         let mut trainer = process::ChunkTrainer::new(&mut index);
         for source in sources {
@@ -162,9 +162,9 @@ impl Content {
     }
 }
 
-impl<I: ChunkIndex> Model<I> {
+impl Model {
     /// Create a Model from baselines.
-    pub fn train(baselines: Baselines, mk_index: fn() -> I) -> Result<Model<I>> {
+    pub fn train(baselines: Baselines, mk_index: fn() -> ChunkIndex) -> Result<Model> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
         for (index_name, sources) in Content::group_sources(&baselines)?.drain() {
@@ -179,7 +179,7 @@ impl<I: ChunkIndex> Model<I> {
     }
 
     /// Get the matching index for a given Source.
-    pub fn get_index<'a>(&'a self, source: &Source) -> Option<&'a Index<I>> {
+    pub fn get_index<'a>(&'a self, source: &Source) -> Option<&'a Index> {
         let index_name = IndexName::from_source(source);
         lookup_or_single(&self.indexes, &index_name)
     }
@@ -225,53 +225,76 @@ fn lookup_or_single<'a, K: Eq + std::hash::Hash, V>(hm: &'a HashMap<K, V>, k: &K
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ChunkIndex {
+    HashingTrick(hashing_index::HashingIndex),
+    Noop,
+}
+
 /// An API to work with chunks of logs instead of individual line.
-pub trait ChunkIndex {
-    fn tokenize(line: &str) -> String;
+impl ChunkIndex {
+    fn tokenize(&self, line: &str) -> String {
+        match self {
+            ChunkIndex::HashingTrick(_) => hashing_index::tokenize(line),
+            ChunkIndex::Noop => noop_index::tokenize(line),
+        }
+    }
 
-    fn add(&mut self, baselines: &[String]);
+    fn add(&mut self, baselines: &[String]) {
+        match self {
+            ChunkIndex::HashingTrick(i) => i.add(baselines),
+            ChunkIndex::Noop => {}
+        }
+    }
 
-    fn search(&self, targets: &[String]) -> Vec<f32>;
+    fn search(&self, targets: &[String]) -> Vec<f32> {
+        match self {
+            ChunkIndex::HashingTrick(i) => i.search(targets),
+            ChunkIndex::Noop => noop_index::search(targets),
+        }
+    }
 }
 
 pub mod hashing_index {
+    use serde::{Deserialize, Serialize};
     /// A ChunkIndex implementation.
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct HashingIndex {
         baselines: Vec<logreduce_index::FeaturesMatrix>,
     }
 
-    impl super::ChunkIndex for HashingIndex {
-        fn tokenize(line: &str) -> String {
-            logreduce_tokenizer::process(line)
-        }
-        fn add(&mut self, baselines: &[String]) {
-            self.baselines.push(logreduce_index::index_mat(baselines))
-        }
-        fn search(&self, targets: &[String]) -> Vec<f32> {
-            logreduce_index::search_mat_chunk(&self.baselines, targets)
-        }
+    pub fn new() -> super::ChunkIndex {
+        super::ChunkIndex::HashingTrick(HashingIndex {
+            baselines: Vec::new(),
+        })
     }
 
-    pub fn new() -> HashingIndex {
-        HashingIndex {
-            baselines: Vec::new(),
+    pub fn tokenize(line: &str) -> String {
+        logreduce_tokenizer::process(line)
+    }
+    impl HashingIndex {
+        pub fn add(&mut self, baselines: &[String]) {
+            self.baselines.push(logreduce_index::index_mat(baselines))
+        }
+        pub fn search(&self, targets: &[String]) -> Vec<f32> {
+            logreduce_index::search_mat_chunk(&self.baselines, targets)
         }
     }
 }
 
 pub mod noop_index {
-    /// A ChunkIndex implementation for testing purpose.
-    pub struct NoopIndex;
+    pub fn new() -> super::ChunkIndex {
+        super::ChunkIndex::Noop
+    }
 
-    impl super::ChunkIndex for NoopIndex {
-        fn tokenize(line: &str) -> String {
-            line.to_string()
-        }
-        fn add(&mut self, _baselines: &[String]) {}
-        fn search(&self, targets: &[String]) -> Vec<f32> {
-            let mut distances = Vec::with_capacity(targets.len());
-            distances.resize(targets.len(), 0.0);
-            distances
-        }
+    /// A ChunkIndex implementation for testing purpose.
+    pub fn tokenize(line: &str) -> String {
+        line.to_string()
+    }
+
+    pub fn search(targets: &[String]) -> Vec<f32> {
+        let mut distances = Vec::with_capacity(targets.len());
+        distances.resize(targets.len(), 0.0);
+        distances
     }
 }

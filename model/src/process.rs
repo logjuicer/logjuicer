@@ -14,14 +14,14 @@ const CTX_DISTANCE: usize = 3;
 const CHUNK_SIZE: usize = 512;
 
 /// Helper struct to manage indexing multiples readers.
-pub struct ChunkTrainer<'a, I: ChunkIndex> {
-    index: &'a mut I,
+pub struct ChunkTrainer<'a> {
+    index: &'a mut ChunkIndex,
     skip_lines: HashSet<String>,
     baselines: Vec<String>,
 }
 
-impl<'a, I: ChunkIndex> ChunkTrainer<'a, I> {
-    pub fn new(index: &'a mut I) -> ChunkTrainer<'a, I> {
+impl<'a> ChunkTrainer<'a> {
+    pub fn new(index: &'a mut ChunkIndex) -> ChunkTrainer<'a> {
         ChunkTrainer {
             index,
             skip_lines: HashSet::new(),
@@ -30,7 +30,7 @@ impl<'a, I: ChunkIndex> ChunkTrainer<'a, I> {
     }
 
     /// Index a single reader
-    pub fn single<R: Read>(index: &'a mut I, read: R) -> Result<()> {
+    pub fn single<R: Read>(index: &'a mut ChunkIndex, read: R) -> Result<()> {
         let mut trainer = ChunkTrainer::new(index);
         trainer.add(read)?;
         trainer.complete();
@@ -42,7 +42,7 @@ impl<'a, I: ChunkIndex> ChunkTrainer<'a, I> {
             let line = line?;
             let raw_str = std::str::from_utf8(&line.0[..])
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-            let tokens = <I as ChunkIndex>::tokenize(raw_str);
+            let tokens = self.index.tokenize(raw_str);
 
             if !self.skip_lines.contains(&tokens) {
                 self.skip_lines.insert(tokens.clone());
@@ -67,9 +67,9 @@ impl<'a, I: ChunkIndex> ChunkTrainer<'a, I> {
 /// Helper struct to manage the log lines and the unique tokenized lines.
 /// The goal is to perform the index search on unique lines, while keeping a
 /// buffer of the raw line to manage the surrounding context.
-pub struct ChunkProcessor<'a, R: Read, I: ChunkIndex> {
+pub struct ChunkProcessor<'a, R: Read> {
     reader: logreduce_iterator::BytesLines<R>,
-    index: &'a I,
+    index: &'a ChunkIndex,
     /// The raw log line with their global position
     buffer: Vec<(logreduce_iterator::LogLine, usize)>,
     /// The target tokenized lines
@@ -88,7 +88,7 @@ pub struct ChunkProcessor<'a, R: Read, I: ChunkIndex> {
     coord: usize,
 }
 
-impl<'a, R: Read, I: ChunkIndex> Iterator for ChunkProcessor<'a, R, I> {
+impl<'a, R: Read> Iterator for ChunkProcessor<'a, R> {
     type Item = Result<AnomalyContext>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -105,8 +105,8 @@ impl<'a, R: Read, I: ChunkIndex> Iterator for ChunkProcessor<'a, R, I> {
     }
 }
 
-impl<'a, R: Read, I: ChunkIndex> ChunkProcessor<'a, R, I> {
-    pub fn new(read: R, index: &'a I) -> ChunkProcessor<'a, R, I> {
+impl<'a, R: Read> ChunkProcessor<'a, R> {
+    pub fn new(read: R, index: &'a ChunkIndex) -> ChunkProcessor<'a, R> {
         ChunkProcessor {
             reader: logreduce_iterator::BytesLines::new(read),
             index,
@@ -133,7 +133,7 @@ impl<'a, R: Read, I: ChunkIndex> ChunkProcessor<'a, R, I> {
             self.coord += 1;
 
             // Call the static method of the ChunkIndex trait
-            let tokens = <I as ChunkIndex>::tokenize(raw_str);
+            let tokens = self.index.tokenize(raw_str);
 
             // Keep in the buffer all the lines until we get CHUNK_SIZE unique lines
             self.buffer.push((line, self.coord));

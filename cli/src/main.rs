@@ -71,7 +71,7 @@ fn process(report: Option<String>, baseline: Option<Input>, input: Input) -> Res
     }
 }
 
-fn process_live<I: logreduce_model::ChunkIndex>(content: &Content, model: &Model<I>) -> Result<()> {
+fn process_live(content: &Content, model: &Model) -> Result<()> {
     let print_context = |pos: usize, xs: &[String]| {
         xs.iter()
             .enumerate()
