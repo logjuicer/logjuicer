@@ -1,22 +1,116 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! A cli demo to run the tokenizer on stdin.
-use logreduce_tokenizer::process;
+use clap::{Parser, Subcommand};
+use logreduce_model::{Content, Input, Model};
+use std::io::Result;
 
-use std::io::Write;
-use std::io::{self};
+#[derive(Parser)]
+#[clap(version, about, long_about = None)]
+#[clap(propagate_version = true)]
+struct Cli {
+    #[clap(long)]
+    report: Option<String>,
 
-fn main() -> io::Result<()> {
-    let stdin = std::io::stdin();
-    let mut line = String::with_capacity(1024);
+    #[clap(subcommand)]
+    command: Commands,
 
-    let stdout = std::io::stdout();
-    let mut lock = stdout.lock();
+    // Secret options to debug source groups
+    #[clap(long, hide = true)]
+    debug_groups: bool,
+}
 
-    while stdin.read_line(&mut line)? != 0 {
-        writeln!(lock, "{}", process(&line))?;
-        line.clear();
+#[derive(Subcommand)]
+enum Commands {
+    Diff { src: String, dst: String },
+    Path { path: String },
+}
+
+impl Commands {
+    fn get_input(&self) -> (Option<Input>, Input) {
+        match self {
+            Commands::Diff { src, dst } => (
+                Some(Input::Path(src.to_string())),
+                Input::Path(dst.to_string()),
+            ),
+            Commands::Path { path } => (None, Input::Path(path.to_string())),
+        }
+    }
+}
+
+fn main() -> Result<()> {
+    let args = Cli::parse();
+    let (baseline, input) = args.command.get_input();
+    if args.debug_groups {
+        debug_groups(input)
+    } else {
+        process(args.report, baseline, input)
+    }
+}
+
+fn process(report: Option<String>, baseline: Option<Input>, input: Input) -> Result<()> {
+    // Convert user Input to target Content.
+    let content = Content::from_input(input)?;
+
+    // Lookup baselines.
+    let baselines = match baseline {
+        None => content.discover_baselines()?,
+        Some(baseline) => vec![Content::from_input(baseline)?],
+    };
+
+    // Create the model. TODO: enable custom index.
+    let model = Model::train(baselines, logreduce_model::hashing_index::new)?;
+
+    match report {
+        None => process_live(&content, &model),
+        Some(file) => {
+            let report = model.report(&content)?;
+            println!("{}: Writing report {:?}", file, report);
+            Ok(())
+        }
+    }
+}
+
+fn process_live<I: logreduce_model::ChunkIndex>(content: &Content, model: &Model<I>) -> Result<()> {
+    let print_context = |pos: usize, xs: &[String]| {
+        xs.iter()
+            .enumerate()
+            .for_each(|(idx, line)| println!("   {} | {}", pos + idx, line))
+    };
+
+    for source in content.get_sources() {
+        let source = source?;
+        let index = model.get_index(&source).expect("Missing baselines");
+        let mut last_pos = None;
+        for anomaly in index.inspect(source) {
+            let anomaly = anomaly?;
+            let starting_pos = anomaly.anomaly.pos - 1 - anomaly.before.len();
+            if let Some(last_pos) = last_pos {
+                if last_pos != starting_pos {
+                    println!("--");
+                }
+            }
+
+            print_context(starting_pos, &anomaly.before);
+            println!(
+                "{:02.0} {} | {}",
+                anomaly.anomaly.distance * 99.0,
+                anomaly.anomaly.pos,
+                anomaly.anomaly.line
+            );
+            print_context(anomaly.anomaly.pos, &anomaly.after);
+
+            last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
+        }
+    }
+
+    Ok(())
+}
+
+fn debug_groups(input: Input) -> Result<()> {
+    let content = Content::from_input(input)?;
+    for (index_name, sources) in Content::group_sources(&[content])?.drain() {
+        println!("{:?}: {:#?}", index_name, sources);
     }
     Ok(())
 }

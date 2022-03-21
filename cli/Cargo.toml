@@ -13,4 +13,5 @@ description = "A python binding for the logreduce project."
 edition = "2018"
 
 [dependencies]
-logreduce-tokenizer = { path = "../tokenizer" }
+logreduce-model = { path = "../model" }
+clap = { version = "3", features = ["derive"] }
