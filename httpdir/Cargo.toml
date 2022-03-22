@@ -1,0 +1,26 @@
+[package]
+name = "logreduce-httpdir"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce-rust"
+authors = ["TristanCacqueray"]
+readme = "README.md"
+
+description = "Crawl http Index of page"
+
+edition = "2018"
+
+[lib]
+name = "httpdir"
+path = "src/httpdir.rs"
+
+[dependencies]
+threadpool = "1"
+url = "2"
+reqwest = { version = "0.11", features = ["blocking"] }
+regex = "1"
+lazy_static = "1.4.0"
+
+[dev-dependencies]
+mockito = "0.31"

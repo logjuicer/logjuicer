@@ -23,5 +23,5 @@ let
       pkgs.blas
     ]);
   # dependencies for the new implementation
-  rust = pkgs.rust-bin.stable.latest.default;
-in pkgs.mkShell { buildInputs = [ python rust ]; }
+  rust = [ pkgs.rust-bin.stable.latest.default pkgs.openssl pkgs.pkg-config ];
+in pkgs.mkShell { buildInputs = [ python ] ++ rust; }

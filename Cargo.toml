@@ -4,6 +4,7 @@ members = [
   "tokenizer",
   "index",
   "model",
+  "httpdir",
   "cli",
   "python",
   "generate",
