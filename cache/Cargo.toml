@@ -1,0 +1,24 @@
+[package]
+name = "logreduce-cache"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce-rust"
+authors = ["TristanCacqueray"]
+readme = "README.md"
+
+description = "Cache for content objects"
+
+edition = "2018"
+
+[lib]
+name = "logreduce_cache"
+path = "src/cache.rs"
+
+[dependencies]
+anyhow = "1.0"
+xdg = "^2.1"
+sha2 = "0.10"
+bincode = "1.3"
+url = { version = "2", features = ["serde"] }
+flate2 = "1.0"
