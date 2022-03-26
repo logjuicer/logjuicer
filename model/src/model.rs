@@ -89,6 +89,7 @@ pub struct Report {
 }
 
 impl Index {
+    #[tracing::instrument(name = "Index::train", skip(index))]
     pub fn train(sources: &[Source], mut index: ChunkIndex) -> Result<Index> {
         let start_time = SystemTime::now();
         let mut trainer = process::ChunkTrainer::new(&mut index);
@@ -102,6 +103,7 @@ impl Index {
         Ok(Index { train_time, index })
     }
 
+    #[tracing::instrument(name = "Index::inspect", skip(self))]
     pub fn inspect<'a>(
         &'a self,
         source: Source,
@@ -120,6 +122,7 @@ impl Index {
 
 impl Content {
     /// Apply convertion rules to convert the user Input to Content.
+    #[tracing::instrument]
     pub fn from_input(input: Input) -> Result<Content> {
         match input {
             Input::Path(path_str) => Content::from_path(Path::new(&path_str)),
@@ -127,6 +130,7 @@ impl Content {
     }
 
     /// Discover the baselines for this Content.
+    #[tracing::instrument]
     pub fn discover_baselines(&self) -> Result<Baselines> {
         match self {
             Content::File(src) => match src {
@@ -140,6 +144,7 @@ impl Content {
     }
 
     /// Get the sources of log lines for this Content.
+    #[tracing::instrument]
     pub fn get_sources(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
         match self {
             Content::File(src) => Box::new(src.file_iter()),
@@ -164,6 +169,7 @@ impl Content {
 
 impl Model {
     /// Create a Model from baselines.
+    #[tracing::instrument(skip(mk_index))]
     pub fn train(baselines: Baselines, mk_index: fn() -> ChunkIndex) -> Result<Model> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
@@ -185,6 +191,7 @@ impl Model {
     }
 
     /// Create the final report.
+    #[tracing::instrument]
     pub fn report(&self, target: &Content) -> Result<Report> {
         let created_at = SystemTime::now();
         let mut targets = Vec::new();

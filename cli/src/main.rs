@@ -39,6 +39,15 @@ impl Commands {
 }
 
 fn main() -> Result<()> {
+    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+    tracing_subscriber::Registry::default()
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .with(
+            tracing_tree::HierarchicalLayer::new(2)
+                .with_targets(true)
+                .with_bracketed_fields(true),
+        )
+        .init();
     let args = Cli::parse();
     let (baseline, input) = args.command.get_input();
     if args.debug_groups {
@@ -48,19 +57,24 @@ fn main() -> Result<()> {
     }
 }
 
+#[tracing::instrument]
 fn process(report: Option<String>, baseline: Option<Input>, input: Input) -> Result<()> {
     // Convert user Input to target Content.
+    tracing::debug!("Discovering content type");
     let content = Content::from_input(input)?;
 
     // Lookup baselines.
+    tracing::debug!("Discovering baselines");
     let baselines = match baseline {
         None => content.discover_baselines()?,
         Some(baseline) => vec![Content::from_input(baseline)?],
     };
 
     // Create the model. TODO: enable custom index.
+    tracing::debug!("Building model");
     let model = Model::train(baselines, logreduce_model::hashing_index::new)?;
 
+    tracing::debug!("Inspecting");
     match report {
         None => process_live(&content, &model),
         Some(file) => {

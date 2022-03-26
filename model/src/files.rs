@@ -10,6 +10,7 @@ use std::path::Path;
 use crate::{Baselines, Content, IndexName, Input, Source};
 
 impl Content {
+    #[tracing::instrument]
     pub fn from_path(path: &Path) -> Result<Content> {
         let src = Source::Local(path.to_path_buf());
 
@@ -25,6 +26,7 @@ impl Content {
         }
     }
 
+    #[tracing::instrument]
     pub fn discover_baselines_from_path(path: &Path) -> Result<Baselines> {
         // TODO: implement discovery by looking for common rotated file names.
         let mut path_str = path.to_path_buf().into_os_string().into_string().unwrap();
