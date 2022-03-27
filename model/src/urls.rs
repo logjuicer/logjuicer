@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::{Context, Result};
-use std::io::Read;
 use url::Url;
 
 use crate::{Content, Source};
@@ -26,15 +25,8 @@ impl Content {
 
 impl Source {
     #[tracing::instrument]
-    pub fn url_open(url: &Url) -> Result<Box<dyn Read>> {
-        match CACHE.remote_get(url, url) {
-            Some(cache) => Ok(Box::new(cache?)),
-            None => {
-                let resp = reqwest::blocking::get(url.clone()).context("Can't get url")?;
-                let cache_reader = CACHE.remote_add(url, url, resp)?;
-                Ok(Box::new(cache_reader))
-            }
-        }
+    pub fn url_open(url: &Url) -> Result<crate::reader::DecompressReader> {
+        crate::reader::from_url(url)
     }
 
     #[tracing::instrument]

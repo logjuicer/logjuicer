@@ -14,6 +14,7 @@ use url::Url;
 
 pub mod files;
 pub mod process;
+mod reader;
 pub mod urls;
 
 /// The user input.

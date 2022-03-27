@@ -830,6 +830,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "criterion",
+ "flate2",
  "lazy_static",
  "logreduce-cache",
  "logreduce-generate",

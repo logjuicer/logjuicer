@@ -4,7 +4,6 @@
 //! This module provides helpers to work with file paths.
 
 use anyhow::{Context, Result};
-use std::fs::File;
 use std::path::Path;
 
 use crate::{Baselines, Content, IndexName, Input, Source};
@@ -34,8 +33,8 @@ impl Content {
 }
 
 impl Source {
-    pub fn file_open(path: &Path) -> Result<File> {
-        File::open(path).context("Failed to open file")
+    pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader> {
+        crate::reader::from_path(path).context("Failed to open file")
     }
 
     // A file source only has one source
