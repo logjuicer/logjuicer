@@ -111,14 +111,14 @@ impl Crawler {
     }
 
     /// An iterator based implementation which works a bit differently to poll the results.
-    pub fn walk(&self, url: Url) -> impl Iterator<Item = Result<Url>> + '_ {
+    pub fn walk(self, url: Url) -> impl Iterator<Item = Result<Url>> {
         // Submit the initial task.
         self.start(url);
         // Create the iterator state.
         CrawlerIter {
-            workers: &self.workers,
+            workers: self.workers,
             abort: false,
-            rx: &self.rx,
+            rx: self.rx,
         }
     }
 
@@ -172,15 +172,15 @@ impl Default for Crawler {
 }
 
 // The state of the iterator.
-struct CrawlerIter<'a> {
-    workers: &'a ThreadPool,
+struct CrawlerIter {
+    workers: ThreadPool,
     abort: bool,
-    rx: &'a Receiver<Message>,
+    rx: Receiver<Message>,
 }
 
-impl<'a> CrawlerIter<'a> {
+impl CrawlerIter {
     // We are done when all the work is completed: no worker are active or queued.
-    fn is_done(&'a self) -> bool {
+    fn is_done(&self) -> bool {
         self.abort
             || (self.workers.active_count() + self.workers.queued_count() == 0
                 // ensure that when there is a panic, we propagate the error.
@@ -188,7 +188,7 @@ impl<'a> CrawlerIter<'a> {
     }
 }
 
-impl<'a> Iterator for CrawlerIter<'a> {
+impl Iterator for CrawlerIter {
     type Item = Result<Url>;
 
     fn next(&mut self) -> Option<Self::Item> {
