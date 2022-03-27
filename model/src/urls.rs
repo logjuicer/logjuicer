@@ -1,0 +1,57 @@
+// Copyright (C) 2022 Red Hat
+// SPDX-License-Identifier: Apache-2.0
+
+use anyhow::{Context, Result};
+use std::io::Read;
+use url::Url;
+
+use crate::{Content, Source};
+
+lazy_static::lazy_static! {
+    static ref CACHE: logreduce_cache::Cache = logreduce_cache::Cache::new().expect("Cache");
+}
+
+impl Content {
+    #[tracing::instrument]
+    pub fn from_url(url: Url) -> Result<Content> {
+        if !url.has_authority() {
+            Err(anyhow::anyhow!("Bad url {}", url))
+        } else if url.as_str().ends_with('/') {
+            Ok(Content::Directory(Source::Remote(url)))
+        } else {
+            Ok(Content::File(Source::Remote(url)))
+        }
+    }
+}
+
+impl Source {
+    #[tracing::instrument]
+    pub fn url_open(url: &Url) -> Result<Box<dyn Read>> {
+        match CACHE.remote_get(url, url) {
+            Some(cache) => Ok(Box::new(cache?)),
+            None => {
+                let resp = reqwest::blocking::get(url.clone()).context("Can't get url")?;
+                let cache_reader = CACHE.remote_add(url, url, resp)?;
+                Ok(Box::new(cache_reader))
+            }
+        }
+    }
+
+    #[tracing::instrument]
+    pub fn httpdir_iter(url: &Url) -> Box<dyn Iterator<Item = Result<Source>>> {
+        // TODO: fix the httpdir cache to work with iterator
+        let urls = match CACHE.httpdir_get(url) {
+            Some(res) => res,
+            None => httpdir::list(url.clone())
+                .context("Can't list url")
+                .and_then(|res| {
+                    CACHE.httpdir_add(url, &res)?;
+                    Ok(res)
+                }),
+        };
+        match urls {
+            Ok(urls) => Box::new(urls.into_iter().map(|url| Ok(Source::Remote(url)))),
+            Err(e) => Box::new(std::iter::once(Err(e))),
+        }
+    }
+}

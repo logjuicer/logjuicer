@@ -10,14 +10,26 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
+use url::Url;
 
 pub mod files;
 pub mod process;
+pub mod urls;
 
 /// The user input.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Input {
     Path(String),
+    Url(String),
+}
+
+impl Input {
+    pub fn from_string(s: String) -> Input {
+        match s.starts_with("http") {
+            true => Input::Url(s),
+            false => Input::Path(s),
+        }
+    }
 }
 
 /// A source of log lines.
@@ -31,6 +43,7 @@ pub enum Content {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Source {
     Local(PathBuf),
+    Remote(url::Url),
 }
 
 /// A list of nominal content, e.g. a successful build.
@@ -52,6 +65,7 @@ impl IndexName {
     pub fn from_source(source: &Source) -> IndexName {
         match source {
             Source::Local(path_buf) => IndexName::from_path(path_buf.as_path()),
+            Source::Remote(url) => IndexName::from_path(Path::new(url.as_str())),
         }
     }
 }
@@ -96,6 +110,7 @@ impl Index {
         for source in sources {
             match source {
                 Source::Local(path_buf) => trainer.add(Source::file_open(path_buf.as_path())?)?,
+                Source::Remote(url) => trainer.add(Source::url_open(url)?)?,
             }
         }
         trainer.complete();
@@ -114,6 +129,10 @@ impl Index {
                 // If the file can't be open, the first iterator result will be the error.
                 Err(e) => Box::new(std::iter::once(Err(e))),
             },
+            Source::Remote(url) => match Source::url_open(&url) {
+                Ok(fp) => Box::new(process::ChunkProcessor::new(fp, &self.index)),
+                Err(e) => Box::new(std::iter::once(Err(e))),
+            },
         }
     }
 
@@ -126,6 +145,9 @@ impl Content {
     pub fn from_input(input: Input) -> Result<Content> {
         match input {
             Input::Path(path_str) => Content::from_path(Path::new(&path_str)),
+            Input::Url(url_str) => {
+                Content::from_url(Url::parse(&url_str).expect("Failed to parse url"))
+            }
         }
     }
 
@@ -135,6 +157,9 @@ impl Content {
         match self {
             Content::File(src) => match src {
                 Source::Local(pathbuf) => Content::discover_baselines_from_path(pathbuf.as_path()),
+                Source::Remote(_) => Err(anyhow::anyhow!(
+                    "Can't find remmote baselines, they need to be provided"
+                )),
             },
             Content::Directory(_) => Err(anyhow::anyhow!(
                 "Can't discover directory baselines, they need to be provided",
@@ -147,7 +172,10 @@ impl Content {
     pub fn get_sources(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
         match self {
             Content::File(src) => Box::new(src.file_iter()),
-            Content::Directory(src) => Box::new(src.dir_iter()),
+            Content::Directory(src) => match src {
+                Source::Local(pathbuf) => Box::new(Source::dir_iter(pathbuf.as_path())),
+                Source::Remote(url) => Box::new(Source::httpdir_iter(url)),
+            },
         }
     }
 

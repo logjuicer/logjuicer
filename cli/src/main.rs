@@ -30,8 +30,8 @@ impl Commands {
     fn get_input(&self) -> (Option<Input>, Input) {
         match self {
             Commands::Diff { src, dst } => (
-                Some(Input::Path(src.to_string())),
-                Input::Path(dst.to_string()),
+                Some(Input::from_string(src.to_string())),
+                Input::from_string(dst.to_string()),
             ),
             Commands::Path { path } => (None, Input::Path(path.to_string())),
         }

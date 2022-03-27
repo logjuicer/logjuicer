@@ -43,12 +43,6 @@ impl Source {
         std::iter::once(Ok(self.clone()))
     }
 
-    pub fn dir_iter(&self) -> impl Iterator<Item = Result<Source>> {
-        match self {
-            Source::Local(path_buf) => Source::local_dir_iter(path_buf.as_path()),
-        }
-    }
-
     fn keep_path(result: &walkdir::Result<walkdir::DirEntry>) -> bool {
         match result {
             Ok(entry) if !entry.path_is_symlink() && entry.file_type().is_file() => true,
@@ -58,7 +52,7 @@ impl Source {
         }
     }
 
-    fn local_dir_iter(path: &Path) -> impl Iterator<Item = Result<Source>> {
+    pub fn dir_iter(path: &Path) -> impl Iterator<Item = Result<Source>> {
         walkdir::WalkDir::new(path)
             .into_iter()
             .filter(Source::keep_path)

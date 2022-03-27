@@ -830,12 +830,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "criterion",
+ "lazy_static",
+ "logreduce-cache",
  "logreduce-generate",
+ "logreduce-httpdir",
  "logreduce-index",
  "logreduce-iterator",
  "logreduce-tokenizer",
+ "reqwest",
  "serde",
  "tracing",
+ "url",
  "walkdir",
 ]
 
