@@ -3,8 +3,9 @@
 
 //! This module provides the core utilities to use logreduce-index with Read objects.
 
+use anyhow::Result;
 use std::collections::{HashSet, VecDeque};
-use std::io::{Read, Result};
+use std::io::Read;
 
 use crate::{Anomaly, AnomalyContext, ChunkIndex};
 use logreduce_iterator::LogLine;

@@ -1,9 +1,9 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use logreduce_model::{Content, Input, Model};
-use std::io::Result;
 
 #[derive(Parser)]
 #[clap(version, about, long_about = None)]

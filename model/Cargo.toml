@@ -17,6 +17,7 @@ name = "logreduce_model"
 path = "src/model.rs"
 
 [dependencies]
+anyhow = "1.0"
 walkdir = "2.3"
 logreduce-index = { path = "../index" }
 logreduce-tokenizer = { path = "../tokenizer" }

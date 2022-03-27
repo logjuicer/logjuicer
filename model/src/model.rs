@@ -5,9 +5,9 @@
 //!
 //! This module dispatch the abstract Content and Source to their implementationm e.g. the files module.
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -136,9 +136,8 @@ impl Content {
             Content::File(src) => match src {
                 Source::Local(pathbuf) => Content::discover_baselines_from_path(pathbuf.as_path()),
             },
-            Content::Directory(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Can't find directory baselines, baselines need to be provided",
+            Content::Directory(_) => Err(anyhow::anyhow!(
+                "Can't discover directory baselines, they need to be provided",
             )),
         }
     }

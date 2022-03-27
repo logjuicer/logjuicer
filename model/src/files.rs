@@ -3,8 +3,8 @@
 
 //! This module provides helpers to work with file paths.
 
+use anyhow::{Context, Result};
 use std::fs::File;
-use std::io::Result;
 use std::path::Path;
 
 use crate::{Baselines, Content, IndexName, Input, Source};
@@ -19,10 +19,7 @@ impl Content {
         } else if path.is_file() {
             Ok(Content::File(src))
         } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Unknown path {}", path.to_string_lossy()),
-            ))
+            Err(anyhow::anyhow!("Unknown path: {:?}", path))
         }
     }
 
@@ -38,7 +35,7 @@ impl Content {
 
 impl Source {
     pub fn file_open(path: &Path) -> Result<File> {
-        File::open(path)
+        File::open(path).context("Failed to open file")
     }
 
     // A file source only has one source
