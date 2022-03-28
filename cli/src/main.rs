@@ -24,6 +24,7 @@ struct Cli {
 enum Commands {
     Diff { src: String, dst: String },
     Path { path: String },
+    Url { url: String },
 }
 
 impl Commands {
@@ -34,6 +35,7 @@ impl Commands {
                 Input::from_string(dst.to_string()),
             ),
             Commands::Path { path } => (None, Input::Path(path.to_string())),
+            Commands::Url { url } => (None, Input::Url(url.to_string()))
         }
     }
 }

@@ -43,8 +43,25 @@ pub enum Content {
 /// The location of the log lines.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Source {
-    Local(PathBuf),
-    Remote(url::Url),
+    Local(Option<PathBuf>, PathBuf),
+    Remote(Option<url::Url>, url::Url),
+}
+
+impl Source {
+    fn get_relative(&'_ self) -> &'_ str {
+        match self {
+            Source::Local(Some(base), path) => {
+                let base_len = base.to_str().unwrap_or("").len();
+                &path.to_str().unwrap_or("")[base_len..]
+            }
+            Source::Local(None, path) => path.to_str().unwrap_or(""),
+            Source::Remote(Some(base), url) => {
+                let base_len = base.as_str().len();
+                &url.as_str()[base_len..]
+            }
+            Source::Remote(None, url) => url.as_str(),
+        }
+    }
 }
 
 /// A list of nominal content, e.g. a successful build.
@@ -64,10 +81,7 @@ pub struct IndexName(pub String);
 
 impl IndexName {
     pub fn from_source(source: &Source) -> IndexName {
-        match source {
-            Source::Local(path_buf) => IndexName::from_path(path_buf.as_path()),
-            Source::Remote(url) => IndexName::from_path(Path::new(url.as_str())),
-        }
+        IndexName::from_path(source.get_relative())
     }
 }
 
@@ -110,8 +124,10 @@ impl Index {
         let mut trainer = process::ChunkTrainer::new(&mut index);
         for source in sources {
             match source {
-                Source::Local(path_buf) => trainer.add(Source::file_open(path_buf.as_path())?)?,
-                Source::Remote(url) => trainer.add(Source::url_open(url)?)?,
+                Source::Local(_, path_buf) => {
+                    trainer.add(Source::file_open(path_buf.as_path())?)?
+                }
+                Source::Remote(_, url) => trainer.add(Source::url_open(url)?)?,
             }
         }
         trainer.complete();
@@ -125,12 +141,12 @@ impl Index {
         source: Source,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
         match source {
-            Source::Local(path_buf) => match Source::file_open(path_buf.as_path()) {
+            Source::Local(_, path_buf) => match Source::file_open(path_buf.as_path()) {
                 Ok(fp) => Box::new(process::ChunkProcessor::new(fp, &self.index)),
                 // If the file can't be open, the first iterator result will be the error.
                 Err(e) => Box::new(std::iter::once(Err(e))),
             },
-            Source::Remote(url) => match Source::url_open(&url) {
+            Source::Remote(_, url) => match Source::url_open(&url) {
                 Ok(fp) => Box::new(process::ChunkProcessor::new(fp, &self.index)),
                 Err(e) => Box::new(std::iter::once(Err(e))),
             },
@@ -157,8 +173,10 @@ impl Content {
     pub fn discover_baselines(&self) -> Result<Baselines> {
         match self {
             Content::File(src) => match src {
-                Source::Local(pathbuf) => Content::discover_baselines_from_path(pathbuf.as_path()),
-                Source::Remote(_) => Err(anyhow::anyhow!(
+                Source::Local(_, pathbuf) => {
+                    Content::discover_baselines_from_path(pathbuf.as_path())
+                }
+                Source::Remote(_, _) => Err(anyhow::anyhow!(
                     "Can't find remmote baselines, they need to be provided"
                 )),
             },
@@ -174,8 +192,8 @@ impl Content {
         match self {
             Content::File(src) => Box::new(src.file_iter()),
             Content::Directory(src) => match src {
-                Source::Local(pathbuf) => Box::new(Source::dir_iter(pathbuf.as_path())),
-                Source::Remote(url) => Box::new(Source::httpdir_iter(url)),
+                Source::Local(_, pathbuf) => Box::new(Source::dir_iter(pathbuf.as_path())),
+                Source::Remote(_, url) => Box::new(Source::httpdir_iter(url)),
             },
         }
     }

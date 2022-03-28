@@ -11,7 +11,7 @@ use crate::{Baselines, Content, IndexName, Input, Source};
 impl Content {
     #[tracing::instrument]
     pub fn from_path(path: &Path) -> Result<Content> {
-        let src = Source::Local(path.to_path_buf());
+        let src = Source::Local(None, path.to_path_buf());
 
         if path.is_dir() {
             Ok(Content::Directory(src))
@@ -52,12 +52,13 @@ impl Source {
     }
 
     pub fn dir_iter(path: &Path) -> impl Iterator<Item = Result<Source>> {
+        let base = path.to_path_buf();
         walkdir::WalkDir::new(path)
             .into_iter()
             .filter(Source::keep_path)
-            .map(|res| match res {
+            .map(move |res| match res {
                 Err(e) => Err(e.into()),
-                Ok(res) => Ok(Source::Local(res.into_path())),
+                Ok(res) => Ok(Source::Local(Some(base.clone()), res.into_path())),
             })
     }
 }
@@ -80,7 +81,8 @@ fn test_is_k8s_service() {
 }
 
 impl IndexName {
-    pub fn from_path(path: &Path) -> IndexName {
+    pub fn from_path(base: &str) -> IndexName {
+        let path = Path::new(base);
         let filename: &str = path
             .file_name()
             .and_then(|os_str| os_str.to_str())
@@ -133,13 +135,12 @@ fn log_model_name() {
     ])
     .for_each(|(expected_model, paths)| {
         IntoIterator::into_iter(paths)
-            .map(Path::new)
             .for_each(|path| {
                 assert_eq!(
                     IndexName(expected_model.to_string()),
                     IndexName::from_path(path),
                     "for {}",
-                    path.display()
+                    path
                 )
             })
     });
