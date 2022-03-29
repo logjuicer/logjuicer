@@ -78,9 +78,9 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
     })
 }
 
-pub fn from_url(url: &Url) -> Result<DecompressReader> {
+pub fn from_url(base: &Url, url: &Url) -> Result<DecompressReader> {
     if *USE_CACHE {
-        match CACHE.remote_get(url, url) {
+        match CACHE.remote_get(base, url) {
             Some(cache) => cache.map(Gz),
             None => {
                 let resp = remote::get_url(url)?;

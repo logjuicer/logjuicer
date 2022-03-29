@@ -119,7 +119,7 @@ impl Index {
                 Source::Local(_, path_buf) => {
                     trainer.add(Source::file_open(path_buf.as_path())?)?
                 }
-                Source::Remote(_, url) => trainer.add(Source::url_open(url)?)?,
+                Source::Remote(prefix, url) => trainer.add(Source::url_open(*prefix, url)?)?,
             }
         }
         trainer.complete();
@@ -138,7 +138,7 @@ impl Index {
                 // If the file can't be open, the first iterator result will be the error.
                 Err(e) => Box::new(std::iter::once(Err(e))),
             },
-            Source::Remote(_, url) => match Source::url_open(&url) {
+            Source::Remote(prefix, url) => match Source::url_open(prefix, &url) {
                 Ok(fp) => Box::new(process::ChunkProcessor::new(fp, &self.index)),
                 Err(e) => Box::new(std::iter::once(Err(e))),
             },

@@ -25,8 +25,12 @@ impl Content {
 
 impl Source {
     #[tracing::instrument]
-    pub fn url_open(url: &Url) -> Result<crate::reader::DecompressReader> {
-        crate::reader::from_url(url)
+    pub fn url_open(prefix: usize, url: &Url) -> Result<crate::reader::DecompressReader> {
+        if prefix == 0 {
+            crate::reader::from_url(url, url)
+        } else {
+            crate::reader::from_url(&Url::parse(&url.as_str()[..42])?, url)
+        }
     }
 
     #[tracing::instrument]
