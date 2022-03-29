@@ -30,6 +30,8 @@ mod remote {
     use super::*;
     use reqwest::blocking::Response;
 
+    // allow large enum for gzdecoder, which are the most used
+    #[allow(clippy::large_enum_variant)]
     pub enum DecompressRemoteReader {
         FlatUrl(Response),
         GzUrl(GzDecoder<Response>),
@@ -56,36 +58,38 @@ mod remote {
     }
 }
 
+// allow large enum for gzdecoder, which are the most used
+#[allow(clippy::large_enum_variant)]
 pub enum DecompressReader {
-    FlatFile(File),
-    GzFile(GzDecoder<File>),
-    RemoteFile(remote::DecompressRemoteReader),
-    CachedFile(logreduce_cache::CacheReader<remote::DecompressRemoteReader>),
+    Flat(File),
+    Gz(GzDecoder<File>),
+    Remote(remote::DecompressRemoteReader),
+    Cached(logreduce_cache::CacheReader<remote::DecompressRemoteReader>),
 }
 use DecompressReader::*;
 
 pub fn from_path(path: &Path) -> Result<DecompressReader> {
     let fp = File::open(path)?;
-    let extension = path.extension().unwrap_or(std::ffi::OsStr::new(""));
+    let extension = path.extension().unwrap_or_else(|| std::ffi::OsStr::new(""));
     Ok(if extension == ".gz" {
-        GzFile(GzDecoder::new(fp))
+        Gz(GzDecoder::new(fp))
     } else {
-        FlatFile(fp)
+        Flat(fp)
     })
 }
 
 pub fn from_url(url: &Url) -> Result<DecompressReader> {
     if *USE_CACHE {
         match CACHE.remote_get(url, url) {
-            Some(cache) => cache.map(GzFile),
+            Some(cache) => cache.map(Gz),
             None => {
                 let resp = remote::get_url(url)?;
                 let cache = CACHE.remote_add(url, url, resp)?;
-                Ok(CachedFile(cache))
+                Ok(Cached(cache))
             }
         }
     } else {
-        Ok(RemoteFile(remote::get_url(url)?))
+        Ok(Remote(remote::get_url(url)?))
     }
 }
 
@@ -93,10 +97,10 @@ impl Read for DecompressReader {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         // TODO: refactor using the enum_dispatch crate.
         match self {
-            FlatFile(r) => r.read(buf),
-            GzFile(r) => r.read(buf),
-            RemoteFile(r) => r.read(buf),
-            CachedFile(r) => r.read(buf),
+            Flat(r) => r.read(buf),
+            Gz(r) => r.read(buf),
+            Remote(r) => r.read(buf),
+            Cached(r) => r.read(buf),
         }
     }
 }
