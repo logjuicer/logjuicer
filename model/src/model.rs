@@ -40,26 +40,18 @@ pub enum Content {
     Directory(Source),
 }
 
-/// The location of the log lines.
+/// The location of the log lines, and the relative prefix length.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Source {
-    Local(Option<PathBuf>, PathBuf),
-    Remote(Option<url::Url>, url::Url),
+    Local(usize, PathBuf),
+    Remote(usize, url::Url),
 }
 
 impl Source {
     fn get_relative(&'_ self) -> &'_ str {
         match self {
-            Source::Local(Some(base), path) => {
-                let base_len = base.to_str().unwrap_or("").len();
-                &path.to_str().unwrap_or("")[base_len..]
-            }
-            Source::Local(None, path) => path.to_str().unwrap_or(""),
-            Source::Remote(Some(base), url) => {
-                let base_len = base.as_str().len();
-                &url.as_str()[base_len..]
-            }
-            Source::Remote(None, url) => url.as_str(),
+            Source::Local(base_len, path) => &path.to_str().unwrap_or("")[*base_len..],
+            Source::Remote(base_len, url) => &url.as_str()[*base_len..],
         }
     }
 }

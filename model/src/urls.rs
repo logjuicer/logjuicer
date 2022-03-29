@@ -16,9 +16,9 @@ impl Content {
         if !url.has_authority() {
             Err(anyhow::anyhow!("Bad url {}", url))
         } else if url.as_str().ends_with('/') {
-            Ok(Content::Directory(Source::Remote(None, url)))
+            Ok(Content::Directory(Source::Remote(0, url)))
         } else {
-            Ok(Content::File(Source::Remote(None, url)))
+            Ok(Content::File(Source::Remote(0, url)))
         }
     }
 }
@@ -31,7 +31,7 @@ impl Source {
 
     #[tracing::instrument]
     pub fn httpdir_iter(url: &Url) -> Box<dyn Iterator<Item = Result<Source>>> {
-        let base = url.clone();
+        let base_len = url.as_str().len();
         // TODO: fix the httpdir cache to work with iterator
         let urls = match CACHE.httpdir_get(url) {
             Some(res) => res,
@@ -43,7 +43,10 @@ impl Source {
                 }),
         };
         match urls {
-            Ok(urls) => Box::new(urls.into_iter().map(move |u| Ok(Source::Remote(Some(base.clone()), u)))),
+            Ok(urls) => Box::new(
+                urls.into_iter()
+                    .map(move |u| Ok(Source::Remote(base_len, u))),
+            ),
             Err(e) => Box::new(std::iter::once(Err(e))),
         }
     }

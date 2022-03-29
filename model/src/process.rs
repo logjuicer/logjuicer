@@ -93,16 +93,15 @@ impl<'a, R: Read> Iterator for ChunkProcessor<'a, R> {
     type Item = Result<AnomalyContext>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.anomalies.is_empty() {
-            match self.read_anomalies() {
+        self.anomalies
+            .pop_front()
+            .map(Ok)
+            .or_else(|| match self.read_anomalies() {
                 // When read_anomalies doesn't push new anomalies, that means we reach the end.
                 Ok(()) if self.anomalies.is_empty() => None,
-                Ok(()) => self.get_next_anomaly(),
+                Ok(()) => self.next(),
                 Err(e) => Some(Err(e)),
-            }
-        } else {
-            self.get_next_anomaly()
-        }
+            })
     }
 }
 
@@ -120,10 +119,6 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
             skip_lines: HashSet::new(),
             coord: 0,
         }
-    }
-
-    fn get_next_anomaly(&mut self) -> Option<Result<AnomalyContext>> {
-        Some(Ok(self.anomalies.pop_front().expect("Empty anomaly queue")))
     }
 
     fn read_anomalies(&mut self) -> Result<()> {
