@@ -84,7 +84,7 @@ pub fn from_url(base: &Url, url: &Url) -> Result<DecompressReader> {
             Some(cache) => cache.map(Gz),
             None => {
                 let resp = remote::get_url(url)?;
-                let cache = CACHE.remote_add(url, url, resp)?;
+                let cache = CACHE.remote_add(base, url, resp)?;
                 Ok(Cached(cache))
             }
         }
