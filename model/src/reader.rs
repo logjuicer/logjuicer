@@ -81,8 +81,12 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
 pub fn from_url(base: &Url, url: &Url) -> Result<DecompressReader> {
     if *USE_CACHE {
         match CACHE.remote_get(base, url) {
-            Some(cache) => cache.map(Gz),
+            Some(cache) => {
+                tracing::debug!("Cache hit for {}", url);
+                cache.map(Gz)
+            }
             None => {
+                tracing::debug!("Cache miss for {}", url);
                 let resp = remote::get_url(url)?;
                 let cache = CACHE.remote_add(base, url, resp)?;
                 Ok(Cached(cache))
@@ -90,6 +94,14 @@ pub fn from_url(base: &Url, url: &Url) -> Result<DecompressReader> {
         }
     } else {
         Ok(Remote(remote::get_url(url)?))
+    }
+}
+
+pub fn drop_url(base: &Url, url: &Url) -> Result<()> {
+    if *USE_CACHE {
+        CACHE.remote_drop(base, url)
+    } else {
+        Ok(())
     }
 }
 

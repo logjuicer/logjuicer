@@ -16,6 +16,7 @@ pub mod files;
 pub mod process;
 mod reader;
 pub mod urls;
+pub mod zuul;
 
 /// The user input.
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,14 +35,15 @@ impl Input {
 }
 
 /// A source of log lines.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Content {
     File(Source),
     Directory(Source),
+    Zuul(Box<zuul::Build>),
 }
 
 /// The location of the log lines, and the relative prefix length.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Source {
     Local(usize, PathBuf),
     Remote(usize, url::Url),
@@ -175,6 +177,7 @@ impl Content {
             Content::Directory(_) => Err(anyhow::anyhow!(
                 "Can't discover directory baselines, they need to be provided",
             )),
+            Content::Zuul(build) => build.discover_baselines(),
         }
     }
 
@@ -187,6 +190,7 @@ impl Content {
                 Source::Local(_, pathbuf) => Box::new(Source::dir_iter(pathbuf.as_path())),
                 Source::Remote(_, url) => Box::new(Source::httpdir_iter(url)),
             },
+            Content::Zuul(build) => Box::new(build.sources_iter()),
         }
     }
 

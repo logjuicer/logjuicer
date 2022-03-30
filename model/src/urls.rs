@@ -15,6 +15,8 @@ impl Content {
     pub fn from_url(url: Url) -> Result<Content> {
         if !url.has_authority() {
             Err(anyhow::anyhow!("Bad url {}", url))
+        } else if let Some(content) = Content::from_zuul_url(&url) {
+            content
         } else if url.as_str().ends_with('/') {
             Ok(Content::Directory(Source::Remote(0, url)))
         } else {
