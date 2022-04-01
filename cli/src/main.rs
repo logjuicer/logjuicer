@@ -95,27 +95,31 @@ fn process_live(content: &Content, model: &Model) -> Result<()> {
     };
 
     for source in content.get_sources()? {
-        let index = model.get_index(&source).expect("Missing baselines");
-        let mut last_pos = None;
-        for anomaly in index.inspect(source) {
-            let anomaly = anomaly?;
-            let starting_pos = anomaly.anomaly.pos - 1 - anomaly.before.len();
-            if let Some(last_pos) = last_pos {
-                if last_pos != starting_pos {
-                    println!("--");
+        match model.get_index(&source) {
+            Some(index) => {
+                let mut last_pos = None;
+                for anomaly in index.inspect(source) {
+                    let anomaly = anomaly?;
+                    let starting_pos = anomaly.anomaly.pos - 1 - anomaly.before.len();
+                    if let Some(last_pos) = last_pos {
+                        if last_pos != starting_pos {
+                            println!("--");
+                        }
+                    }
+
+                    print_context(starting_pos, &anomaly.before);
+                    println!(
+                        "{:02.0} {} | {}",
+                        anomaly.anomaly.distance * 99.0,
+                        anomaly.anomaly.pos,
+                        anomaly.anomaly.line
+                    );
+                    print_context(anomaly.anomaly.pos, &anomaly.after);
+
+                    last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 }
             }
-
-            print_context(starting_pos, &anomaly.before);
-            println!(
-                "{:02.0} {} | {}",
-                anomaly.anomaly.distance * 99.0,
-                anomaly.anomaly.pos,
-                anomaly.anomaly.line
-            );
-            print_context(anomaly.anomaly.pos, &anomaly.after);
-
-            last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
+            None => println!("No baselines for {:?}", source),
         }
     }
 
