@@ -127,18 +127,8 @@ impl<R: Read> Read for CacheReader<R> {
             // Write to the local file
             Ok(remote_size) => self
                 .local
-                .write(&buf[..remote_size])
-                .and_then(|local_size| {
-                    // Check that all the data got cached
-                    if remote_size == local_size {
-                        Ok(remote_size)
-                    } else {
-                        Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "Caching to local file incomplete",
-                        ))
-                    }
-                }),
+                .write_all(&buf[..remote_size])
+                .map(|()| remote_size),
             Err(e) => Err(e),
         }
     }
