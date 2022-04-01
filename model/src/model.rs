@@ -56,6 +56,17 @@ impl Source {
             Source::Remote(base_len, url) => &url.as_str()[*base_len..],
         }
     }
+    fn as_str(&'_ self) -> &'_ str {
+        match self {
+            Source::Local(_, path) => path.to_str().unwrap_or(""),
+            Source::Remote(_, url) => url.as_str(),
+        }
+    }
+
+    fn is_valid(&self) -> bool {
+        let s = self.as_str();
+        [".ico", ".png"].iter().all(|ext| !s.ends_with(ext))
+    }
 }
 
 /// A list of nominal content, e.g. a successful build.
@@ -189,6 +200,12 @@ impl Content {
     #[tracing::instrument]
     pub fn get_sources(&self) -> Result<Vec<Source>> {
         self.get_sources_iter()
+            .filter(|source| {
+                source
+                    .as_ref()
+                    .map(|source| source.is_valid())
+                    .unwrap_or(true)
+            })
             .collect::<Result<Vec<_>>>()
             .and_then(|sources| match sources.len() {
                 0 => Err(anyhow::anyhow!("Empty discovered baselines")),
