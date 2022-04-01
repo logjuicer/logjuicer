@@ -35,7 +35,7 @@ impl Commands {
                 Input::from_string(dst.to_string()),
             ),
             Commands::Path { path } => (None, Input::Path(path.to_string())),
-            Commands::Url { url } => (None, Input::Url(url.to_string()))
+            Commands::Url { url } => (None, Input::Url(url.to_string())),
         }
     }
 }
@@ -94,8 +94,7 @@ fn process_live(content: &Content, model: &Model) -> Result<()> {
             .for_each(|(idx, line)| println!("   {} | {}", pos + idx, line))
     };
 
-    for source in content.get_sources() {
-        let source = source?;
+    for source in content.get_sources()? {
         let index = model.get_index(&source).expect("Missing baselines");
         let mut last_pos = None;
         for anomaly in index.inspect(source) {

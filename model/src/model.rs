@@ -165,7 +165,7 @@ impl Content {
     /// Discover the baselines for this Content.
     #[tracing::instrument]
     pub fn discover_baselines(&self) -> Result<Baselines> {
-        match self {
+        (match self {
             Content::File(src) => match src {
                 Source::Local(_, pathbuf) => {
                     Content::discover_baselines_from_path(pathbuf.as_path())
@@ -178,12 +178,25 @@ impl Content {
                 "Can't discover directory baselines, they need to be provided",
             )),
             Content::Zuul(build) => build.discover_baselines(),
-        }
+        })
+        .and_then(|baselines| match baselines.len() {
+            0 => Err(anyhow::anyhow!("Empty discovered baselines")),
+            _ => Ok(baselines),
+        })
     }
 
     /// Get the sources of log lines for this Content.
     #[tracing::instrument]
-    pub fn get_sources(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
+    pub fn get_sources(&self) -> Result<Vec<Source>> {
+        self.get_sources_iter()
+            .collect::<Result<Vec<_>>>()
+            .and_then(|sources| match sources.len() {
+                0 => Err(anyhow::anyhow!("Empty discovered baselines")),
+                _ => Ok(sources),
+            })
+    }
+
+    pub fn get_sources_iter(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
         match self {
             Content::File(src) => Box::new(src.file_iter()),
             Content::Directory(src) => match src {
@@ -197,8 +210,7 @@ impl Content {
     pub fn group_sources(baselines: &[Content]) -> Result<HashMap<IndexName, Vec<Source>>> {
         let mut groups = HashMap::new();
         for baseline in baselines {
-            for source in baseline.get_sources() {
-                let source = source?;
+            for source in baseline.get_sources()? {
                 groups
                     .entry(IndexName::from_source(&source))
                     .or_insert_with(Vec::new)
@@ -237,9 +249,8 @@ impl Model {
     pub fn report(&self, target: &Content) -> Result<Report> {
         let created_at = SystemTime::now();
         let mut targets = Vec::new();
-        for source in target.get_sources() {
+        for source in target.get_sources()? {
             let start_time = SystemTime::now();
-            let source = source?;
             // TODO: process all the index sources in one pass to share a single skip_lines set.
             let index = self.get_index(&source).expect("Missing baselines");
             let anomalies: Result<Vec<_>> = index.inspect(source).collect();
