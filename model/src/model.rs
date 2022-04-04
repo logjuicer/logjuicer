@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 use url::Url;
 
 pub mod files;
@@ -125,7 +125,7 @@ pub struct Report {
 impl Index {
     #[tracing::instrument(name = "Index::train", skip(index))]
     pub fn train(sources: &[Source], mut index: ChunkIndex) -> Result<Index> {
-        let start_time = SystemTime::now();
+        let start_time = Instant::now();
         let mut trainer = process::ChunkTrainer::new(&mut index);
         for source in sources {
             match source {
@@ -136,7 +136,7 @@ impl Index {
             }
         }
         trainer.complete();
-        let train_time = start_time.elapsed().unwrap();
+        let train_time = start_time.elapsed();
         Ok(Index { train_time, index })
     }
 
@@ -285,14 +285,14 @@ impl Model {
         let created_at = SystemTime::now();
         let mut targets = Vec::new();
         for source in target.get_sources()? {
-            let start_time = SystemTime::now();
+            let start_time = Instant::now();
             // TODO: process all the index sources in one pass to share a single skip_lines set.
             let index = self.get_index(&source).expect("Missing baselines");
             let anomalies: Result<Vec<_>> = index.inspect(source).collect();
             let anomalies = anomalies?;
             if !anomalies.is_empty() {
                 targets.push(LogReport {
-                    test_time: start_time.elapsed().unwrap(),
+                    test_time: start_time.elapsed(),
                     anomalies,
                 });
             }
