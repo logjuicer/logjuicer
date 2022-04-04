@@ -5,7 +5,7 @@
 //!
 //! This module dispatch the abstract Content and Source to their implementationm e.g. the files module.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -253,6 +253,24 @@ impl Model {
             baselines,
             indexes,
         })
+    }
+
+    pub fn load(path: &Path) -> Result<Model> {
+        bincode::deserialize_from(flate2::read::GzDecoder::new(
+            std::fs::File::open(path).context("Can't open file")?,
+        ))
+        .context("Can't load model")
+    }
+
+    pub fn save(&self, path: &Path) -> Result<()> {
+        bincode::serialize_into(
+            flate2::write::GzEncoder::new(
+                std::fs::File::create(path).context("Can't create file")?,
+                flate2::Compression::fast(),
+            ),
+            self,
+        )
+        .context("Can't save model")
     }
 
     /// Get the matching index for a given Source.
