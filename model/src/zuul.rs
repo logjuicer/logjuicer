@@ -68,6 +68,7 @@ impl Build {
             ],
         )
         .context("Can't create query url")?;
+        tracing::info!(url = url.as_str(), "Discovering baselines for {}", self);
         get_builds(api, &url)
     }
 

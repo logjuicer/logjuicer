@@ -101,7 +101,7 @@ fn main() -> Result<()> {
     Cli::parse().run()
 }
 
-#[tracing::instrument]
+#[tracing::instrument(level = "debug")]
 fn process(
     report: Option<PathBuf>,
     model_path: Option<PathBuf>,
@@ -109,7 +109,6 @@ fn process(
     input: Input,
 ) -> Result<()> {
     // Convert user Input to target Content.
-    tracing::debug!("Discovering content type");
     let content = Content::from_input(input)?;
 
     let model = match model_path {
@@ -119,11 +118,9 @@ fn process(
         },
         _ => {
             // Lookup baselines.
+            tracing::debug!("Finding baselines");
             let baselines = match baselines {
-                None => {
-                    tracing::debug!("Discovering baselines");
-                    content.discover_baselines()
-                }
+                None => content.discover_baselines(),
                 Some(baselines) => baselines
                     .into_iter()
                     .map(Content::from_input)

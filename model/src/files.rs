@@ -9,7 +9,7 @@ use std::path::Path;
 use crate::{Baselines, Content, IndexName, Input, Source};
 
 impl Content {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     pub fn from_path(path: &Path) -> Result<Content> {
         let src = Source::Local(0, path.to_path_buf());
 
@@ -22,7 +22,7 @@ impl Content {
         }
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     pub fn discover_baselines_from_path(path: &Path) -> Result<Baselines> {
         // TODO: implement discovery by looking for common rotated file names.
         let mut path_str = path.to_path_buf().into_os_string().into_string().unwrap();
@@ -34,6 +34,7 @@ impl Content {
 
 impl Source {
     pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader> {
+        tracing::debug!(path = path.to_str(), "Reading file");
         crate::reader::from_path(path).context("Failed to open file")
     }
 

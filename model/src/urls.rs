@@ -11,7 +11,7 @@ lazy_static::lazy_static! {
 }
 
 impl Content {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     pub fn from_url(url: Url) -> Result<Content> {
         if !url.has_authority() {
             Err(anyhow::anyhow!("Bad url {}", url))
@@ -26,8 +26,9 @@ impl Content {
 }
 
 impl Source {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     pub fn url_open(prefix: usize, url: &Url) -> Result<crate::reader::DecompressReader> {
+        tracing::debug!(url = url.as_str(), "Fetching url");
         if prefix == 0 {
             crate::reader::from_url(url, url)
         } else {
@@ -35,7 +36,7 @@ impl Source {
         }
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     pub fn httpdir_iter(url: &Url) -> Box<dyn Iterator<Item = Result<Source>>> {
         let base_len = url.as_str().len();
         // TODO: fix the httpdir cache to work with iterator
