@@ -63,6 +63,21 @@ impl Source {
     }
 }
 
+fn is_small_hash(filename: &str) -> bool {
+    filename.len() == 7
+        && !filename.contains(|c| !('a'..='f').contains(&c) && !('0'..='9').contains(&c))
+}
+
+#[test]
+fn test_is_small_hash() {
+    assert!(is_small_hash("015da2b"));
+    assert!(!is_small_hash("abcda2z"));
+    assert_eq!(
+        IndexName::from_path("config-update/015da2b/job-output.json.gz"),
+        IndexName("config-update/job-output.json".to_string())
+    )
+}
+
 fn is_k8s_service(filename: &str) -> Option<&str> {
     if filename.starts_with("k8s_") {
         match filename.split_once('-') {
@@ -80,6 +95,15 @@ fn test_is_k8s_service() {
     assert_eq!(is_k8s_service("k3s_zuul-uuid"), None);
 }
 
+// Return the parent path and it's name.
+fn parent_str(path: &Path) -> Option<(&'_ Path, &'_ str)> {
+    path.parent().and_then(|parent| {
+        parent
+            .file_name()
+            .and_then(|file_name| file_name.to_str().map(|name| (parent, name)))
+    })
+}
+
 impl IndexName {
     pub fn from_path(base: &str) -> IndexName {
         let path = Path::new(base);
@@ -88,13 +112,14 @@ impl IndexName {
             .and_then(|os_str| os_str.to_str())
             .unwrap_or("N/A");
         // shortfilename is the filename with it's first parent directory name
-        let shortfilename: String = match path
-            .parent()
-            .and_then(|parent| parent.file_name())
-            .and_then(|os_str| os_str.to_str())
-        {
+        let shortfilename: String = match parent_str(path) {
             None => filename.to_string(),
-            Some(parent) => format!("{}/{}", parent, filename),
+            Some((parent, name)) if is_small_hash(name) => format!(
+                "{}/{}",
+                parent_str(parent).map(|(_, name)| name).unwrap_or(""),
+                filename
+            ),
+            Some((_, name)) => format!("{}/{}", name, filename),
         };
 
         let model_name = if shortfilename.starts_with("qemu/instance-") {
@@ -102,7 +127,6 @@ impl IndexName {
         } else if let Some(service) = is_k8s_service(filename) {
             service.to_string()
         } else {
-            // TODO: add zuul job pipeline name from upper in the path (e.g. post/uid/job-name/uuid/.../logfile)
             // removes number and symbols
             shortfilename
                 .replace(
@@ -110,6 +134,7 @@ impl IndexName {
                     "",
                 )
                 .trim_matches(|c| matches!(c, '/' | '.' | '_' | '-'))
+                .trim_end_matches(".gz")
                 .to_string()
         };
         IndexName(model_name)
