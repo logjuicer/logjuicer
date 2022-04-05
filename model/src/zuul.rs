@@ -28,6 +28,17 @@ pub struct Build {
     pub change: Option<usize>,
 }
 
+impl std::fmt::Display for Build {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}build/{}",
+            self.api.as_ref().map(|a| a.as_str()).unwrap_or("api"),
+            self.uuid.as_ref().unwrap_or(&"unknown".to_string())
+        )
+    }
+}
+
 fn elapsed_days(now: &Date<Utc>, since: Date<Utc>) -> i32 {
     let days = now.signed_duration_since(since).num_days();
     if days < 0 {

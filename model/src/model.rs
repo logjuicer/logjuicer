@@ -42,11 +42,30 @@ pub enum Content {
     Zuul(Box<zuul::Build>),
 }
 
+impl std::fmt::Display for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Content::File(src) => write!(f, "File({})", src),
+            Content::Directory(src) => write!(f, "Directory({})", src),
+            Content::Zuul(build) => write!(f, "Zuul({})", build),
+        }
+    }
+}
+
 /// The location of the log lines, and the relative prefix length.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Source {
     Local(usize, PathBuf),
     Remote(usize, url::Url),
+}
+
+impl std::fmt::Display for Source {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Source::Local(_, _) => write!(f, "local: {}", self.get_relative()),
+            Source::Remote(_, _) => write!(f, "remote: {}", self.get_relative()),
+        }
+    }
 }
 
 impl Source {
@@ -84,9 +103,18 @@ pub struct Model {
 #[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct IndexName(pub String);
 
+impl std::fmt::Display for IndexName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", &self.0)
+    }
+}
+
 impl IndexName {
     pub fn from_source(source: &Source) -> IndexName {
         IndexName::from_path(source.get_relative())
+    }
+    pub fn as_str(&self) -> &'_ str {
+        self.0.as_str()
     }
 }
 
