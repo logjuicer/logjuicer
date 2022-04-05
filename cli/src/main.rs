@@ -89,15 +89,28 @@ impl Cli {
 }
 
 fn main() -> Result<()> {
-    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-    tracing_subscriber::Registry::default()
-        .with(tracing_subscriber::EnvFilter::from_default_env())
-        .with(
-            tracing_tree::HierarchicalLayer::new(2)
-                .with_targets(true)
-                .with_bracketed_fields(true),
-        )
-        .init();
+    use std::str::FromStr;
+    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
+
+    let logger = tracing_subscriber::Registry::default();
+    match std::env::var("LOGREDUCE_LOG") {
+        Err(_) => logger
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_target(false)
+                    .compact()
+                    .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
+            )
+            .init(),
+        Ok(level) => logger
+            .with(
+                tracing_tree::HierarchicalLayer::new(2)
+                    .with_targets(true)
+                    .with_bracketed_fields(true)
+                    .with_filter(tracing_subscriber::filter::LevelFilter::from_str(&level)?),
+            )
+            .init(),
+    };
     Cli::parse().run()
 }
 
