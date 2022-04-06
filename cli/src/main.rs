@@ -191,8 +191,7 @@ fn process_live(content: &Content, model: &Model) -> Result<()> {
         match model.get_index(&source) {
             Some(index) => {
                 let mut last_pos = None;
-                for anomaly in index.inspect(source) {
-                    let anomaly = anomaly?;
+                let mut print_anomaly = |anomaly: logreduce_model::AnomalyContext| {
                     let starting_pos = anomaly.anomaly.pos - 1 - anomaly.before.len();
                     if let Some(last_pos) = last_pos {
                         if last_pos != starting_pos {
@@ -210,9 +209,18 @@ fn process_live(content: &Content, model: &Model) -> Result<()> {
                     print_context(anomaly.anomaly.pos, &anomaly.after);
 
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
+                };
+                for anomaly in index.inspect(&source) {
+                    match anomaly {
+                        Ok(anomaly) => print_anomaly(anomaly),
+                        Err(e) => {
+                            println!("Could not read {}: {}", &source, e);
+                            break;
+                        }
+                    }
                 }
             }
-            None => println!("No baselines for {:?}", source),
+            None => println!("No baselines for {}", source),
         }
     }
 

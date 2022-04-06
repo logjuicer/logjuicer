@@ -175,7 +175,7 @@ impl Index {
     #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self))]
     pub fn inspect<'a>(
         &'a self,
-        source: Source,
+        source: &Source,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
         tracing::info!("Inspecting {}", source);
         match source {
@@ -184,7 +184,7 @@ impl Index {
                 // If the file can't be open, the first iterator result will be the error.
                 Err(e) => Box::new(std::iter::once(Err(e))),
             },
-            Source::Remote(prefix, url) => match Source::url_open(prefix, &url) {
+            Source::Remote(prefix, url) => match Source::url_open(*prefix, url) {
                 Ok(fp) => Box::new(process::ChunkProcessor::new(fp, &self.index)),
                 Err(e) => Box::new(std::iter::once(Err(e))),
             },
@@ -328,7 +328,7 @@ impl Model {
             let start_time = Instant::now();
             // TODO: process all the index sources in one pass to share a single skip_lines set.
             let index = self.get_index(&source).expect("Missing baselines");
-            let anomalies: Result<Vec<_>> = index.inspect(source).collect();
+            let anomalies: Result<Vec<_>> = index.inspect(&source).collect();
             let anomalies = anomalies?;
             if !anomalies.is_empty() {
                 targets.push(LogReport {
