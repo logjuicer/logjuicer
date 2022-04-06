@@ -93,23 +93,41 @@ fn main() -> Result<()> {
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
     let logger = tracing_subscriber::Registry::default();
-    match std::env::var("LOGREDUCE_LOG") {
-        Err(_) => logger
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .with_target(false)
-                    .compact()
-                    .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
-            )
-            .init(),
-        Ok(level) => logger
-            .with(
+
+    let _flush = match std::env::var("LOGREDUCE_LOG") {
+        Err(_) => {
+            // Default INFO stdout logger
+            logger
+                .with(
+                    tracing_subscriber::fmt::layer()
+                        .with_target(false)
+                        .compact()
+                        .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
+                )
+                .init();
+            None
+        }
+        Ok(level) => {
+            // Tracing spans
+            let logger = logger.with(
                 tracing_tree::HierarchicalLayer::new(2)
                     .with_targets(true)
                     .with_bracketed_fields(true)
                     .with_filter(tracing_subscriber::filter::LevelFilter::from_str(&level)?),
-            )
-            .init(),
+            );
+            if let Ok(fp) = std::env::var("LOGREDUCE_TRACE") {
+                let chrome = tracing_chrome::ChromeLayerBuilder::new()
+                    .file(fp)
+                    .include_args(true)
+                    .build();
+                logger.with(chrome.0).init();
+                // Return the chrome flush guard so that it is not dropped until the end
+                Some(chrome.1)
+            } else {
+                logger.init();
+                None
+            }
+        }
     };
     Cli::parse().run()
 }
