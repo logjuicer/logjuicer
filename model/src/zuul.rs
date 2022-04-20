@@ -12,30 +12,22 @@ use crate::{Baselines, Content, Source};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Build {
-    api: Option<Url>,
-    pub uuid: Option<String>,
+    api: Url,
+    pub uuid: String,
     pub job_name: String,
     pub project: String,
     pub branch: String,
     pub result: String,
-    pub duration: Option<f32>,
     pub pipeline: String,
-    pub voting: bool,
-    pub log_url: Option<Url>,
-    #[serde(with = "python_utc_without_trailing_z")]
-    pub end_time: DateTime<Utc>,
+    pub log_url: Url,
     pub ref_url: Url,
-    pub change: Option<usize>,
+    pub end_time: DateTime<Utc>,
+    pub change: u64,
 }
 
 impl std::fmt::Display for Build {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}build/{}",
-            self.api.as_ref().map(|a| a.as_str()).unwrap_or("api"),
-            self.uuid.as_ref().unwrap_or(&"unknown".to_string())
-        )
+        write!(f, "{}build/{}", self.api.as_str(), self.uuid)
     }
 }
 
@@ -49,15 +41,8 @@ fn elapsed_days(now: &Date<Utc>, since: Date<Utc>) -> i32 {
 }
 
 impl Build {
-    pub fn get_api(&self) -> Result<&Url> {
-        self.api
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Build needs api url for baseline discovery"))
-    }
-
-    pub fn get_success_samples(&self) -> Result<Vec<Build>> {
-        let api = self.get_api()?;
-        let base = api.join("builds").context("Can't create builds url")?;
+    fn get_success_samples(&self) -> Result<Vec<zuul_build::Build>> {
+        let base = self.api.join("builds").context("Can't create builds url")?;
         let url = Url::parse_with_params(
             base.as_str(),
             [
@@ -69,17 +54,14 @@ impl Build {
         )
         .context("Can't create query url")?;
         tracing::info!(url = url.as_str(), "Discovering baselines for {}", self);
-        get_builds(api, &url)
+        get_builds(&self.api, &url)
     }
 
-    fn baseline_score(&self, target: &Build, now: &Date<Utc>) -> Option<i32> {
+    fn baseline_score(&self, target: &zuul_build::Build, now: &Date<Utc>) -> Option<i32> {
         let mut score = 0;
-        // Sanity check
-        self.uuid.as_ref()?;
-        self.log_url.as_ref()?;
         // Rules
         if self.project == target.project {
-            if self.change == target.change {
+            if self.change == target.change? {
                 // We don't want to compare with the same change
                 score -= 500;
             } else {
@@ -97,12 +79,15 @@ impl Build {
         }
         // Older builds are less valuable
         score -= elapsed_days(now, target.end_time.date());
-        Some(score)
+        // Check the build has URLs
+        match target.log_url.is_some() && target.ref_url.is_some() {
+            true => Some(score),
+            false => None,
+        }
     }
 
     pub fn discover_baselines(&self) -> Result<Baselines> {
         let samples = self.get_success_samples()?;
-        let api = self.get_api()?;
         let max_builds = 1;
         let now = Utc::now().date();
         Ok(samples
@@ -117,40 +102,44 @@ impl Build {
             // Keep the best
             .take(max_builds)
             // Create the content data type
-            .map(|(_score, build)| new_content(api.clone(), build))
+            .map(|(_score, build)| new_content(self.api.clone(), build))
             .collect())
     }
 
     pub fn sources_iter(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
-        match &self.log_url {
-            None => Box::new(std::iter::once(Err(anyhow::anyhow!(
-                "Build is missing log_url"
-            )))),
-            Some(url) => Source::httpdir_iter(url),
-        }
+        Source::httpdir_iter(&self.log_url)
     }
 }
 
-fn new_content(api: Url, build: Build) -> Content {
+fn new_content(api: Url, build: zuul_build::Build) -> Content {
     Content::Zuul(Box::new(Build {
-        api: Some(api),
-        ..build
+        api,
+        uuid: build.uuid,
+        job_name: build.job_name,
+        project: build.project,
+        branch: build.branch,
+        result: build.result,
+        pipeline: build.pipeline,
+        log_url: build.log_url.expect("Invalid build"),
+        ref_url: build.ref_url.expect("Invalid build"),
+        end_time: build.end_time,
+        change: build.change.expect("Invalid build"),
     }))
 }
 
-fn get_build(api: &Url, uid: &str) -> Result<Build> {
+fn get_build(api: &Url, uid: &str) -> Result<zuul_build::Build> {
     let url = api.join("build/")?.join(uid)?;
     let reader = crate::reader::from_url(api, &url)?;
-    match serde_json::from_reader(reader).context("Can't decode zuul api") {
+    match zuul_build::decode_build(reader).context("Can't decode zuul api") {
         Ok(x) => Ok(x),
         Err(e) => crate::reader::drop_url(api, &url).map_or_else(Err, |_| Err(e)),
     }
 }
 
-fn get_builds(api: &Url, url: &Url) -> Result<Vec<Build>> {
+fn get_builds(api: &Url, url: &Url) -> Result<Vec<zuul_build::Build>> {
     let reader = crate::reader::from_url(api, url)?;
-    match serde_json::from_reader(reader).context("Can't decode zuul builds api") {
-        Ok(x) => Ok(x),
+    match zuul_build::decode_builds(reader).context("Can't decode zuul api") {
+        Ok(xs) => Ok(xs),
         Err(e) => crate::reader::drop_url(api, url).map_or_else(Err, |_| Err(e)),
     }
 }
@@ -256,7 +245,11 @@ fn test_zuul_api() -> Result<()> {
               "duration": 42,
               "change": 1,
               "ref_url": "https://review.opendev.org/835662",
-              "end_time": "2014-07-08T09:10:11"
+              "ref": "refs/changes/94/22894/1",
+              "artifacts": [],
+              "end_time": "2014-07-08T09:10:11",
+              "start_time": "2014-07-05T09:10:11",
+              "event_id": "40d9b63d749c48eabb3d7918cfab0d31"
             }"#,
         )
         .expect(1)
@@ -269,18 +262,16 @@ fn test_zuul_api() -> Result<()> {
     crate::reader::drop_url(&url.join("/zuul/api/")?, &url.join(api_path)?)?;
     let content = Content::from_zuul_url(&build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(Build {
-        api: Some(url.join("/zuul/api/")?),
-        uuid: Some("a498f74ab32b49ffa9c9e7463fbf8885".to_string()),
+        api: url.join("/zuul/api/")?,
+        uuid: "a498f74ab32b49ffa9c9e7463fbf8885".to_string(),
         job_name: "zuul-tox-py38-multi-scheduler".to_string(),
         result: "FAILURE".to_string(),
-        voting: false,
-        duration: Some(42.0),
-        log_url: Some(Url::parse("https://localhost/42")?),
+        log_url: Url::parse("https://localhost/42")?,
         project: "zuul/zuul".to_string(),
         branch: "master".to_string(),
         pipeline: "check".to_string(),
         ref_url: Url::parse("https://review.opendev.org/835662")?,
-        change: Some(1),
+        change: 1,
         end_time: "2014-07-08T09:10:11Z".parse().unwrap(),
     }));
     assert_eq!(content, expected);
@@ -289,29 +280,4 @@ fn test_zuul_api() -> Result<()> {
     base_mock.assert();
 
     Ok(())
-}
-
-// Copy pasta from https://serde.rs/custom-date-format.html
-mod python_utc_without_trailing_z {
-    use chrono::{DateTime, TimeZone, Utc};
-    use serde::{self, Deserialize, Deserializer, Serializer};
-
-    const FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
-
-    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let s = format!("{}", date.format(FORMAT));
-        serializer.serialize_str(&s)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        Utc.datetime_from_str(&s, FORMAT)
-            .map_err(serde::de::Error::custom)
-    }
 }

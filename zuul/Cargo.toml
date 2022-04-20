@@ -1,0 +1,29 @@
+[package]
+name = "zuul-build"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce-rust"
+documentation = "https://docs.rs/zuul-build/"
+authors = ["TristanCacqueray"]
+readme = "README.md"
+
+description = "Decoders for https://zuul-ci.org."
+
+keywords = ["serde", "zuul"]
+categories = ["api-bindings", "development-tools"]
+
+edition = "2018"
+
+[lib]
+name = "zuul_build"
+path = "src/zuul-build.rs"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+url = { version = "2", features = ["serde"] }
+
+[dev-dependencies]
+serde_json = "1.0"

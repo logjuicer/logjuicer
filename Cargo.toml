@@ -4,6 +4,7 @@ members = [
   "tokenizer",
   "index",
   "model",
+  "zuul",
   "cache",
   "httpdir",
   "cli",

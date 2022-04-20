@@ -865,10 +865,10 @@ dependencies = [
  "mockito",
  "reqwest",
  "serde",
- "serde_json",
  "tracing",
  "url",
  "walkdir",
+ "zuul-build",
 ]
 
 [[package]]
@@ -2118,4 +2118,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c4583db5cbd4c4c0303df2d15af80f0539db703fa1c68802d4cbbd2dd0f88f6"
 dependencies = [
  "dirs",
+]
+
+[[package]]
+name = "zuul-build"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "url",
 ]
