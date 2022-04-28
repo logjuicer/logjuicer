@@ -13,7 +13,12 @@ struct Cli {
     #[clap(long, parse(from_os_str), help = "Create an html report")]
     report: Option<PathBuf>,
 
-    #[clap(long, parse(from_os_str), help = "Load or save the model")]
+    #[clap(
+        long,
+        parse(from_os_str),
+        help = "Load or save the model",
+        value_name = "FILE"
+    )]
     model: Option<PathBuf>,
 
     #[clap(subcommand)]
@@ -78,9 +83,11 @@ impl Cli {
                 Input::from_string(dst),
             ),
             Commands::Train { baselines } => {
-                let model_path = self
-                    .model
-                    .ok_or_else(|| anyhow::anyhow!("--model is required"))?;
+                let model_path = self.model.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "A output file path is required, please add a `--model FILE` argument"
+                    )
+                })?;
                 let model = Model::train(
                     progress,
                     baselines
