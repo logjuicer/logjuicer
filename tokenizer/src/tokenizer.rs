@@ -282,7 +282,14 @@ fn is_key_for_id(word: &str) -> bool {
 }
 
 fn is_random_path(word: &str) -> bool {
-    word.contains("tmp/") || word.contains("/tmp")
+    word.contains("tmp/") || word.contains("/tmp") || word.starts_with("tmp")
+}
+#[test]
+fn test_is_random_path() {
+    tokens_eq!(
+        "'_original_basename': 'tmpmh4nrjbd'",
+        "'_original_basename': 'tmp7v726n_c'"
+    )
 }
 
 #[cfg(test)]
