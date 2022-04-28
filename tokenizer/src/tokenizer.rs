@@ -175,7 +175,9 @@ fn test_is_uid() {
 fn is_uuid(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
-            "^[a-zA-Z0-9].*-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-"
+            "^",
+            "[a-zA-Z0-9].*-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-",
+            "$"
         ))
         .unwrap();
     }
@@ -665,7 +667,7 @@ mod tests {
     fn test_process_amqp() {
         assert_eq!(
             process("closing AMQP connection <0.4375.0> ([fd00:fd00:fd00:2000::40]:33588 -> [fd00:fd00:fd00:2000::21e]:5672 - nova-compute:8:08b39730-b2e6-4d1f-bcc1-318f9bcfd7c6, vhost: '/', user: 'guest')"),
-            "closing AMQP connection %ID %ID %ID %UID vhost%EQ user%EQ guest"
+            "closing AMQP connection %ID %ID %ID nova- compute%EQ %ID vhost%EQ user%EQ guest"
         );
     }
 
