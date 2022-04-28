@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
-use tracing::info;
 use url::Url;
 
 pub mod files;
@@ -175,9 +174,10 @@ impl Index {
     #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self))]
     pub fn inspect<'a>(
         &'a self,
+        show_progress: bool,
         source: &Source,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
-        tracing::info!("Inspecting {}", source);
+        debug_or_progress(show_progress, &format!("Inspecting {}", source));
         match source {
             Source::Local(_, path_buf) => match Source::file_open(path_buf.as_path()) {
                 Ok(fp) => Box::new(process::ChunkProcessor::new(fp, &self.index)),
@@ -274,14 +274,21 @@ impl Content {
 impl Model {
     /// Create a Model from baselines.
     #[tracing::instrument(level = "debug", skip(mk_index))]
-    pub fn train(baselines: Baselines, mk_index: fn() -> ChunkIndex) -> Result<Model> {
+    pub fn train(
+        show_progress: bool,
+        baselines: Baselines,
+        mk_index: fn() -> ChunkIndex,
+    ) -> Result<Model> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
         for (index_name, sources) in Content::group_sources(&baselines)?.drain() {
-            tracing::info!(
-                "Loading index {} with {}",
-                index_name,
-                sources.iter().format(", ").to_string(),
+            debug_or_progress(
+                show_progress,
+                &format!(
+                    "Loading index {} with {}",
+                    index_name,
+                    sources.iter().format(", ")
+                ),
             );
             let index = Index::train(&sources, mk_index())?;
             indexes.insert(index_name, index);
@@ -294,7 +301,7 @@ impl Model {
     }
 
     pub fn load(path: &Path) -> Result<Model> {
-        info!(path = path.to_str(), "Loading provided model");
+        tracing::info!(path = path.to_str(), "Loading provided model");
         bincode::deserialize_from(flate2::read::GzDecoder::new(
             std::fs::File::open(path).context("Can't open file")?,
         ))
@@ -302,7 +309,7 @@ impl Model {
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
-        info!(path = path.to_str(), "Saving model");
+        tracing::info!(path = path.to_str(), "Saving model");
         bincode::serialize_into(
             flate2::write::GzEncoder::new(
                 std::fs::File::create(path).context("Can't create file")?,
@@ -321,14 +328,14 @@ impl Model {
 
     /// Create the final report.
     #[tracing::instrument(level = "debug")]
-    pub fn report(&self, target: &Content) -> Result<Report> {
+    pub fn report(&self, show_progress: bool, target: &Content) -> Result<Report> {
         let created_at = SystemTime::now();
         let mut targets = Vec::new();
         for source in target.get_sources()? {
             let start_time = Instant::now();
             // TODO: process all the index sources in one pass to share a single skip_lines set.
             let index = self.get_index(&source).expect("Missing baselines");
-            let anomalies: Result<Vec<_>> = index.inspect(&source).collect();
+            let anomalies: Result<Vec<_>> = index.inspect(show_progress, &source).collect();
             let anomalies = anomalies?;
             if !anomalies.is_empty() {
                 targets.push(LogReport {
@@ -341,6 +348,14 @@ impl Model {
             created_at,
             targets,
         })
+    }
+}
+
+/// Helper function to debug
+fn debug_or_progress(show_progress: bool, msg: &str) {
+    tracing::debug!("{}", msg);
+    if show_progress {
+        print!("\r\x1b[1;33m[+]\x1b[0m {}", msg);
     }
 }
 

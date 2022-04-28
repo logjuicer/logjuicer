@@ -52,16 +52,22 @@ enum Commands {
 }
 
 impl Cli {
-    fn run(self) -> Result<()> {
+    fn run(self, debug: bool) -> Result<()> {
+        let progress = !debug && atty::is(atty::Stream::Stdout);
         match self.command {
             // Discovery commands
-            Commands::Path { path } => process(self.report, self.model, None, Input::Path(path)),
-            Commands::Url { url } => process(self.report, self.model, None, Input::Url(url)),
+            Commands::Path { path } => {
+                process(progress, self.report, self.model, None, Input::Path(path))
+            }
+            Commands::Url { url } => {
+                process(progress, self.report, self.model, None, Input::Url(url))
+            }
             Commands::Journald { .. } => todo!(),
             Commands::CurrentBuild => todo!(),
 
             // Manual commands
             Commands::Diff { src, dst } => process(
+                progress,
                 self.report,
                 self.model,
                 Some(src.into_iter().map(Input::from_string).collect()),
@@ -72,6 +78,7 @@ impl Cli {
                     .model
                     .ok_or_else(|| anyhow::anyhow!("--model is required"))?;
                 let model = Model::train(
+                    progress,
                     baselines
                         .into_iter()
                         .map(Input::from_string)
@@ -94,7 +101,7 @@ fn main() -> Result<()> {
 
     let logger = tracing_subscriber::Registry::default();
 
-    let _flush = match std::env::var("LOGREDUCE_LOG") {
+    let (_flush, debug) = match std::env::var("LOGREDUCE_LOG") {
         Err(_) => {
             // Default INFO stdout logger
             logger
@@ -105,7 +112,7 @@ fn main() -> Result<()> {
                         .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
                 )
                 .init();
-            None
+            (None, false)
         }
         Ok(level) => {
             // Tracing spans
@@ -115,7 +122,7 @@ fn main() -> Result<()> {
                     .with_bracketed_fields(true)
                     .with_filter(tracing_subscriber::filter::LevelFilter::from_str(&level)?),
             );
-            if let Ok(fp) = std::env::var("LOGREDUCE_TRACE") {
+            let flush = if let Ok(fp) = std::env::var("LOGREDUCE_TRACE") {
                 let chrome = tracing_chrome::ChromeLayerBuilder::new()
                     .file(fp)
                     .include_args(true)
@@ -126,14 +133,16 @@ fn main() -> Result<()> {
             } else {
                 logger.init();
                 None
-            }
+            };
+            (flush, true)
         }
     };
-    Cli::parse().run()
+    Cli::parse().run(debug)
 }
 
 #[tracing::instrument(level = "debug")]
 fn process(
+    show_progress: bool,
     report: Option<PathBuf>,
     model_path: Option<PathBuf>,
     baselines: Option<Vec<Input>>,
@@ -160,7 +169,11 @@ fn process(
 
             // Create the model. TODO: enable custom index.
             tracing::debug!("Building model");
-            Model::train(baselines, logreduce_model::hashing_index::new)
+            Model::train(
+                show_progress,
+                baselines,
+                logreduce_model::hashing_index::new,
+            )
         }
     }?;
 
@@ -171,22 +184,23 @@ fn process(
 
     tracing::debug!("Inspecting");
     match report {
-        None => process_live(&content, &model),
+        None => process_live(show_progress, &content, &model),
         Some(file) => {
-            let report = model.report(&content)?;
+            let report = model.report(show_progress, &content)?;
             println!("{:?}: Writing report {:?}", file, report);
             Ok(())
         }
     }
 }
 
-fn process_live(content: &Content, model: &Model) -> Result<()> {
+fn process_live(show_progress: bool, content: &Content, model: &Model) -> Result<()> {
     let print_context = |pos: usize, xs: &[String]| {
         xs.iter()
             .enumerate()
             .for_each(|(idx, line)| println!("   {} | {}", pos + idx, line))
     };
 
+    let mut progress_sep_shown = false;
     for source in content.get_sources()? {
         match model.get_index(&source) {
             Some(index) => {
@@ -210,7 +224,13 @@ fn process_live(content: &Content, model: &Model) -> Result<()> {
 
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 };
-                for anomaly in index.inspect(&source) {
+                progress_sep_shown = false;
+                for anomaly in index.inspect(show_progress, &source) {
+                    if show_progress && !progress_sep_shown {
+                        // Show a progress separator for the first anomaly.
+                        println!();
+                        progress_sep_shown = true;
+                    }
                     match anomaly {
                         Ok(anomaly) => print_anomaly(anomaly),
                         Err(e) => {
@@ -220,10 +240,16 @@ fn process_live(content: &Content, model: &Model) -> Result<()> {
                     }
                 }
             }
-            None => println!("No baselines for {}", source),
+            None => {
+                progress_sep_shown = true;
+                println!(" -> No baselines for {}", source)
+            }
         }
     }
-
+    if show_progress && !progress_sep_shown {
+        // If the last source didn't had an anomaly, then erase the current progress
+        print!("\r\x1b[K");
+    }
     Ok(())
 }
 

@@ -16,6 +16,7 @@ edition = "2018"
 anyhow = "1.0"
 logreduce-model = { path = "../model" }
 clap = { version = "3", features = ["derive"] }
+atty = "0.2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-tree = "0.2"
