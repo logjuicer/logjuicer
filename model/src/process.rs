@@ -128,6 +128,11 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             self.coord += 1;
 
+            // Special check to break when we are processing ourself
+            if raw_str.contains("TASK [log-classify") {
+                break;
+            }
+
             // Call the static method of the ChunkIndex trait
             let tokens = self.index.tokenize(raw_str);
 
