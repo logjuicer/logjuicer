@@ -73,7 +73,9 @@ fn global_filter(line: &str) -> bool {
             // memcached logs
             r"|(^[a-f0-9s/]+>[0-9]+ )",
             // shell debugs
-            r"|(^\+\+ echo [^ ]+$)"
+            r"|(^\+\+ echo [^ ]+$)",
+            // key's randomart
+            r#"|(^[ '",]*\|.{17}\|[ '",]*$)"#
         )).unwrap();
     }
     let is_single_word = !line.contains(|c: char| c.is_whitespace());
@@ -92,6 +94,8 @@ fn test_global_filter() {
         "%GL_FILTER"
     );
     assert_eq!(process("++ echo mswAxrrS1YwyGtIut9Vd"), "%GL_FILTER");
+    assert!(global_filter("|        =+ooo=+.o|"));
+    assert!(global_filter("                    \"|           oo... |\""));
 }
 
 /// Replace numbers sequences with `N`.
