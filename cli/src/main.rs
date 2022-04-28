@@ -49,6 +49,10 @@ enum Commands {
     // Secret options to debug specific part of the process
     #[clap(hide = true, about = "List source groups")]
     DebugGroups { target: String },
+
+    // Debug tokenizer
+    #[clap(hide = true, about = "Tokenize a single line")]
+    DebugTokenizer { line: String },
 }
 
 impl Cli {
@@ -91,6 +95,10 @@ impl Cli {
 
             // Debug handlers
             Commands::DebugGroups { target } => debug_groups(Input::from_string(target)),
+            Commands::DebugTokenizer { line } => {
+                println!("{}\n", logreduce_tokenizer::process(&line));
+                Ok(())
+            }
         }
     }
 }

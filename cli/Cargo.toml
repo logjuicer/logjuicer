@@ -21,3 +21,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-tree = "0.2"
 tracing-chrome = "0.5"
+
+# debug helper
+logreduce-tokenizer = { path = "../tokenizer" }
