@@ -36,7 +36,7 @@ impl Input {
 }
 
 /// A source of log lines.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Content {
     File(Source),
     Directory(Source),
@@ -150,6 +150,7 @@ pub struct LogReport {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Report {
     pub created_at: SystemTime,
+    pub target: Content,
     pub targets: Vec<LogReport>,
 }
 
@@ -346,6 +347,7 @@ impl Model {
         }
         Ok(Report {
             created_at,
+            target: target.clone(),
             targets,
         })
     }

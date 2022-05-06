@@ -1,0 +1,20 @@
+[package]
+name = "logreduce-report"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce-rust"
+authors = ["TristanCacqueray"]
+readme = "README.md"
+
+description = "HTML report for the logreduce report."
+
+edition = "2018"
+
+[lib]
+name = "logreduce_report"
+path = "src/report.rs"
+
+[dependencies]
+html-builder = "0.3"
+logreduce-model = { path = "../model" }

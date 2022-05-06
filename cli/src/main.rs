@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use logreduce_model::{Content, Input, Model};
 use std::path::PathBuf;
@@ -202,8 +202,12 @@ fn process(
         None => process_live(show_progress, &content, &model),
         Some(file) => {
             let report = model.report(show_progress, &content)?;
-            println!("{:?}: Writing report {:?}", file, report);
-            Ok(())
+            println!("{:?}: Writing report...", file);
+            std::fs::write(
+                file,
+                logreduce_report::render(&report).context("Error rendering the report")?,
+            )
+            .context("Failed to write the report")
         }
     }
 }

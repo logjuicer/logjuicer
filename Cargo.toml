@@ -5,6 +5,7 @@ members = [
   "index",
   "model",
   "zuul",
+  "report",
   "cache",
   "httpdir",
   "cli",
