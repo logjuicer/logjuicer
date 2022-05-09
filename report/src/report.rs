@@ -177,10 +177,18 @@ fn add_container(body: &mut Node, report: &logreduce_model::Report) -> Result<()
         let mut list_group = div_(&mut div, "list-group list-view-pf list-view-pf-view");
         let mut expand = true;
         for log_report in &report.log_reports {
-            render_content_report(&mut list_group, log_report, expand)?;
+            render_content_report(
+                &mut list_group,
+                log_report,
+                report.index_reports.get(&log_report.index_name),
+                expand,
+            )?;
             expand = false;
         }
     }
+
+    // Model summary table
+    // TODO: Model | Train time | Infos | Baseline files
 
     // Error table
     // TODO: Add files that were not processed dut to errors or missing model name
@@ -190,6 +198,7 @@ fn add_container(body: &mut Node, report: &logreduce_model::Report) -> Result<()
 fn render_content_report(
     list_group: &mut Node,
     log_report: &logreduce_model::LogReport,
+    index_report: Option<&logreduce_model::IndexReport>,
     expand: bool,
 ) -> Result<()> {
     let mut list_group_item = list_group
@@ -229,9 +238,37 @@ fn render_content_report(
                     let mut desc = pf_body.div().attr("class=\"list-view-pf-description\"");
                     desc.div()
                         .attr("class=\"list-group-item-heading\"")
-                        .write_str("FILENAME")?;
+                        .write_str(log_report.source.get_relative())?;
                 }
-                // TODO: add external link and anomaly counts
+
+                {
+                    let mut additional_item = pf_body
+                        .div()
+                        .attr("class=\"list-view-pf-additional-info-item\"")
+                        .attr("id='debuginfo'");
+                    additional_item
+                        .span()
+                        .attr("class=\"pficon pficon-registry\"");
+                    additional_item
+                        .a()
+                        .attr(&format!(
+                            "href=\"{}\"",
+                            model_anchor(&log_report.index_name)
+                        ))
+                        .write_str(&format!("{}", log_report.index_name))?;
+                    additional_item.write_str(" model")?;
+                }
+
+                {
+                    let mut additional_item = pf_body
+                        .div()
+                        .attr("class=\"list-view-pf-additional-info-item\"");
+                    additional_item.span().attr("class=\"fa fa-external-link\"");
+                    additional_item
+                        .a()
+                        .attr(&format!("href=\"{}\"", log_report.source.as_str()))
+                        .write_str("file")?;
+                }
 
                 {
                     let mut additional_item = pf_body
@@ -254,11 +291,27 @@ fn render_content_report(
             let mut close_icon = item_container.div().attr("class=\"close\"");
             close_icon.span().attr("class=\"pficon pficon-close\"");
         }
-        // TODO: add baseline debug link
+
+        if let Some(index_report) = index_report {
+            let mut div = item_container.div().attr("id='debuginfo'");
+            div.write_str("Baseline samples:")?;
+            let mut ul = div.ul();
+            for source in &index_report.sources {
+                ul.li()
+                    .a()
+                    .attr(&format!("href=\"{}\"", source.as_str()))
+                    .write_str(source.as_str())?
+            }
+        }
+
         let mut loglines = item_container.div().attr("class=\"loglines\"");
         render_lines(&mut loglines, &log_report.anomalies)?;
     }
     Ok(())
+}
+
+fn model_anchor(index_name: &logreduce_model::IndexName) -> String {
+    format!("#model_{}", index_name)
 }
 
 fn render_context(loglines: &mut Node, pos: usize, xs: &[String]) -> Result<()> {
