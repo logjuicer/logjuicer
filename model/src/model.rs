@@ -70,13 +70,14 @@ impl std::fmt::Display for Source {
 }
 
 impl Source {
-    fn get_relative(&'_ self) -> &'_ str {
+    pub fn get_relative(&'_ self) -> &'_ str {
         match self {
             Source::Local(base_len, path) => &path.to_str().unwrap_or("")[*base_len..],
             Source::Remote(base_len, url) => &url.as_str()[*base_len..],
         }
     }
-    fn as_str(&'_ self) -> &'_ str {
+
+    pub fn as_str(&'_ self) -> &'_ str {
         match self {
             Source::Local(_, path) => path.to_str().unwrap_or(""),
             Source::Remote(_, url) => url.as_str(),
@@ -103,7 +104,7 @@ pub struct Model {
 }
 
 /// A LogModelName is an identifier that is used to group similar source.
-#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct IndexName(pub String);
 
 impl std::fmt::Display for IndexName {
@@ -123,7 +124,9 @@ impl IndexName {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Index {
+    created_at: SystemTime,
     train_time: Duration,
+    sources: Vec<Source>,
     index: ChunkIndex,
 }
 
@@ -145,18 +148,38 @@ pub struct AnomalyContext {
 pub struct LogReport {
     pub test_time: Duration,
     pub anomalies: Vec<AnomalyContext>,
+    pub source: Source,
+    pub index_name: IndexName,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IndexReport {
+    pub train_time: Duration,
+    pub sources: Vec<Source>,
+}
+
+impl IndexReport {
+    pub fn from_index(index: &Index) -> IndexReport {
+        IndexReport {
+            train_time: index.train_time,
+            sources: index.sources.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Report {
     pub created_at: SystemTime,
     pub target: Content,
-    pub targets: Vec<LogReport>,
+    pub baselines: Vec<Content>,
+    pub log_reports: Vec<LogReport>,
+    pub index_reports: HashMap<IndexName, IndexReport>,
 }
 
 impl Index {
     #[tracing::instrument(level = "debug", name = "Index::train", skip(index))]
     pub fn train(sources: &[Source], mut index: ChunkIndex) -> Result<Index> {
+        let created_at = SystemTime::now();
         let start_time = Instant::now();
         let mut trainer = process::ChunkTrainer::new(&mut index);
         for source in sources {
@@ -169,7 +192,12 @@ impl Index {
         }
         trainer.complete();
         let train_time = start_time.elapsed();
-        Ok(Index { train_time, index })
+        Ok(Index {
+            created_at,
+            train_time,
+            index,
+            sources: sources.to_vec(),
+        })
     }
 
     #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self))]
@@ -322,33 +350,41 @@ impl Model {
     }
 
     /// Get the matching index for a given Source.
-    pub fn get_index<'a>(&'a self, source: &Source) -> Option<&'a Index> {
-        let index_name = IndexName::from_source(source);
-        lookup_or_single(&self.indexes, &index_name)
+    pub fn get_index<'a>(&'a self, index_name: &IndexName) -> Option<&'a Index> {
+        lookup_or_single(&self.indexes, index_name)
     }
 
     /// Create the final report.
     #[tracing::instrument(level = "debug")]
     pub fn report(&self, show_progress: bool, target: &Content) -> Result<Report> {
         let created_at = SystemTime::now();
-        let mut targets = Vec::new();
+        let mut index_reports = HashMap::new();
+        let mut log_reports = Vec::new();
         for source in target.get_sources()? {
             let start_time = Instant::now();
             // TODO: process all the index sources in one pass to share a single skip_lines set.
-            let index = self.get_index(&source).expect("Missing baselines");
+            let index_name = IndexName::from_source(&source);
+            let index = self.get_index(&index_name).expect("Missing baselines");
             let anomalies: Result<Vec<_>> = index.inspect(show_progress, &source).collect();
             let anomalies = anomalies?;
             if !anomalies.is_empty() {
-                targets.push(LogReport {
+                if !index_reports.contains_key(&index_name) {
+                    index_reports.insert(index_name.clone(), IndexReport::from_index(index));
+                }
+                log_reports.push(LogReport {
                     test_time: start_time.elapsed(),
                     anomalies,
+                    source,
+                    index_name,
                 });
             }
         }
         Ok(Report {
             created_at,
             target: target.clone(),
-            targets,
+            baselines: self.baselines.clone(),
+            log_reports,
+            index_reports,
         })
     }
 }

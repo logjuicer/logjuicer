@@ -221,7 +221,8 @@ fn process_live(show_progress: bool, content: &Content, model: &Model) -> Result
 
     let mut progress_sep_shown = false;
     for source in content.get_sources()? {
-        match model.get_index(&source) {
+        let index_name = logreduce_model::IndexName::from_source(&source);
+        match model.get_index(&index_name) {
             Some(index) => {
                 let mut last_pos = None;
                 let mut print_anomaly = |anomaly: logreduce_model::AnomalyContext| {
