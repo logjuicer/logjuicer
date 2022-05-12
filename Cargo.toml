@@ -8,6 +8,5 @@ members = [
   "cache",
   "httpdir",
   "cli",
-  "python",
   "generate",
 ]
