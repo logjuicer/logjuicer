@@ -18,7 +18,7 @@ path = "src/httpdir.rs"
 [dependencies]
 threadpool = "1"
 url = "2"
-reqwest = { version = "0.11", features = ["blocking"] }
+reqwest = { version = "0.11", default-features = false, features = ["blocking", "rustls-tls"] }
 regex = "1"
 lazy_static = "1.4.0"
 

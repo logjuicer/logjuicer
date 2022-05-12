@@ -54,13 +54,7 @@
         defaultPackage = logreduce;
         defaultApp = flake-utils.lib.mkApp { drv = logreduce; };
         devShell = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [
-            rustc
-            cargo
-            rustfmt
-            openssl
-            pkg-config
-          ];
+          buildInputs = with pkgs; [ rustc cargo rustfmt openssl pkg-config ];
         };
 
         # nix develop .#python
@@ -72,17 +66,13 @@
           pname = "logreduce-cli";
           src = self;
 
-          nativeBuildInputs = with pkgs; [
-            pkgsStatic.stdenv.cc
-            pkgsMusl.openssl
-            pkgsMusl.pkg-config
-          ];
+          nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc ];
 
           CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
 
           # lorgeduce-httpdir test are broken with musl
-          doCheck = false;
+          doCheck = true;
         };
       });
 }
