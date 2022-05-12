@@ -85,10 +85,33 @@ impl Source {
     }
 
     fn is_valid(&self) -> bool {
+        lazy_static::lazy_static! {
+            static ref EXTS: Vec<String> = {
+                let mut v = Vec::new();
+                for ext in [
+                    // binary data with known extension
+                    ".ico", ".png", ".clf", ".tar", ".tar.bzip2",
+                    ".subunit",
+                    ".sqlite", ".db", ".bin", ".pcap.log.txt",
+                    // font
+                    ".eot", ".otf", ".woff", ".woff2", ".ttf",
+                    // config
+                    ".yaml", ".ini", ".conf",
+                    // binary data with known location
+                    "cacerts",
+                    "local/creds", "pacemaker/authkey",
+                    "mysql/tc.log.txt", "corosync/authkey",
+                    // swifts
+                    "object.builder", "account.builder", "container.builder"
+                ] {
+                    v.push(ext.to_string());
+                    v.push(format!("{}.gz", ext))
+                }
+                v
+            };
+        }
         let s = self.as_str();
-        [".ico", ".png", ".clf", ".sqlite"]
-            .iter()
-            .all(|ext| !s.ends_with(ext))
+        EXTS.iter().all(|ext| !s.ends_with(ext))
     }
 }
 

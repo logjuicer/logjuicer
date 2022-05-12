@@ -63,6 +63,7 @@ mod remote {
 pub enum DecompressReader {
     Flat(File),
     Gz(GzDecoder<File>),
+    // TODO: support BZIP2 compression
     Remote(remote::DecompressRemoteReader),
     Cached(logreduce_cache::CacheReader<remote::DecompressRemoteReader>),
 }
