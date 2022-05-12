@@ -201,6 +201,19 @@ pub struct Report {
     pub read_errors: Vec<(Source, String)>,
 }
 
+impl Report {
+    pub fn save(&self, path: &Path) -> Result<()> {
+        bincode::serialize_into(
+            flate2::write::GzEncoder::new(
+                std::fs::File::create(path).context("Can't create file")?,
+                flate2::Compression::fast(),
+            ),
+            self,
+        )
+        .context("Can't save model")
+    }
+}
+
 impl Index {
     #[tracing::instrument(level = "debug", name = "Index::train", skip(index))]
     pub fn train(sources: &[Source], mut index: ChunkIndex) -> Result<Index> {

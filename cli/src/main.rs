@@ -208,6 +208,14 @@ fn process(
         None => process_live(show_progress, &content, &model),
         Some(file) => {
             let report = model.report(show_progress, &content)?;
+
+            // Save raw report for debug purpose
+            if std::env::var("LOGREDUCE_CACHE").is_ok() {
+                let mut report_json = file.clone();
+                report_json.set_extension("json");
+                report.save(&report_json)?;
+            }
+
             println!("{:?}: Writing report...", file);
             std::fs::write(
                 file,
