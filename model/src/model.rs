@@ -111,7 +111,7 @@ impl Source {
             };
         }
         let s = self.as_str();
-        EXTS.iter().all(|ext| !s.ends_with(ext))
+        EXTS.iter().all(|ext| !s.ends_with(ext)) && !s.contains("/etc/")
     }
 }
 

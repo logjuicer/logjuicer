@@ -146,7 +146,10 @@ impl Crawler {
                 // We decoded some urls.
                 Ok(urls) => {
                     for url in urls {
-                        if url.path().ends_with('/') {
+                        if url.path().ends_with("/etc/") {
+                            // Special case to avoid system config directory
+                            continue;
+                        } else if url.path().ends_with('/') {
                             // Recursively call the handler on sub directory.
                             Crawler::process(&visitor, &client, &sub_pool, &tx, url)
                         } else {
