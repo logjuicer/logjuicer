@@ -296,7 +296,7 @@ fn render_content_report(
             let mut div = item_container.div().attr("id='debuginfo'");
             div.write_str("Baseline samples:")?;
             let mut ul = div.ul();
-            for source in &index_report.sources {
+            for source in index_report.sources.iter().take(3) {
                 ul.li()
                     .a()
                     .attr(&format!("href=\"{}\"", source.as_str()))
