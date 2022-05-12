@@ -61,8 +61,7 @@ enum Commands {
 }
 
 impl Cli {
-    fn run(self, debug: bool) -> Result<()> {
-        let progress = !debug && atty::is(atty::Stream::Stdout);
+    fn run(self, progress: bool) -> Result<()> {
         match self.command {
             // Discovery commands
             Commands::Path { path } => {
@@ -152,7 +151,14 @@ fn main() -> Result<()> {
             (flush, true)
         }
     };
-    Cli::parse().run(debug)
+    let progress = !debug && atty::is(atty::Stream::Stdout);
+    Cli::parse().run(progress).map_err(|e| {
+        // Ensure the exception happens on a new line
+        if progress {
+            println!();
+        }
+        e
+    })
 }
 
 #[tracing::instrument(level = "debug")]

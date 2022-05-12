@@ -185,12 +185,13 @@ impl Index {
         let start_time = Instant::now();
         let mut trainer = process::ChunkTrainer::new(&mut index);
         for source in sources {
-            match source {
-                Source::Local(_, path_buf) => {
-                    trainer.add(Source::file_open(path_buf.as_path())?)?
-                }
-                Source::Remote(prefix, url) => trainer.add(Source::url_open(*prefix, url)?)?,
-            }
+            let reader = match source {
+                Source::Local(_, path_buf) => Source::file_open(path_buf.as_path())?,
+                Source::Remote(prefix, url) => Source::url_open(*prefix, url)?,
+            };
+            trainer
+                .add(reader)
+                .with_context(|| format!("Failed to load {}", source))?
         }
         trainer.complete();
         let train_time = start_time.elapsed();
