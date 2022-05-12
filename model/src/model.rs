@@ -174,6 +174,8 @@ pub struct Report {
     pub baselines: Vec<Content>,
     pub log_reports: Vec<LogReport>,
     pub index_reports: HashMap<IndexName, IndexReport>,
+    pub index_errors: Vec<Source>,
+    pub read_errors: Vec<(Source, String)>,
 }
 
 impl Index {
@@ -360,23 +362,38 @@ impl Model {
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
         let mut log_reports = Vec::new();
+        let mut index_errors = Vec::new();
+        let mut read_errors = Vec::new();
         for source in target.get_sources()? {
             let start_time = Instant::now();
             // TODO: process all the index sources in one pass to share a single skip_lines set.
             let index_name = IndexName::from_source(&source);
-            let index = self.get_index(&index_name).expect("Missing baselines");
-            let anomalies: Result<Vec<_>> = index.inspect(show_progress, &source).collect();
-            let anomalies = anomalies?;
-            if !anomalies.is_empty() {
-                if !index_reports.contains_key(&index_name) {
-                    index_reports.insert(index_name.clone(), IndexReport::from_index(index));
+            match self.get_index(&index_name) {
+                Some(index) => {
+                    let mut anomalies = Vec::new();
+                    for anomaly in index.inspect(show_progress, &source) {
+                        match anomaly {
+                            Ok(anomaly) => anomalies.push(anomaly),
+                            Err(err) => {
+                                read_errors.push((source.clone(), format!("{}", err)));
+                                break;
+                            }
+                        }
+                    }
+                    if !anomalies.is_empty() {
+                        if !index_reports.contains_key(&index_name) {
+                            index_reports
+                                .insert(index_name.clone(), IndexReport::from_index(index));
+                        }
+                        log_reports.push(LogReport {
+                            test_time: start_time.elapsed(),
+                            anomalies,
+                            source,
+                            index_name,
+                        });
+                    }
                 }
-                log_reports.push(LogReport {
-                    test_time: start_time.elapsed(),
-                    anomalies,
-                    source,
-                    index_name,
-                });
+                None => index_errors.push(source.clone()),
             }
         }
         Ok(Report {
@@ -385,6 +402,8 @@ impl Model {
             baselines: self.baselines.clone(),
             log_reports,
             index_reports,
+            index_errors,
+            read_errors,
         })
     }
 }
