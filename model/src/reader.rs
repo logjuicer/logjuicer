@@ -21,8 +21,7 @@ lazy_static::lazy_static! {
         .build()
         .expect("Client");
 
-    // TODO: disable the cache by default by using: `std::env::var("LOGREDUCE_CACHE").is_ok()`
-    static ref USE_CACHE: bool = std::env::var("LOGREDUCE_NO_CACHE").is_err();
+    static ref USE_CACHE: bool = std::env::var("LOGREDUCE_CACHE").is_ok();
 }
 
 /// Handle remote object.
