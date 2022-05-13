@@ -236,12 +236,15 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
     };
 
     let mut progress_sep_shown = false;
+    let mut total_line_count = 0;
+    let mut total_anomaly_count = 0;
     for source in content.get_sources()? {
         let index_name = logreduce_model::IndexName::from_source(&source);
         match model.get_index(&index_name) {
             Some(index) => {
                 let mut last_pos = None;
                 let mut print_anomaly = |anomaly: logreduce_model::AnomalyContext| {
+                    total_anomaly_count += 1;
                     let starting_pos = anomaly.anomaly.pos - 1 - anomaly.before.len();
                     if let Some(last_pos) = last_pos {
                         if last_pos != starting_pos {
@@ -261,20 +264,31 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 };
                 progress_sep_shown = false;
-                for anomaly in
-                    index.inspect(output_mode, &source, &mut std::collections::HashSet::new())
-                {
-                    if output_mode.inlined() && !progress_sep_shown {
-                        // Show a progress separator for the first anomaly.
-                        println!();
-                        progress_sep_shown = true;
-                    }
-                    match anomaly {
-                        Ok(anomaly) => print_anomaly(anomaly),
-                        Err(e) => {
-                            println!("Could not read {}: {}", &source, e);
-                            break;
+                match index.get_processor(
+                    output_mode,
+                    &source,
+                    &mut std::collections::HashSet::new(),
+                ) {
+                    Ok(mut processor) => {
+                        for anomaly in processor.by_ref() {
+                            if output_mode.inlined() && !progress_sep_shown {
+                                // Show a progress separator for the first anomaly.
+                                println!();
+                                progress_sep_shown = true;
+                            }
+                            match anomaly {
+                                Ok(anomaly) => print_anomaly(anomaly),
+                                Err(err) => {
+                                    println!("Could not read {}: {}", &source, err);
+                                    break;
+                                }
+                            }
                         }
+                        total_line_count += processor.line_count;
+                    }
+                    Err(err) => {
+                        println!("Could not read {}: {}", &source, err);
+                        break;
                     }
                 }
             }
@@ -288,6 +302,13 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
         // If the last source didn't had an anomaly, then erase the current progress
         print!("\r\x1b[K");
     }
+    logreduce_model::debug_or_progress(
+        output_mode,
+        &format!(
+            "{}: Reduced from {} to {}",
+            content, total_line_count, total_anomaly_count
+        ),
+    );
     Ok(())
 }
 

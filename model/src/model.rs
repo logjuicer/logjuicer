@@ -167,8 +167,8 @@ pub struct Index {
     train_time: Duration,
     sources: Vec<Source>,
     index: ChunkIndex,
-    lines_count: usize,
-    bytes_count: usize,
+    line_count: usize,
+    byte_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -188,8 +188,8 @@ pub struct AnomalyContext {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogReport {
     pub test_time: Duration,
-    pub lines_count: usize,
-    pub bytes_count: usize,
+    pub line_count: usize,
+    pub byte_count: usize,
     pub anomalies: Vec<AnomalyContext>,
     pub source: Source,
     pub index_name: IndexName,
@@ -219,6 +219,8 @@ pub struct Report {
     pub index_reports: HashMap<IndexName, IndexReport>,
     pub index_errors: Vec<Vec<Source>>,
     pub read_errors: Vec<(Source, String)>,
+    pub total_line_count: usize,
+    pub total_anomaly_count: usize,
 }
 
 impl Report {
@@ -254,14 +256,14 @@ impl Index {
         Ok(Index {
             created_at,
             train_time,
-            lines_count: trainer.lines_count,
-            bytes_count: trainer.bytes_count,
+            line_count: trainer.line_count,
+            byte_count: trainer.byte_count,
             index,
             sources: sources.to_vec(),
         })
     }
 
-    fn get_processor<'a>(
+    pub fn get_processor<'a>(
         &'a self,
         output_mode: OutputMode,
         source: &Source,
@@ -429,6 +431,8 @@ impl Model {
         let mut log_reports = Vec::new();
         let mut index_errors = Vec::new();
         let mut read_errors = Vec::new();
+        let mut total_line_count = 0;
+        let mut total_anomaly_count = 0;
         for (index_name, sources) in Content::group_sources(&[target.clone()])?.drain() {
             let mut skip_lines = HashSet::new();
             match self.get_index(&index_name) {
@@ -447,7 +451,9 @@ impl Model {
                                         }
                                     }
                                 }
+                                total_line_count += processor.line_count;
                                 if !anomalies.is_empty() {
+                                    total_anomaly_count += anomalies.len();
                                     if !index_reports.contains_key(&index_name) {
                                         index_reports.insert(
                                             index_name.clone(),
@@ -459,8 +465,8 @@ impl Model {
                                         anomalies,
                                         source,
                                         index_name: index_name.clone(),
-                                        lines_count: processor.lines_count,
-                                        bytes_count: processor.bytes_count,
+                                        line_count: processor.line_count,
+                                        byte_count: processor.byte_count,
                                     });
                                 }
                             }
@@ -482,12 +488,14 @@ impl Model {
             index_reports,
             index_errors,
             read_errors,
+            total_line_count,
+            total_anomaly_count,
         })
     }
 }
 
 /// Helper function to debug
-fn debug_or_progress(output_mode: OutputMode, msg: &str) {
+pub fn debug_or_progress(output_mode: OutputMode, msg: &str) {
     match output_mode {
         OutputMode::FastTerminal => print!("\r\x1b[1;33m[+]\x1b[0m {}", msg),
         OutputMode::Debug => tracing::debug!("{}", msg),
