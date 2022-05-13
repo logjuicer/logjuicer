@@ -151,6 +151,8 @@ pub struct Index {
     train_time: Duration,
     sources: Vec<Source>,
     index: ChunkIndex,
+    lines_count: usize,
+    bytes_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -170,6 +172,8 @@ pub struct AnomalyContext {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogReport {
     pub test_time: Duration,
+    pub lines_count: usize,
+    pub bytes_count: usize,
     pub anomalies: Vec<AnomalyContext>,
     pub source: Source,
     pub index_name: IndexName,
@@ -234,9 +238,22 @@ impl Index {
         Ok(Index {
             created_at,
             train_time,
+            lines_count: trainer.lines_count,
+            bytes_count: trainer.bytes_count,
             index,
             sources: sources.to_vec(),
         })
+    }
+
+    fn get_processor<'a>(
+        &'a self,
+        source: &Source,
+    ) -> Result<process::ChunkProcessor<crate::reader::DecompressReader>> {
+        let fp = match source {
+            Source::Local(_, path_buf) => Source::file_open(path_buf.as_path()),
+            Source::Remote(prefix, url) => Source::url_open(*prefix, url),
+        }?;
+        Ok(process::ChunkProcessor::new(fp, &self.index))
     }
 
     #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self))]
@@ -246,16 +263,10 @@ impl Index {
         source: &Source,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
         debug_or_progress(show_progress, &format!("Inspecting {}", source));
-        match source {
-            Source::Local(_, path_buf) => match Source::file_open(path_buf.as_path()) {
-                Ok(fp) => Box::new(process::ChunkProcessor::new(fp, &self.index)),
-                // If the file can't be open, the first iterator result will be the error.
-                Err(e) => Box::new(std::iter::once(Err(e))),
-            },
-            Source::Remote(prefix, url) => match Source::url_open(*prefix, url) {
-                Ok(fp) => Box::new(process::ChunkProcessor::new(fp, &self.index)),
-                Err(e) => Box::new(std::iter::once(Err(e))),
-            },
+        match self.get_processor(source) {
+            Ok(processor) => Box::new(processor),
+            // If the file can't be open, the first iterator result will be the error.
+            Err(e) => Box::new(std::iter::once(Err(e))),
         }
     }
 
@@ -408,26 +419,36 @@ impl Model {
             match self.get_index(&index_name) {
                 Some(index) => {
                     let mut anomalies = Vec::new();
-                    for anomaly in index.inspect(show_progress, &source) {
-                        match anomaly {
-                            Ok(anomaly) => anomalies.push(anomaly),
-                            Err(err) => {
-                                read_errors.push((source.clone(), format!("{}", err)));
-                                break;
+                    match index.get_processor(&source) {
+                        Ok(mut processor) => {
+                            while let Some(anomaly) = processor.next() {
+                                match anomaly {
+                                    Ok(anomaly) => anomalies.push(anomaly),
+                                    Err(err) => {
+                                        read_errors.push((source.clone(), format!("{}", err)));
+                                        break;
+                                    }
+                                }
+                            }
+                            if !anomalies.is_empty() {
+                                if !index_reports.contains_key(&index_name) {
+                                    index_reports
+                                        .insert(index_name.clone(), IndexReport::from_index(index));
+                                }
+                                log_reports.push(LogReport {
+                                    test_time: start_time.elapsed(),
+                                    anomalies,
+                                    source,
+                                    index_name,
+                                    lines_count: processor.lines_count,
+                                    bytes_count: processor.bytes_count,
+                                });
                             }
                         }
-                    }
-                    if !anomalies.is_empty() {
-                        if !index_reports.contains_key(&index_name) {
-                            index_reports
-                                .insert(index_name.clone(), IndexReport::from_index(index));
+                        Err(err) => {
+                            read_errors.push((source.clone(), format!("{}", err)));
+                            break;
                         }
-                        log_reports.push(LogReport {
-                            test_time: start_time.elapsed(),
-                            anomalies,
-                            source,
-                            index_name,
-                        });
                     }
                 }
                 None => index_errors.push(source.clone()),

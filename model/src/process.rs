@@ -19,6 +19,8 @@ pub struct ChunkTrainer<'a> {
     index: &'a mut ChunkIndex,
     skip_lines: HashSet<String>,
     baselines: Vec<String>,
+    pub lines_count: usize,
+    pub bytes_count: usize,
 }
 
 impl<'a> ChunkTrainer<'a> {
@@ -27,6 +29,8 @@ impl<'a> ChunkTrainer<'a> {
             index,
             skip_lines: HashSet::new(),
             baselines: Vec::new(),
+            lines_count: 0,
+            bytes_count: 0,
         }
     }
 
@@ -43,6 +47,8 @@ impl<'a> ChunkTrainer<'a> {
             let line = line?;
             let raw_str = std::str::from_utf8(&line.0[..])
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            self.lines_count += 1;
+            self.bytes_count += line.0.len();
             let tokens = self.index.tokenize(raw_str);
 
             if !self.skip_lines.contains(&tokens) {
@@ -87,6 +93,10 @@ pub struct ChunkProcessor<'a, R: Read> {
     skip_lines: HashSet<String>,
     /// The current line coordinate.
     coord: usize,
+    /// Total lines count
+    pub lines_count: usize,
+    /// Total bytes count
+    pub bytes_count: usize,
 }
 
 impl<'a, R: Read> Iterator for ChunkProcessor<'a, R> {
@@ -118,6 +128,8 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
             anomalies: VecDeque::new(),
             skip_lines: HashSet::new(),
             coord: 0,
+            lines_count: 0,
+            bytes_count: 0,
         }
     }
 
@@ -126,6 +138,8 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
             let line = line?;
             let raw_str = std::str::from_utf8(&line.0[..])
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            self.lines_count += 1;
+            self.bytes_count += line.0.len();
             self.coord += 1;
 
             // Special check to break when we are processing ourself
