@@ -54,7 +54,7 @@
         defaultPackage = logreduce;
         apps.default = flake-utils.lib.mkApp { drv = logreduce; };
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ rustc cargo rustfmt openssl pkg-config ];
+          buildInputs = with pkgs; [ rustc cargo clippy rustfmt openssl pkg-config ];
           LOGREDUCE_CACHE = "1";
         };
 
