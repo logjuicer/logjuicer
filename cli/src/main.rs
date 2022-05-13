@@ -3,7 +3,7 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use logreduce_model::{Content, Input, Model};
+use logreduce_model::{Content, Input, Model, OutputMode};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -61,7 +61,7 @@ enum Commands {
 }
 
 impl Cli {
-    fn run(self, progress: bool) -> Result<()> {
+    fn run(self, progress: OutputMode) -> Result<()> {
         match self.command {
             // Discovery commands
             Commands::Path { path } => {
@@ -151,19 +151,25 @@ fn main() -> Result<()> {
             (flush, true)
         }
     };
-    let progress = !debug && atty::is(atty::Stream::Stdout);
-    Cli::parse().run(progress).map_err(|e| {
+    let output_mode = if debug {
+        OutputMode::Debug
+    } else if atty::is(atty::Stream::Stdout) {
+        OutputMode::FastTerminal
+    } else {
+        OutputMode::Quiet
+    };
+    Cli::parse().run(output_mode).map_err(|e| {
         // Ensure the exception happens on a new line
-        if progress {
+        if output_mode.inlined() {
             println!();
         }
         e
     })
 }
 
-#[tracing::instrument(level = "debug")]
+#[tracing::instrument(level = "debug", skip(output_mode))]
 fn process(
-    show_progress: bool,
+    output_mode: OutputMode,
     report: Option<PathBuf>,
     model_path: Option<PathBuf>,
     baselines: Option<Vec<Input>>,
@@ -190,11 +196,7 @@ fn process(
 
             // Create the model. TODO: enable custom index.
             tracing::debug!("Building model");
-            Model::train(
-                show_progress,
-                baselines,
-                logreduce_model::hashing_index::new,
-            )
+            Model::train(output_mode, baselines, logreduce_model::hashing_index::new)
         }
     }?;
 
@@ -205,9 +207,9 @@ fn process(
 
     tracing::debug!("Inspecting");
     match report {
-        None => process_live(show_progress, &content, &model),
+        None => process_live(output_mode, &content, &model),
         Some(file) => {
-            let report = model.report(show_progress, content)?;
+            let report = model.report(output_mode, content)?;
 
             // Save raw report for debug purpose
             if std::env::var("LOGREDUCE_CACHE").is_ok() {
@@ -226,7 +228,7 @@ fn process(
     }
 }
 
-fn process_live(show_progress: bool, content: &Content, model: &Model) -> Result<()> {
+fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Result<()> {
     let print_context = |pos: usize, xs: &[String]| {
         xs.iter()
             .enumerate()
@@ -259,12 +261,10 @@ fn process_live(show_progress: bool, content: &Content, model: &Model) -> Result
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 };
                 progress_sep_shown = false;
-                for anomaly in index.inspect(
-                    show_progress,
-                    &source,
-                    &mut std::collections::HashSet::new(),
-                ) {
-                    if show_progress && !progress_sep_shown {
+                for anomaly in
+                    index.inspect(output_mode, &source, &mut std::collections::HashSet::new())
+                {
+                    if output_mode.inlined() && !progress_sep_shown {
                         // Show a progress separator for the first anomaly.
                         println!();
                         progress_sep_shown = true;
@@ -284,7 +284,7 @@ fn process_live(show_progress: bool, content: &Content, model: &Model) -> Result
             }
         }
     }
-    if show_progress && !progress_sep_shown {
+    if output_mode.inlined() && !progress_sep_shown {
         // If the last source didn't had an anomaly, then erase the current progress
         print!("\r\x1b[K");
     }

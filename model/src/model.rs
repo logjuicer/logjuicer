@@ -19,6 +19,22 @@ mod reader;
 pub mod urls;
 pub mod zuul;
 
+#[derive(Clone, Copy)]
+pub enum OutputMode {
+    // Print every steps
+    Debug,
+    // Print progress using \r
+    FastTerminal,
+    // Do not print progress, only errors
+    Quiet,
+}
+
+impl OutputMode {
+    pub fn inlined(&self) -> bool {
+        matches!(self, OutputMode::FastTerminal)
+    }
+}
+
 /// The user input.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Input {
@@ -247,9 +263,11 @@ impl Index {
 
     fn get_processor<'a>(
         &'a self,
+        output_mode: OutputMode,
         source: &Source,
         skip_lines: &'a mut HashSet<String>,
     ) -> Result<process::ChunkProcessor<crate::reader::DecompressReader>> {
+        debug_or_progress(output_mode, &format!("Inspecting {}", source));
         let fp = match source {
             Source::Local(_, path_buf) => Source::file_open(path_buf.as_path()),
             Source::Remote(prefix, url) => Source::url_open(*prefix, url),
@@ -257,15 +275,14 @@ impl Index {
         Ok(process::ChunkProcessor::new(fp, &self.index, skip_lines))
     }
 
-    #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self))]
+    #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self, output_mode))]
     pub fn inspect<'a>(
         &'a self,
-        show_progress: bool,
+        output_mode: OutputMode,
         source: &Source,
         skip_lines: &'a mut HashSet<String>,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
-        debug_or_progress(show_progress, &format!("Inspecting {}", source));
-        match self.get_processor(source, skip_lines) {
+        match self.get_processor(output_mode, source, skip_lines) {
             Ok(processor) => Box::new(processor),
             // If the file can't be open, the first iterator result will be the error.
             Err(e) => Box::new(std::iter::once(Err(e))),
@@ -352,9 +369,9 @@ impl Content {
 
 impl Model {
     /// Create a Model from baselines.
-    #[tracing::instrument(level = "debug", skip(mk_index))]
+    #[tracing::instrument(level = "debug", skip(mk_index, output_mode))]
     pub fn train(
-        show_progress: bool,
+        output_mode: OutputMode,
         baselines: Baselines,
         mk_index: fn() -> ChunkIndex,
     ) -> Result<Model> {
@@ -362,7 +379,7 @@ impl Model {
         let mut indexes = HashMap::new();
         for (index_name, sources) in Content::group_sources(&baselines)?.drain() {
             debug_or_progress(
-                show_progress,
+                output_mode,
                 &format!(
                     "Loading index {} with {}",
                     index_name,
@@ -405,8 +422,8 @@ impl Model {
     }
 
     /// Create the final report.
-    #[tracing::instrument(level = "debug")]
-    pub fn report(&self, show_progress: bool, target: Content) -> Result<Report> {
+    #[tracing::instrument(level = "debug", skip(output_mode))]
+    pub fn report(&self, output_mode: OutputMode, target: Content) -> Result<Report> {
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
         let mut log_reports = Vec::new();
@@ -419,7 +436,7 @@ impl Model {
                     for source in sources {
                         let start_time = Instant::now();
                         let mut anomalies = Vec::new();
-                        match index.get_processor(&source, &mut skip_lines) {
+                        match index.get_processor(output_mode, &source, &mut skip_lines) {
                             Ok(mut processor) => {
                                 for anomaly in processor.by_ref() {
                                     match anomaly {
@@ -470,10 +487,11 @@ impl Model {
 }
 
 /// Helper function to debug
-fn debug_or_progress(show_progress: bool, msg: &str) {
-    tracing::debug!("{}", msg);
-    if show_progress {
-        print!("\r\x1b[1;33m[+]\x1b[0m {}", msg);
+fn debug_or_progress(output_mode: OutputMode, msg: &str) {
+    match output_mode {
+        OutputMode::FastTerminal => print!("\r\x1b[1;33m[+]\x1b[0m {}", msg),
+        OutputMode::Debug => tracing::debug!("{}", msg),
+        OutputMode::Quiet => {}
     }
 }
 
