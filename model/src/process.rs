@@ -90,7 +90,7 @@ pub struct ChunkProcessor<'a, R: Read> {
     /// The list of anomalies recently found.
     anomalies: VecDeque<AnomalyContext>,
     /// The list of unique log lines, to avoid searching a line twice.
-    skip_lines: HashSet<String>,
+    skip_lines: &'a mut HashSet<String>,
     /// The current line coordinate.
     coord: usize,
     /// Total lines count
@@ -116,7 +116,11 @@ impl<'a, R: Read> Iterator for ChunkProcessor<'a, R> {
 }
 
 impl<'a, R: Read> ChunkProcessor<'a, R> {
-    pub fn new(read: R, index: &'a ChunkIndex) -> ChunkProcessor<'a, R> {
+    pub fn new(
+        read: R,
+        index: &'a ChunkIndex,
+        skip_lines: &'a mut HashSet<String>,
+    ) -> ChunkProcessor<'a, R> {
         ChunkProcessor {
             reader: logreduce_iterator::BytesLines::new(read),
             index,
@@ -126,7 +130,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
             targets_coord: Vec::with_capacity(CHUNK_SIZE),
             current_anomaly: None,
             anomalies: VecDeque::new(),
-            skip_lines: HashSet::new(),
+            skip_lines,
             coord: 0,
             lines_count: 0,
             bytes_count: 0,
@@ -339,7 +343,8 @@ fn collect_before(
 #[test]
 fn test_leftovers() {
     let index = crate::hashing_index::new();
-    let mut cp = ChunkProcessor::new(std::io::Cursor::new(""), &index);
+    let mut skip_lines = HashSet::new();
+    let mut cp = ChunkProcessor::new(std::io::Cursor::new(""), &index, &mut skip_lines);
 
     cp.buffer.push((("001 log line".into(), 0), 0));
     cp.buffer.push((("002 log line".into(), 1), 1));
@@ -413,7 +418,8 @@ fn test_chunk_processor() {
         .join("\n"),
     );
     let mut anomalies = Vec::new();
-    let processor = ChunkProcessor::new(data, &index);
+    let mut skip_lines = HashSet::new();
+    let processor = ChunkProcessor::new(data, &index, &mut skip_lines);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         anomalies.push(anomaly);

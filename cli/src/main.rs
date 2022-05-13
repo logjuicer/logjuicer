@@ -207,7 +207,7 @@ fn process(
     match report {
         None => process_live(show_progress, &content, &model),
         Some(file) => {
-            let report = model.report(show_progress, &content)?;
+            let report = model.report(show_progress, content)?;
 
             // Save raw report for debug purpose
             if std::env::var("LOGREDUCE_CACHE").is_ok() {
@@ -259,7 +259,11 @@ fn process_live(show_progress: bool, content: &Content, model: &Model) -> Result
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 };
                 progress_sep_shown = false;
-                for anomaly in index.inspect(show_progress, &source) {
+                for anomaly in index.inspect(
+                    show_progress,
+                    &source,
+                    &mut std::collections::HashSet::new(),
+                ) {
                     if show_progress && !progress_sep_shown {
                         // Show a progress separator for the first anomaly.
                         println!();

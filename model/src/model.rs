@@ -8,7 +8,7 @@
 use anyhow::{Context, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use url::Url;
@@ -201,7 +201,7 @@ pub struct Report {
     pub baselines: Vec<Content>,
     pub log_reports: Vec<LogReport>,
     pub index_reports: HashMap<IndexName, IndexReport>,
-    pub index_errors: Vec<Source>,
+    pub index_errors: Vec<Vec<Source>>,
     pub read_errors: Vec<(Source, String)>,
 }
 
@@ -248,12 +248,13 @@ impl Index {
     fn get_processor<'a>(
         &'a self,
         source: &Source,
+        skip_lines: &'a mut HashSet<String>,
     ) -> Result<process::ChunkProcessor<crate::reader::DecompressReader>> {
         let fp = match source {
             Source::Local(_, path_buf) => Source::file_open(path_buf.as_path()),
             Source::Remote(prefix, url) => Source::url_open(*prefix, url),
         }?;
-        Ok(process::ChunkProcessor::new(fp, &self.index))
+        Ok(process::ChunkProcessor::new(fp, &self.index, skip_lines))
     }
 
     #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self))]
@@ -261,16 +262,15 @@ impl Index {
         &'a self,
         show_progress: bool,
         source: &Source,
+        skip_lines: &'a mut HashSet<String>,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
         debug_or_progress(show_progress, &format!("Inspecting {}", source));
-        match self.get_processor(source) {
+        match self.get_processor(source, skip_lines) {
             Ok(processor) => Box::new(processor),
             // If the file can't be open, the first iterator result will be the error.
             Err(e) => Box::new(std::iter::once(Err(e))),
         }
     }
-
-    // TODO: Implement inspect for multiple sources to share a common skip_lines set
 }
 
 impl Content {
@@ -406,57 +406,60 @@ impl Model {
 
     /// Create the final report.
     #[tracing::instrument(level = "debug")]
-    pub fn report(&self, show_progress: bool, target: &Content) -> Result<Report> {
+    pub fn report(&self, show_progress: bool, target: Content) -> Result<Report> {
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
         let mut log_reports = Vec::new();
         let mut index_errors = Vec::new();
         let mut read_errors = Vec::new();
-        for source in target.get_sources()? {
-            let start_time = Instant::now();
-            // TODO: process all the index sources in one pass to share a single skip_lines set.
-            let index_name = IndexName::from_source(&source);
+        for (index_name, sources) in Content::group_sources(&[target.clone()])?.drain() {
+            let mut skip_lines = HashSet::new();
             match self.get_index(&index_name) {
                 Some(index) => {
-                    let mut anomalies = Vec::new();
-                    match index.get_processor(&source) {
-                        Ok(mut processor) => {
-                            while let Some(anomaly) = processor.next() {
-                                match anomaly {
-                                    Ok(anomaly) => anomalies.push(anomaly),
-                                    Err(err) => {
-                                        read_errors.push((source.clone(), format!("{}", err)));
-                                        break;
+                    for source in sources {
+                        let start_time = Instant::now();
+                        let mut anomalies = Vec::new();
+                        match index.get_processor(&source, &mut skip_lines) {
+                            Ok(mut processor) => {
+                                for anomaly in processor.by_ref() {
+                                    match anomaly {
+                                        Ok(anomaly) => anomalies.push(anomaly),
+                                        Err(err) => {
+                                            read_errors.push((source.clone(), format!("{}", err)));
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                            if !anomalies.is_empty() {
-                                if !index_reports.contains_key(&index_name) {
-                                    index_reports
-                                        .insert(index_name.clone(), IndexReport::from_index(index));
+                                if !anomalies.is_empty() {
+                                    if !index_reports.contains_key(&index_name) {
+                                        index_reports.insert(
+                                            index_name.clone(),
+                                            IndexReport::from_index(index),
+                                        );
+                                    }
+                                    log_reports.push(LogReport {
+                                        test_time: start_time.elapsed(),
+                                        anomalies,
+                                        source,
+                                        index_name: index_name.clone(),
+                                        lines_count: processor.lines_count,
+                                        bytes_count: processor.bytes_count,
+                                    });
                                 }
-                                log_reports.push(LogReport {
-                                    test_time: start_time.elapsed(),
-                                    anomalies,
-                                    source,
-                                    index_name,
-                                    lines_count: processor.lines_count,
-                                    bytes_count: processor.bytes_count,
-                                });
                             }
-                        }
-                        Err(err) => {
-                            read_errors.push((source.clone(), format!("{}", err)));
-                            break;
+                            Err(err) => {
+                                read_errors.push((source.clone(), format!("{}", err)));
+                                break;
+                            }
                         }
                     }
                 }
-                None => index_errors.push(source.clone()),
+                None => index_errors.push(sources.clone()),
             }
         }
         Ok(Report {
             created_at,
-            target: target.clone(),
+            target,
             baselines: self.baselines.clone(),
             log_reports,
             index_reports,

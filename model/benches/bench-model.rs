@@ -16,7 +16,12 @@ pub fn model_process(c: &mut Criterion) {
     c.bench_function("anomalies_from_reader", |b| {
         b.iter(|| {
             let data = std::io::Cursor::new(&target);
-            let processor = logreduce_model::process::ChunkProcessor::new(black_box(data), &index);
+            let mut skip_lines = std::collections::HashSet::new();
+            let processor = logreduce_model::process::ChunkProcessor::new(
+                black_box(data),
+                &index,
+                &mut skip_lines,
+            );
             let _anomalies = processor.collect::<Result<Vec<_>, _>>().unwrap();
         })
     });
