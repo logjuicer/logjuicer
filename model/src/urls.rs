@@ -38,7 +38,7 @@ impl Source {
 
     #[tracing::instrument(level = "debug")]
     pub fn httpdir_iter(url: &Url) -> Box<dyn Iterator<Item = Result<Source>>> {
-        let base_len = url.as_str().len();
+        let base_len = url.as_str().trim_end_matches('/').len();
         // TODO: fix the httpdir cache to work with iterator
         let urls = match CACHE.httpdir_get(url) {
             Some(res) => res,

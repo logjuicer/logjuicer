@@ -149,7 +149,7 @@ impl Crawler {
                         if url.path().ends_with("/etc/") {
                             // Special case to avoid system config directory
                             continue;
-                        } else if url.path().ends_with('/') {
+                        } else if let Some(url) = path_dir(&url) {
                             // Recursively call the handler on sub directory.
                             Crawler::process(&visitor, &client, &sub_pool, &tx, url)
                         } else {
@@ -220,6 +220,19 @@ impl Iterator for CrawlerIter {
                 _ => self.next(),
             },
         }
+    }
+}
+
+fn path_dir(url: &Url) -> Option<Url> {
+    if url.path().ends_with('/') {
+        Some(url.clone())
+    } else if url.path().ends_with("/index.html") {
+        let mut new_url = url.clone();
+        let new_len = url.path().len() - 10;
+        new_url.set_path(&url.path()[..new_len]);
+        Some(new_url)
+    } else {
+        None
     }
 }
 
