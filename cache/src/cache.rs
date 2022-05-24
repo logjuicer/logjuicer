@@ -27,6 +27,14 @@ mod filename {
         format!("{}/{}", new('1', base), new('2', url))
     }
 
+    pub fn head_success(base: &Url, url: &Url) -> String {
+        format!("{}/{}", new('1', base), new('3', url))
+    }
+
+    pub fn head_failure(base: &Url, url: &Url) -> String {
+        format!("{}/{}", new('1', base), new('4', url))
+    }
+
     pub fn drop(path: Option<std::path::PathBuf>) -> Result<()> {
         path.map_or_else(
             || Ok(()),
@@ -46,6 +54,22 @@ impl Cache {
         xdg::BaseDirectories::with_prefix("logreduce")
             .map(|xdg| Cache { xdg })
             .context("Failed to get xdg cache directory")
+    }
+
+    pub fn head(&self, base: &Url, path: &Url) -> Option<bool> {
+        match self.get(&filename::head_success(base, path)) {
+            Some(_) => Some(true),
+            None => self.get(&filename::head_failure(base, path)).map(|_| false),
+        }
+    }
+
+    pub fn head_set(&self, base: &Url, path: &Url, result: bool) -> Result<bool> {
+        let fp = if result {
+            filename::head_success(base, path)
+        } else {
+            filename::head_failure(base, path)
+        };
+        self.create(&fp).map(|_| result)
     }
 
     /// Get a cached file reader.

@@ -55,6 +55,11 @@ mod remote {
             FlatUrl(resp)
         })
     }
+
+    pub fn head(url: &Url) -> Result<bool> {
+        let resp = CLIENT.head(url.clone()).send().context("Can't head url")?;
+        Ok(resp.status().is_success())
+    }
 }
 
 // allow large enum for gzdecoder, which are the most used
@@ -76,6 +81,23 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
     } else {
         Flat(fp)
     })
+}
+
+pub fn head_url(base: &Url, url: &Url) -> Result<bool> {
+    if *USE_CACHE {
+        match CACHE.head(base, url) {
+            Some(result) => {
+                tracing::debug!("Cache hit for {}", url);
+                Ok(result)
+            }
+            None => {
+                tracing::debug!("Cache miss for {}", url);
+                CACHE.head_set(base, url, remote::head(url)?)
+            }
+        }
+    } else {
+        remote::head(url)
+    }
 }
 
 pub fn from_url(base: &Url, url: &Url) -> Result<DecompressReader> {

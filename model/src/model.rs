@@ -339,7 +339,7 @@ impl Content {
             })
             .collect::<Result<Vec<_>>>()
             .and_then(|sources| match sources.len() {
-                0 => Err(anyhow::anyhow!("Empty discovered baselines")),
+                0 => Err(anyhow::anyhow!("Empty sources")),
                 _ => Ok(sources),
             })
     }

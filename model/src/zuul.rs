@@ -86,6 +86,19 @@ impl Build {
         }
     }
 
+    fn logs_available(target: &zuul_build::Build) -> bool {
+        match target.log_url {
+            None => false,
+            Some(ref url) => match crate::reader::head_url(url, url) {
+                Err(e) => {
+                    tracing::info!(url = url.as_str(), "Skipping build because logs are not available {}", e);
+                    false
+                },
+                Ok(n) => n
+            }
+        }
+    }
+
     pub fn discover_baselines(&self) -> Result<Baselines> {
         let samples = self.get_success_samples()?;
         let max_builds = 1;
@@ -98,6 +111,8 @@ impl Build {
             .filter(|(score, build)| score.is_some() && self.uuid != build.uuid)
             // Order by descending score
             .sorted_by(|(score1, _), (score2, _)| score2.cmp(score1))
+            // Filter stalled url
+            .filter(|(_, build)| Self::logs_available(build))
             // .map(|b| dbg!(b))
             // Keep the best
             .take(max_builds)
