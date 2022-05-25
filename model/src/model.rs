@@ -213,6 +213,7 @@ impl IndexReport {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Report {
     pub created_at: SystemTime,
+    pub run_time: Duration,
     pub target: Content,
     pub baselines: Vec<Content>,
     pub log_reports: Vec<LogReport>,
@@ -433,6 +434,7 @@ impl Model {
     /// Create the final report.
     #[tracing::instrument(level = "debug", skip(output_mode, self))]
     pub fn report(&self, output_mode: OutputMode, target: Content) -> Result<Report> {
+        let start_time = Instant::now();
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
         let mut log_reports = Vec::new();
@@ -489,6 +491,7 @@ impl Model {
         }
         Ok(Report {
             created_at,
+            run_time: start_time.elapsed(),
             target,
             baselines: self.baselines.clone(),
             log_reports,

@@ -171,7 +171,8 @@ fn add_container(body: &mut Node, report: &logreduce_model::Report) -> Result<()
                 "Baselines",
                 &format!("{}", report.baselines.iter().format(", ")),
             ],
-            &["Created at", &format!("{}", render_time(&report.created_at))],
+            &["Created at", &render_time(&report.created_at)],
+            &["Run time", &format!("{:.2} sec", report.run_time.as_secs_f32())],
             &[
                 "Result",
                 &format!(
@@ -369,7 +370,7 @@ fn render_lines(loglines: &mut Node, anomalies: &[logreduce_model::AnomalyContex
 }
 
 fn render_time(system_time: &std::time::SystemTime) -> String {
-    let datetime: chrono::DateTime<chrono::offset::Utc> = system_time.clone().into();
+    let datetime: chrono::DateTime<chrono::offset::Utc> = (*system_time).into();
     datetime.format("%Y-%m-%d %T").to_string()
 }
 
