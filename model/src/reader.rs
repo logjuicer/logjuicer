@@ -23,35 +23,12 @@ lazy_static::lazy_static! {
 }
 
 /// Handle remote object.
+use reqwest::blocking::Response;
 mod remote {
     use super::*;
-    use reqwest::blocking::Response;
 
-    // allow large enum for gzdecoder, which are the most used
-    #[allow(clippy::large_enum_variant)]
-    pub enum DecompressRemoteReader {
-        FlatUrl(Response),
-        GzUrl(GzDecoder<Response>),
-    }
-    use DecompressRemoteReader::*;
-
-    impl Read for DecompressRemoteReader {
-        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-            // TODO: refactor using the enum_dispatch crate.
-            match self {
-                FlatUrl(f) => f.read(buf),
-                GzUrl(f) => f.read(buf),
-            }
-        }
-    }
-
-    pub fn get_url(url: &Url) -> Result<DecompressRemoteReader> {
-        let resp = CLIENT.get(url.clone()).send().context("Can't get url")?;
-        Ok(if url.as_str().ends_with(".gz") {
-            GzUrl(GzDecoder::new(resp))
-        } else {
-            FlatUrl(resp)
-        })
+    pub fn get_url(url: &Url) -> Result<Response> {
+        CLIENT.get(url.clone()).send().context("Can't get url")
     }
 
     pub fn head(url: &Url) -> Result<bool> {
@@ -66,8 +43,8 @@ pub enum DecompressReader {
     Flat(File),
     Gz(GzDecoder<File>),
     // TODO: support BZIP2 compression
-    Remote(remote::DecompressRemoteReader),
-    Cached(logreduce_cache::CacheReader<remote::DecompressRemoteReader>),
+    Remote(Response),
+    Cached(logreduce_cache::CacheReader<Response>),
 }
 use DecompressReader::*;
 
