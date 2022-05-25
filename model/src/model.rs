@@ -113,6 +113,8 @@ impl Source {
                     ".eot", ".otf", ".woff", ".woff2", ".ttf",
                     // config
                     ".yaml", ".ini", ".conf",
+                    // not relevant
+                    "job-output.json",
                     // binary data with known location
                     "cacerts",
                     "local/creds", "pacemaker/authkey",
