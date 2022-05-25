@@ -101,13 +101,13 @@ fn test_global_filter() {
 /// Replace numbers sequences with `N`.
 fn remove_numbers(word: &str) -> String {
     lazy_static! {
-        static ref RE: Regex = Regex::new("[0-9]+").unwrap();
+        static ref RE: Regex = Regex::new("([0-9]+\\.[0-9]+)|([0-9]+)").unwrap();
     }
     RE.replace_all(word, "N").to_string()
 }
 #[test]
 fn test_remove_numbers() {
-    tokens_eq!("running test42", "running test43");
+    tokens_eq!("running test4.2", "running test43");
 }
 
 /// Check if a word matches a date.
@@ -563,7 +563,7 @@ mod tests {
     fn test_process03() {
         assert_eq!(
             process("2022-01-25T14:09:24.422Z|00014|jsonrpc|WARN|tcp:[fd00:fd00:fd00:2000::21e]:50504: receive error: Connection reset by peer"),
-            "%ID- %ID- NTN:N:N.NZ| %ID| jsonrpc| WARN WARN%A WARN%B WARN%C WARN%D| %EQ %ID receive error error%A error%B error%C error%D%EQ Connection reset peer"
+            "%ID- %ID- NTN:N:NZ| %ID| jsonrpc| WARN WARN%A WARN%B WARN%C WARN%D| %EQ %ID receive error error%A error%B error%C error%D%EQ Connection reset peer"
         );
         assert_eq!(
             process("Event ID: 3e75e420-761f-11ec-8d18-a0957bd68c36"),
