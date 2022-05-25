@@ -230,7 +230,14 @@ fn test_is_base64() {
 
 fn is_hash(word: &str) -> bool {
     lazy_static! {
-        static ref RE: Regex = Regex::new(concat!("(?i:^", "(hash|sha|md)[0-9]*:", ")")).unwrap();
+        static ref RE: Regex = Regex::new(concat!(
+            "(?i:^",
+            "(hash|sha|md)[0-9]*:",
+            ")|",
+            // csrf tokens
+            "\\.?[a-zA-Z0-9_-]{64,}?"
+        ))
+        .unwrap();
     }
     RE.is_match(word)
 }
@@ -239,7 +246,9 @@ fn test_is_hash() {
     tokens_eq!(
         "md5:d41d8cd98f00b204e9800998ecf8427e",
         "md5:e7b26fc34f528b5b19c4450867b9d597"
-    )
+    );
+    assert!(is_hash("zjxRGFLA4ZVTXXSKpL_U37kHYHoyJ25GcMqoN27A5OS4PodEjDomArnq_36WggVk"));
+    assert!(is_hash(".eJw1j81OwkAURl-lmTVNZu78dbojUSEKagQB3TTTuXcQkBZKSUTCu1NiXH6b851zZkU4NLFo6w1VLGe_65-3wcOorz5n"));
 }
 
 fn is_refs(word: &str) -> bool {
