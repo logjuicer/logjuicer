@@ -424,7 +424,7 @@ impl Model {
     }
 
     /// Create the final report.
-    #[tracing::instrument(level = "debug", skip(output_mode))]
+    #[tracing::instrument(level = "debug", skip(output_mode, self))]
     pub fn report(&self, output_mode: OutputMode, target: Content) -> Result<Report> {
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
