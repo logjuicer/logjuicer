@@ -227,12 +227,19 @@ impl Report {
     pub fn save(&self, path: &Path) -> Result<()> {
         bincode::serialize_into(
             flate2::write::GzEncoder::new(
-                std::fs::File::create(path).context("Can't create file")?,
+                std::fs::File::create(path).context("Can't create report file")?,
                 flate2::Compression::fast(),
             ),
             self,
         )
-        .context("Can't save model")
+        .context("Can't save report")
+    }
+
+    pub fn load(path: &Path) -> Result<Report> {
+        bincode::deserialize_from(flate2::read::GzDecoder::new(
+            std::fs::File::open(path).context("Can't open report file")?,
+        ))
+        .context("Can't load report")
     }
 }
 

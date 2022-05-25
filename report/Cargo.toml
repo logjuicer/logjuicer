@@ -17,4 +17,10 @@ path = "src/report.rs"
 
 [dependencies]
 html-builder = "0.3"
+itertools = "0.10"
+chrono = "0.4"
 logreduce-model = { path = "../model" }
+
+[[example]]
+name = "render"
+path = "src/render.rs"

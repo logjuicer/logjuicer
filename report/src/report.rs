@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use html_builder::*;
+use itertools::Itertools;
 use std::borrow::Cow;
 use std::fmt::Write;
 
@@ -166,7 +167,20 @@ fn add_container(body: &mut Node, report: &logreduce_model::Report) -> Result<()
         None,
         &[
             &["Target", &format!("{}", report.target)],
-            &["Created at", &format!("{:?}", report.created_at)],
+            &[
+                "Baselines",
+                &format!("{}", report.baselines.iter().format(", ")),
+            ],
+            &["Created at", &format!("{}", render_time(&report.created_at))],
+            &[
+                "Result",
+                &format!(
+                    "{:02.2}% reduction (from {} to {})",
+                    (100.0 - (report.total_anomaly_count as f32 / report.total_line_count as f32) * 100.0),
+                    report.total_line_count,
+                    report.total_anomaly_count
+                ),
+            ],
         ],
     )?;
 
@@ -352,6 +366,11 @@ fn render_lines(loglines: &mut Node, anomalies: &[logreduce_model::AnomalyContex
     }
 
     Ok(())
+}
+
+fn render_time(system_time: &std::time::SystemTime) -> String {
+    let datetime: chrono::DateTime<chrono::offset::Utc> = system_time.clone().into();
+    datetime.format("%Y-%m-%d %T").to_string()
 }
 
 const SCRIPTS: &[(&str, &str)] = &[

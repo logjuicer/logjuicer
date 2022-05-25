@@ -830,7 +830,9 @@ dependencies = [
 name = "logreduce-report"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "html-builder",
+ "itertools",
  "logreduce-model",
 ]
 
