@@ -3,7 +3,7 @@
 
 #[allow(unused_imports)]
 use anyhow::{Context, Result};
-use chrono::{Date, DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -31,7 +31,7 @@ impl std::fmt::Display for Build {
     }
 }
 
-fn elapsed_days(now: &Date<Utc>, since: Date<Utc>) -> i32 {
+fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
     let days = now.signed_duration_since(since).num_days();
     if days < 0 {
         0
@@ -57,7 +57,7 @@ impl Build {
         get_builds(&self.api, &url)
     }
 
-    fn baseline_score(&self, target: &zuul_build::Build, now: &Date<Utc>) -> Option<i32> {
+    fn baseline_score(&self, target: &zuul_build::Build, now: &NaiveDate) -> Option<i32> {
         let mut score = 0;
         // Rules
         if self.project == target.project {
@@ -78,7 +78,7 @@ impl Build {
             score += 10;
         }
         // Older builds are less valuable
-        score -= elapsed_days(now, target.end_time.date());
+        score -= elapsed_days(now, target.end_time.date_naive());
         // Check the build has URLs
         match target.log_url.is_some() && target.ref_url.is_some() {
             true => Some(score),
@@ -91,18 +91,22 @@ impl Build {
             None => false,
             Some(ref url) => match crate::reader::head_url(url, url) {
                 Err(e) => {
-                    tracing::info!(url = url.as_str(), "Skipping build because logs are not available {}", e);
+                    tracing::info!(
+                        url = url.as_str(),
+                        "Skipping build because logs are not available {}",
+                        e
+                    );
                     false
-                },
-                Ok(n) => n
-            }
+                }
+                Ok(n) => n,
+            },
         }
     }
 
     pub fn discover_baselines(&self) -> Result<Baselines> {
         let samples = self.get_success_samples()?;
         let max_builds = 1;
-        let now = Utc::now().date();
+        let now = Utc::now().date_naive();
         Ok(samples
             .into_iter()
             // Compute a score value
@@ -161,8 +165,8 @@ fn get_builds(api: &Url, url: &Url) -> Result<Vec<zuul_build::Build>> {
 
 fn is_uid(s: &str) -> bool {
     s.len() == 32
-        && !s.contains(|c| {
-            !('a'..='z').contains(&c) && !('A'..='Z').contains(&c) && !('0'..='9').contains(&c)
+        && !s.contains(|c: char| {
+            !c.is_ascii_lowercase() && !c.is_ascii_uppercase() && !c.is_ascii_digit()
         })
 }
 

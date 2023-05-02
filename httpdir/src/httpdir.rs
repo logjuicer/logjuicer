@@ -314,7 +314,7 @@ fn test_httpdir() {
     assert!(res.len() == 4);
 
     let iter_res = Crawler::new()
-        .walk(url.clone().unwrap())
+        .walk(url.unwrap())
         .collect::<Result<Vec<_>>>()
         .unwrap();
     assert_eq!(res, iter_res);

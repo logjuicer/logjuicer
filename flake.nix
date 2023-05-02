@@ -2,15 +2,17 @@
   description = "The logreduce-cli app";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    naersk.url = "github:nix-community/naersk";
+    nixpkgs.url = "github:NixOS/nixpkgs/release-22.11";
+    naersk.url =
+      "github:nix-community/naersk/88cd22380154a2c36799fe8098888f0f59861a15";
     naersk.inputs.nixpkgs.follows = "nixpkgs";
-    fenix.url = "github:nix-community/fenix";
+    fenix.url =
+      "github:nix-community/fenix/2914d6b361c565356da6c03a8b36bc240f188aef";
     fenix.inputs.nixpkgs.follows = "nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, naersk, fenix, flake-utils }:
+  outputs = inputs@{ self, nixpkgs, naersk, fenix, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -40,21 +42,12 @@
           ]);
 
         # static build
-        toolchain = with fenix.packages.${system};
-          combine [
-            minimal.rustc
-            minimal.cargo
-            targets.x86_64-unknown-linux-musl.latest.rust-std
-          ];
-        naersk-musl-lib = naersk.lib.${system}.override {
-          cargo = toolchain;
-          rustc = toolchain;
-        };
+        toolchain = fenix.packages.${system}.default.toolchain;
       in {
         defaultPackage = logreduce;
         apps.default = flake-utils.lib.mkApp { drv = logreduce; };
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ rustc cargo clippy rustfmt openssl pkg-config ];
+          buildInputs = with pkgs; [ toolchain openssl pkg-config ];
           LOGREDUCE_CACHE = "1";
         };
 
@@ -62,18 +55,5 @@
         packages.python = python;
         devShells.python = pkgs.mkShell { buildInputs = [ python ]; };
 
-        # nix build .#static
-        packages.static = naersk-musl-lib.buildPackage {
-          pname = "logreduce-cli";
-          src = self;
-
-          nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc ];
-
-          CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
-          CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
-
-          # lorgeduce-httpdir test are broken with musl
-          doCheck = true;
-        };
       });
 }

@@ -66,7 +66,7 @@ impl Source {
 
 fn is_small_hash(filename: &str) -> bool {
     filename.len() == 7
-        && !filename.contains(|c| !('a'..='f').contains(&c) && !('0'..='9').contains(&c))
+        && !filename.contains(|c: char| !('a'..='f').contains(&c) && !c.is_ascii_digit())
 }
 
 #[test]

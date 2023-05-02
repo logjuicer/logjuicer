@@ -172,12 +172,17 @@ fn add_container(body: &mut Node, report: &logreduce_model::Report) -> Result<()
                 &format!("{}", report.baselines.iter().format(", ")),
             ],
             &["Created at", &render_time(&report.created_at)],
-            &["Run time", &format!("{:.2} sec", report.run_time.as_secs_f32())],
+            &[
+                "Run time",
+                &format!("{:.2} sec", report.run_time.as_secs_f32()),
+            ],
             &[
                 "Result",
                 &format!(
                     "{:02.2}% reduction (from {} to {})",
-                    (100.0 - (report.total_anomaly_count as f32 / report.total_line_count as f32) * 100.0),
+                    (100.0
+                        - (report.total_anomaly_count as f32 / report.total_line_count as f32)
+                            * 100.0),
                     report.total_line_count,
                     report.total_anomaly_count
                 ),

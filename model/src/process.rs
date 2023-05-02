@@ -217,7 +217,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
                     // In that case, we add the log line to the after context.
                     let raw_str = logreduce_iterator::clone_bytes_to_string(bytes).unwrap();
                     anomaly.after.push(raw_str);
-                    if anomaly.after.len() >= CTX_DISTANCE as usize {
+                    if anomaly.after.len() >= CTX_DISTANCE {
                         // The current anomaly is completed. TODO: try using std::mem::replace
                         self.anomalies.push_back(anomaly.clone());
                         self.current_anomaly = None;
@@ -270,7 +270,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
                 for ((bytes, _), _) in &self.buffer[last_context_pos..] {
                     let raw_str = logreduce_iterator::clone_bytes_to_string(bytes).unwrap();
                     anomaly.after.push(raw_str);
-                    if anomaly.after.len() >= CTX_DISTANCE as usize {
+                    if anomaly.after.len() >= CTX_DISTANCE {
                         // The current anomaly is completed. TODO: try using std::mem::replace
                         self.anomalies.push_back(anomaly.clone());
                         self.current_anomaly = None;
@@ -326,7 +326,7 @@ fn collect_before(
         .collect::<Vec<String>>();
     if before_context_pos == 0 && before.len() < CTX_DISTANCE {
         // The anomaly happens at the begining of the buffer
-        let need = CTX_DISTANCE as usize - before.len();
+        let need = CTX_DISTANCE - before.len();
         let available = left_overs.len();
         let want = need.min(available);
         let mut before_extra: Vec<String> = left_overs[(available - want)..]
@@ -423,9 +423,7 @@ fn test_chunk_processor() {
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         anomalies.push(anomaly);
-        if anomalies.len() > 3 {
-            assert!(false);
-        }
+        assert!(anomalies.len() <= 3)
     }
     let expected = vec![
         AnomalyContext {

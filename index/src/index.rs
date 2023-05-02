@@ -155,7 +155,7 @@ mod tests {
         let l2 = into_feature("the second test is the 42");
         assert_eq!(similarity(&l1, &l1), 1.0);
         let dist = dbg!(similarity(&l1, &l2));
-        assert!(dist >= 0.8 && dist < 0.9);
+        assert!((0.8..0.9).contains(&dist));
     }
 
     #[test]
@@ -194,12 +194,12 @@ mod tests {
     fn test_matrix() {
         let baselines =
             IntoIterator::into_iter(["the", "the second line", "the third line is a warning"])
-                .map(|s| vectorize(s))
+                .map(vectorize)
                 .collect::<Vec<SparseVec>>();
         let baselines_mat = dbg!(create_mat(&baselines));
 
         let targets = IntoIterator::into_iter(["the second line", "a error"])
-            .map(|s| vectorize(s))
+            .map(vectorize)
             .collect::<Vec<SparseVec>>();
         let mut targets_mat = dbg!(create_mat(&targets));
         targets_mat.transpose_mut();

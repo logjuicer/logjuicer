@@ -247,7 +247,9 @@ fn test_is_hash() {
         "md5:d41d8cd98f00b204e9800998ecf8427e",
         "md5:e7b26fc34f528b5b19c4450867b9d597"
     );
-    assert!(is_hash("zjxRGFLA4ZVTXXSKpL_U37kHYHoyJ25GcMqoN27A5OS4PodEjDomArnq_36WggVk"));
+    assert!(is_hash(
+        "zjxRGFLA4ZVTXXSKpL_U37kHYHoyJ25GcMqoN27A5OS4PodEjDomArnq_36WggVk"
+    ));
     assert!(is_hash(".eJw1j81OwkAURl-lmTVNZu78dbojUSEKagQB3TTTuXcQkBZKSUTCu1NiXH6b851zZkU4NLFo6w1VLGe_65-3wcOorz5n"));
 }
 
