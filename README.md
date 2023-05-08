@@ -48,9 +48,7 @@ Clone the project and run tests:
 
 ```
 git clone https://github.comm/logreduce/logreduce-rust && cd logreduce-rust
-cargo test
-cargo fmt
-cargo clippy
+cargo test && cargo fmt && cargo clippy
 ```
 
 Run the project:

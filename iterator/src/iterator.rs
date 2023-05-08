@@ -36,6 +36,8 @@ enum Sep {
     NewLine,
     // A litteral line return: '\\n'
     SubLine,
+    // A json seperator: '{', '}', ',', '[', ']'
+    Json,
 }
 
 impl Sep {
@@ -44,6 +46,7 @@ impl Sep {
         match self {
             Sep::NewLine => 1,
             Sep::SubLine => 2,
+            Sep::Json => 1,
         }
     }
 }
@@ -99,6 +102,12 @@ pub struct BytesLines<R: Read> {
     line_count: usize,
     chunk_size: usize,
     max_line_length: usize,
+    split_json: Option<JsonState>,
+}
+
+struct JsonState {
+    escaped: bool,
+    in_string: bool,
 }
 
 /// Logline is a tuple (content, line number).
@@ -117,11 +126,27 @@ impl<R: Read> Iterator for BytesLines<R> {
 }
 
 impl<R: Read> BytesLines<R> {
-    /// Creates a new BytesLines.
     pub fn new(reader: R) -> BytesLines<R> {
+        Self::new_impl(reader, false)
+    }
+
+    /// Creates a new BytesLines.
+    ///
+    /// When split_json is enabled, every scalar separators are replaced by new lines:
+    /// * `[1,2]` becomes `["1", "2"]`
+    /// * `{a: b, c: {key:value}` becomes `["a: b", "c: ", "key: value"]`
+    pub fn new_impl(reader: R, split_json: bool) -> BytesLines<R> {
         // TODO: make these configurable
         let chunk_size = 8192;
         let max_line_length = 6000;
+        let split_json = if split_json {
+            Some(JsonState {
+                escaped: false,
+                in_string: false,
+            })
+        } else {
+            None
+        };
         BytesLines {
             reader,
             max_line_length,
@@ -129,6 +154,7 @@ impl<R: Read> BytesLines<R> {
             state: State::Scanning(Sep::NewLine),
             buf: BytesMut::with_capacity(chunk_size),
             line_count: 0,
+            split_json,
         }
     }
 
@@ -188,7 +214,11 @@ impl<R: Read> BytesLines<R> {
                 let res = self.buf.split_to(pos).freeze();
                 // Step D: advance the starting position
                 self.buf.advance(sep.len());
-                Some(Ok((res, self.line_count)))
+                if res.is_empty() {
+                    self.get_slice()
+                } else {
+                    Some(Ok((res, self.line_count)))
+                }
             }
         }
     }
@@ -203,7 +233,10 @@ impl<R: Read> BytesLines<R> {
             let sep = match c {
                 '\n' => Some(Sep::NewLine),
                 '\\' if char_is(pos + 1, 'n') => Some(Sep::SubLine),
-                _ => None,
+                _ => match self.split_json {
+                    Some(ref mut json_state) => match_json_kv(c, json_state),
+                    None => None,
+                },
             };
             if let Some(sep) = sep {
                 // We found a separator.
@@ -256,6 +289,24 @@ impl<R: Read> BytesLines<R> {
     }
 }
 
+// Check if the given char is a json k/v separator.
+fn match_json_kv(c: char, json_state: &mut JsonState) -> Option<Sep> {
+    if json_state.escaped {
+        json_state.escaped = false;
+        None
+    } else if c == '\\' {
+        json_state.escaped = true;
+        None
+    } else if c == '"' {
+        json_state.in_string = !json_state.in_string;
+        None
+    } else if !json_state.in_string && matches!(c, ',' | '[' | ']' | '{' | '}') {
+        Some(Sep::Json)
+    } else {
+        None
+    }
+}
+
 pub fn clone_bytes_to_string(bytes: &Bytes) -> Option<String> {
     std::str::from_utf8(&bytes[..]).ok().map(|s| s.to_string())
 }
@@ -281,4 +332,27 @@ fn test_iterator() {
 
     let lines = get_lines("first\\n");
     assert_eq!(lines, vec![("first".into(), 1)]);
+}
+
+#[test]
+fn test_json_iterator() {
+    let get_lines = |reader| -> Vec<LogLine> {
+        let lines: Result<Vec<LogLine>> =
+            BytesLines::new_impl(std::io::Cursor::new(reader), true).collect();
+        lines.unwrap()
+    };
+
+    let lines = get_lines("[42, 43,\n {\"key\": \"value\", o:[1,2]}]");
+    assert_eq!(
+        lines,
+        vec![
+            ("42".into(), 1),
+            (" 43".into(), 1),
+            (" ".into(), 2),
+            ("\"key\": \"value\"".into(), 2),
+            (" o:".into(), 2),
+            ("1".into(), 2),
+            ("2".into(), 2),
+        ]
+    );
 }
