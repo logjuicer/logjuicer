@@ -257,9 +257,9 @@ impl Index {
                 Source::Local(_, path_buf) => Source::file_open(path_buf.as_path())?,
                 Source::Remote(prefix, url) => Source::url_open(*prefix, url)?,
             };
-            trainer
-                .add(reader)
-                .with_context(|| format!("Failed to load {}", source))?
+            if let Err(e) = trainer.add(reader) {
+                tracing::error!("{}: failed to load: {}", source, e)
+            }
         }
         trainer.complete();
         let train_time = start_time.elapsed();
