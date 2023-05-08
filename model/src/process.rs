@@ -17,6 +17,7 @@ const CHUNK_SIZE: usize = 512;
 /// Helper struct to manage indexing multiples readers.
 pub struct ChunkTrainer<'a> {
     index: &'a mut ChunkIndex,
+    is_json: bool,
     skip_lines: HashSet<String>,
     baselines: Vec<String>,
     pub line_count: usize,
@@ -24,9 +25,10 @@ pub struct ChunkTrainer<'a> {
 }
 
 impl<'a> ChunkTrainer<'a> {
-    pub fn new(index: &'a mut ChunkIndex) -> ChunkTrainer<'a> {
+    pub fn new(index: &'a mut ChunkIndex, is_json: bool) -> ChunkTrainer<'a> {
         ChunkTrainer {
             index,
+            is_json,
             skip_lines: HashSet::new(),
             baselines: Vec::new(),
             line_count: 0,
@@ -35,15 +37,15 @@ impl<'a> ChunkTrainer<'a> {
     }
 
     /// Index a single reader
-    pub fn single<R: Read>(index: &'a mut ChunkIndex, read: R) -> Result<()> {
-        let mut trainer = ChunkTrainer::new(index);
+    pub fn single<R: Read>(index: &'a mut ChunkIndex, is_json: bool, read: R) -> Result<()> {
+        let mut trainer = ChunkTrainer::new(index, is_json);
         trainer.add(read)?;
         trainer.complete();
         Ok(())
     }
 
     pub fn add<R: Read>(&mut self, read: R) -> Result<()> {
-        for line in logreduce_iterator::BytesLines::new(read) {
+        for line in logreduce_iterator::BytesLines::new(read, self.is_json) {
             let line = line?;
             let raw_str = std::str::from_utf8(&line.0[..])
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
@@ -119,10 +121,11 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
     pub fn new(
         read: R,
         index: &'a ChunkIndex,
+        is_json: bool,
         skip_lines: &'a mut HashSet<String>,
     ) -> ChunkProcessor<'a, R> {
         ChunkProcessor {
-            reader: logreduce_iterator::BytesLines::new(read),
+            reader: logreduce_iterator::BytesLines::new(read, is_json),
             index,
             buffer: Vec::new(),
             left_overs: Vec::new(),
@@ -344,7 +347,7 @@ fn collect_before(
 fn test_leftovers() {
     let index = crate::hashing_index::new();
     let mut skip_lines = HashSet::new();
-    let mut cp = ChunkProcessor::new(std::io::Cursor::new(""), &index, &mut skip_lines);
+    let mut cp = ChunkProcessor::new(std::io::Cursor::new(""), &index, false, &mut skip_lines);
 
     cp.buffer.push((("001 log line".into(), 0), 0));
     cp.buffer.push((("002 log line".into(), 1), 1));
@@ -402,7 +405,7 @@ fn test_chunk_processor() {
     let mut index = crate::hashing_index::new();
     let baseline = std::io::Cursor::new(["001: regular log line", "in-between line"].join("\n"));
 
-    let mut trainer = ChunkTrainer::new(&mut index);
+    let mut trainer = ChunkTrainer::new(&mut index, false);
     trainer.add(baseline).unwrap();
     trainer.complete();
 
@@ -419,7 +422,7 @@ fn test_chunk_processor() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = HashSet::new();
-    let processor = ChunkProcessor::new(data, &index, &mut skip_lines);
+    let processor = ChunkProcessor::new(data, &index, false, &mut skip_lines);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         anomalies.push(anomaly);

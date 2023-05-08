@@ -86,6 +86,9 @@ impl std::fmt::Display for Source {
 }
 
 impl Source {
+    pub fn is_json(&'_ self) -> bool {
+        self.get_relative().ends_with(".json")
+    }
     pub fn get_relative(&'_ self) -> &'_ str {
         match self {
             Source::Local(base_len, path) => &path.to_str().unwrap_or("")[*base_len..],
@@ -251,7 +254,12 @@ impl Index {
     pub fn train(sources: &[Source], mut index: ChunkIndex) -> Result<Index> {
         let created_at = SystemTime::now();
         let start_time = Instant::now();
-        let mut trainer = process::ChunkTrainer::new(&mut index);
+        let is_json = if let Some(source) = sources.first() {
+            source.is_json()
+        } else {
+            false
+        };
+        let mut trainer = process::ChunkTrainer::new(&mut index, is_json);
         for source in sources {
             let reader = match source {
                 Source::Local(_, path_buf) => Source::file_open(path_buf.as_path())?,
@@ -284,7 +292,12 @@ impl Index {
             Source::Local(_, path_buf) => Source::file_open(path_buf.as_path()),
             Source::Remote(prefix, url) => Source::url_open(*prefix, url),
         }?;
-        Ok(process::ChunkProcessor::new(fp, &self.index, skip_lines))
+        Ok(process::ChunkProcessor::new(
+            fp,
+            &self.index,
+            source.is_json(),
+            skip_lines,
+        ))
     }
 
     #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self, output_mode))]

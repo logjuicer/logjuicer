@@ -18,7 +18,7 @@
 //! let reader = std::io::Cursor::new("first\nsecond\\nextra");
 //!
 //! // Creates the iterator and unwrap error for assert_eq!.
-//! let mut lines_iter = BytesLines::new(reader).map(|l| l.unwrap());
+//! let mut lines_iter = BytesLines::new(reader, false).map(|l| l.unwrap());
 //! assert_eq!(lines_iter.next(), Some(("first".into(), 1)));
 //! assert_eq!(lines_iter.next(), Some(("second".into(), 2)));
 //! assert_eq!(lines_iter.next(), Some(("extra".into(), 2)));
@@ -126,16 +126,12 @@ impl<R: Read> Iterator for BytesLines<R> {
 }
 
 impl<R: Read> BytesLines<R> {
-    pub fn new(reader: R) -> BytesLines<R> {
-        Self::new_impl(reader, false)
-    }
-
     /// Creates a new BytesLines.
     ///
     /// When split_json is enabled, every scalar separators are replaced by new lines:
     /// * `[1,2]` becomes `["1", "2"]`
     /// * `{a: b, c: {key:value}` becomes `["a: b", "c: ", "key: value"]`
-    pub fn new_impl(reader: R, split_json: bool) -> BytesLines<R> {
+    pub fn new(reader: R, split_json: bool) -> BytesLines<R> {
         // TODO: make these configurable
         let chunk_size = 8192;
         let max_line_length = 6000;
@@ -314,7 +310,8 @@ pub fn clone_bytes_to_string(bytes: &Bytes) -> Option<String> {
 #[test]
 fn test_iterator() {
     let get_lines = |reader| -> Vec<LogLine> {
-        let lines: Result<Vec<LogLine>> = BytesLines::new(std::io::Cursor::new(reader)).collect();
+        let lines: Result<Vec<LogLine>> =
+            BytesLines::new(std::io::Cursor::new(reader), false).collect();
         lines.unwrap()
     };
 
@@ -338,7 +335,7 @@ fn test_iterator() {
 fn test_json_iterator() {
     let get_lines = |reader| -> Vec<LogLine> {
         let lines: Result<Vec<LogLine>> =
-            BytesLines::new_impl(std::io::Cursor::new(reader), true).collect();
+            BytesLines::new(std::io::Cursor::new(reader), true).collect();
         lines.unwrap()
     };
 
