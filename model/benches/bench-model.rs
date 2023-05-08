@@ -10,8 +10,12 @@ pub fn model_process(c: &mut Criterion) {
     let target = lines[1024..2048].join("\n");
 
     let mut index = logreduce_model::hashing_index::new();
-    logreduce_model::process::ChunkTrainer::single(&mut index, std::io::Cursor::new(baselines))
-        .unwrap();
+    logreduce_model::process::ChunkTrainer::single(
+        &mut index,
+        false,
+        std::io::Cursor::new(baselines),
+    )
+    .unwrap();
 
     c.bench_function("anomalies_from_reader", |b| {
         b.iter(|| {
@@ -20,6 +24,7 @@ pub fn model_process(c: &mut Criterion) {
             let processor = logreduce_model::process::ChunkProcessor::new(
                 black_box(data),
                 &index,
+                false,
                 &mut skip_lines,
             );
             let _anomalies = processor.collect::<Result<Vec<_>, _>>().unwrap();
