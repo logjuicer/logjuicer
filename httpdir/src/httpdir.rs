@@ -87,7 +87,10 @@ impl Crawler {
     pub fn new() -> Crawler {
         let workers = ThreadPool::new(4);
         let (tx, rx) = channel();
-        let client = Client::new();
+        let client = Client::builder()
+            .danger_accept_invalid_certs(std::env::var("LOGREDUCE_SSL_NO_VERIFY").is_ok())
+            .build()
+            .expect("Client");
         Crawler {
             workers,
             client,

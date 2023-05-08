@@ -16,6 +16,7 @@ use flate2::read::GzDecoder;
 lazy_static::lazy_static! {
     static ref CACHE: logreduce_cache::Cache = logreduce_cache::Cache::new().expect("Cache");
     static ref CLIENT: reqwest::blocking::Client = reqwest::blocking::Client::builder()
+        .danger_accept_invalid_certs(std::env::var("LOGREDUCE_SSL_NO_VERIFY").is_ok())
         .build()
         .expect("Client");
 
