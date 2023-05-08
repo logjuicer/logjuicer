@@ -245,7 +245,12 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
                 let mut last_pos = None;
                 let mut print_anomaly = |anomaly: logreduce_model::AnomalyContext| {
                     total_anomaly_count += 1;
-                    let starting_pos = anomaly.anomaly.pos - 1 - anomaly.before.len();
+                    let context_size = 1 + anomaly.before.len();
+                    let starting_pos = if anomaly.anomaly.pos > context_size {
+                        anomaly.anomaly.pos - context_size
+                    } else {
+                        0
+                    };
                     if let Some(last_pos) = last_pos {
                         if last_pos != starting_pos {
                             println!("--");
