@@ -103,10 +103,11 @@ pub struct BytesLines<R: Read> {
     chunk_size: usize,
     max_line_length: usize,
     split_json: Option<JsonState>,
+    prev_pos: usize,
+    escaped: bool,
 }
 
 struct JsonState {
-    escaped: bool,
     in_string: bool,
 }
 
@@ -136,10 +137,7 @@ impl<R: Read> BytesLines<R> {
         let chunk_size = 8192;
         let max_line_length = 6000;
         let split_json = if split_json {
-            Some(JsonState {
-                escaped: false,
-                in_string: false,
-            })
+            Some(JsonState { in_string: false })
         } else {
             None
         };
@@ -150,6 +148,8 @@ impl<R: Read> BytesLines<R> {
             state: State::Scanning(Sep::NewLine),
             buf: BytesMut::with_capacity(chunk_size),
             line_count: 0,
+            prev_pos: 0,
+            escaped: false,
             split_json,
         }
     }
@@ -185,6 +185,7 @@ impl<R: Read> BytesLines<R> {
         match self.find_next_line() {
             // Step J: The current line is over the limit, and we don't know where it ends.
             None if self.buf.len() > self.max_line_length => {
+                self.prev_pos = 0;
                 self.buf.clear();
                 self.buf.reserve(self.chunk_size);
                 self.drop_until_next_line()
@@ -192,6 +193,7 @@ impl<R: Read> BytesLines<R> {
 
             // Step I: The current line is over the limit, we need to discard it.
             Some((pos, sep)) if pos > self.max_line_length => {
+                self.prev_pos = 0;
                 // The next line is already in the buffer, so we can just advance.
                 self.buf.advance(pos + sep.len());
                 self.get_slice()
@@ -200,12 +202,14 @@ impl<R: Read> BytesLines<R> {
             // Step E: We haven't found the end of the line, we need more data.
             None => {
                 // Step F: reserve() will attempt to reclaim space in the buffer.
+                self.prev_pos = self.buf.len();
                 self.buf.reserve(self.chunk_size);
                 self.read_slice()
             }
 
             // Step B: We found the end of the line, we can return it now.
             Some((pos, sep)) => {
+                self.prev_pos = 0;
                 // Step C: split_to() creates a new zero copy reference to the buffer.
                 let res = self.buf.split_to(pos).freeze();
                 // Step D: advance the starting position
@@ -222,22 +226,34 @@ impl<R: Read> BytesLines<R> {
     // Find the next line position and update the line count
     fn find_next_line(&mut self) -> Option<(usize, Sep)> {
         let slice = self.buf.as_ref();
-        let size = slice.len();
-        let char_is = |pos: usize, c: char| pos < size && slice[pos] == (c as u8);
-        for (pos, c) in slice.iter().enumerate().take(size) {
+        for (pos, c) in slice[self.prev_pos..].iter().enumerate() {
             let c = *c as char;
-            let sep = match c {
-                '\n' => Some(Sep::NewLine),
-                '\\' if char_is(pos + 1, 'n') => Some(Sep::SubLine),
-                _ => match self.split_json {
+            let sep = if self.escaped {
+                self.escaped = false;
+                if c == 'n' {
+                    Some(Sep::SubLine)
+                } else {
+                    None
+                }
+            } else if c == '\\' {
+                self.escaped = true;
+                None
+            } else if c == '\n' {
+                Some(Sep::NewLine)
+            } else {
+                match self.split_json {
                     Some(ref mut json_state) => match_json_kv(c, json_state),
                     None => None,
-                },
+                }
             };
             if let Some(sep) = sep {
                 // We found a separator.
                 self.update_line_counter(State::Scanning(sep));
-                return Some((pos, sep));
+                let line_separator_pos = match sep {
+                    Sep::SubLine => self.prev_pos + pos - 1,
+                    _ => self.prev_pos + pos,
+                };
+                return Some((line_separator_pos, sep));
             }
         }
         None
@@ -287,13 +303,7 @@ impl<R: Read> BytesLines<R> {
 
 // Check if the given char is a json k/v separator.
 fn match_json_kv(c: char, json_state: &mut JsonState) -> Option<Sep> {
-    if json_state.escaped {
-        json_state.escaped = false;
-        None
-    } else if c == '\\' {
-        json_state.escaped = true;
-        None
-    } else if c == '"' {
+    if c == '"' {
         json_state.in_string = !json_state.in_string;
         None
     } else if !json_state.in_string && matches!(c, ',' | '[' | ']' | '{' | '}') {
