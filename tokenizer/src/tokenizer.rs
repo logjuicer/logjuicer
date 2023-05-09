@@ -226,6 +226,14 @@ fn test_is_base64() {
     );
     tokens_eq!("a EqTsSXKlOsEjfIdFld+uwopnIIqvKI+Xu6e0RcAGYJEfj56/MG2IdH7/h1JmQ///\\nn2RZ/ocRcL5as2EHQES0b+/I12a2Gj+W+ub0OQAGDq8iL5o8P0/ogEWrpZmoBC+oi",
             "a MqoplXLA2LPnJKTNMQW5JpGyMLJcLxRDDEejzh6b1im8KV/5TRKDsg7b5FwBJJoN fJkzOzsJdqxvhSvDFkUlAP7a/+kOBCYi1Yp1pz0v/mHLi0r1z5xtx3BemXVYHbom");
+    tokens_eq!(
+        "\"ssh_host_key_ecdsa_public\": \"AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBAoR7WEHBOBURhlsegwrbX2xTC/UFVwNR6Q4RBOcWPcUNpTbgmMZ8vhNWqnzrL/NXMWuHqrXECCyBqgtethMuPg=\"",
+        "\"ssh_host_key_ecdsa_public\": \"AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBPaZ3NnBO+oUoGDFu3xXcxwe4KRghJTOj5y/n+GojwicVwHC7JEYVmZcPksW/kcFfy7uq/JkuIA1j7tUxfiMuRY=\""
+    );
+    tokens_eq!(
+        "\"ssh_host_key_ed25519_public\": \"AAAAC3NzaC1lZDI1NTE5AAAAIDoRunCDSjliGLhWFeZDJ2Zysc1E/3ri+aHA+W467hxc\"",
+        "\"ssh_host_key_ed25519_public\": \"AAAAC3NzaC1lZDI1NTE5AAAAIB++yyvs20oahbmnYE2RJqBzXBNxL1zVYMf0MiHreF33\""
+    )
 }
 
 fn is_hash(word: &str) -> bool {
@@ -235,7 +243,7 @@ fn is_hash(word: &str) -> bool {
             "(hash|sha|md)[0-9]*:",
             ")|",
             // csrf tokens
-            "\\.?[a-zA-Z0-9_-]{64,}?"
+            "\\.?[a-zA-Z0-9_+/-]{64,}?"
         ))
         .unwrap();
     }
