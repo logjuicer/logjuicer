@@ -827,6 +827,7 @@ dependencies = [
  "anyhow",
  "atty",
  "clap 3.2.25",
+ "itertools",
  "logreduce-iterator",
  "logreduce-model",
  "logreduce-report",

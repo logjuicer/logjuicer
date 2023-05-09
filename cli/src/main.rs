@@ -3,6 +3,7 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use itertools::Itertools;
 use logreduce_model::{Content, Input, Model, OutputMode, Source};
 use std::path::PathBuf;
 
@@ -62,6 +63,10 @@ enum Commands {
     // Debug iterator
     #[clap(hide = true, about = "Iterate a single file")]
     DebugIterator { path: String },
+
+    // Debug index name
+    #[clap(hide = true, about = "Debug index name")]
+    DebugIndexname { path: String },
 }
 
 impl Cli {
@@ -107,6 +112,10 @@ impl Cli {
             Commands::DebugGroups { target } => debug_groups(Input::from_string(target)),
             Commands::DebugTokenizer { line } => {
                 println!("{}\n", logreduce_tokenizer::process(&line));
+                Ok(())
+            }
+            Commands::DebugIndexname { path } => {
+                println!("{}", logreduce_model::IndexName::from_path(&path));
                 Ok(())
             }
             Commands::DebugIterator { path } => {
@@ -347,7 +356,10 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
 
 fn debug_groups(input: Input) -> Result<()> {
     let content = Content::from_input(input)?;
-    for (index_name, sources) in Content::group_sources(&[content])?.drain() {
+    for (index_name, sources) in Content::group_sources(&[content])?
+        .drain()
+        .sorted_by(|x, y| Ord::cmp(&x.0, &y.0))
+    {
         println!("{:?}: {:#?}", index_name, sources);
     }
     Ok(())

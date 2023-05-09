@@ -85,6 +85,8 @@ fn is_k8s_service(filename: &str) -> Option<&str> {
             Some((service, _uuid)) => Some(service),
             None => None,
         }
+    } else if filename.starts_with("pvc-") {
+        Some("pvc")
     } else {
         None
     }
@@ -94,6 +96,31 @@ fn is_k8s_service(filename: &str) -> Option<&str> {
 fn test_is_k8s_service() {
     assert_eq!(is_k8s_service("k8s_zuul-uuid"), Some("k8s_zuul"));
     assert_eq!(is_k8s_service("k3s_zuul-uuid"), None);
+    assert_eq!(
+        is_k8s_service("pvc-328297fa-9941-4df5-b34f-336f02c76be4.txt"),
+        Some("pvc")
+    );
+}
+
+// Handle k8s uuid by dropping everything after the first -
+fn take_until_pod_uuid(filename: &str) -> &str {
+    if let Some(p) = filename.split('-').next() {
+        p
+    } else {
+        filename
+    }
+}
+
+#[test]
+fn test_take_until_pod_uuid() {
+    assert_eq!(
+        take_until_pod_uuid("pod/zuul-7fdb57778f-qkzkc.log"),
+        "pod/zuul"
+    );
+    assert_eq!(
+        take_until_pod_uuid("pod/nodepool-launcher-fcd58c584-wbcmc.txt"),
+        "pod/nodepool"
+    )
 }
 
 // Return the parent path and it's name.
@@ -125,6 +152,8 @@ impl IndexName {
 
         let model_name = if shortfilename.starts_with("qemu/instance-") {
             "qemu/instance".to_string()
+        } else if shortfilename.starts_with("pod/") {
+            take_until_pod_uuid(&shortfilename).to_string()
         } else if let Some(service) = is_k8s_service(filename) {
             service.to_string()
         } else {

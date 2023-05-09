@@ -117,7 +117,7 @@ impl Source {
                     // config
                     ".yaml", ".ini", ".conf",
                     // not relevant
-                    "job-output.json",
+                    "job-output.json", "zuul-manifest.json", ".html",
                     // binary data with known location
                     "cacerts",
                     "local/creds", "pacemaker/authkey",
@@ -148,7 +148,7 @@ pub struct Model {
 }
 
 /// A LogModelName is an identifier that is used to group similar source.
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IndexName(pub String);
 
 impl std::fmt::Display for IndexName {
@@ -362,7 +362,7 @@ impl Content {
             })
             .collect::<Result<Vec<_>>>()
             .and_then(|sources| match sources.len() {
-                0 => Err(anyhow::anyhow!("Empty sources")),
+                0 => Err(anyhow::anyhow!(format!("Empty sources: {}", self))),
                 _ => Ok(sources),
             })
     }
