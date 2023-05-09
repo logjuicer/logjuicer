@@ -3,7 +3,7 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use logreduce_model::{Content, Input, Model, OutputMode};
+use logreduce_model::{Content, Input, Model, OutputMode, Source};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -58,6 +58,10 @@ enum Commands {
     // Debug tokenizer
     #[clap(hide = true, about = "Tokenize a single line")]
     DebugTokenizer { line: String },
+
+    // Debug iterator
+    #[clap(hide = true, about = "Iterate a single file")]
+    DebugIterator { path: String },
 }
 
 impl Cli {
@@ -103,6 +107,30 @@ impl Cli {
             Commands::DebugGroups { target } => debug_groups(Input::from_string(target)),
             Commands::DebugTokenizer { line } => {
                 println!("{}\n", logreduce_tokenizer::process(&line));
+                Ok(())
+            }
+            Commands::DebugIterator { path } => {
+                let input = Input::Path(path.clone());
+                let content = Content::from_input(input)?;
+                let sources = content.get_sources()?;
+                match sources.first() {
+                    Some(source) => {
+                        let reader = match source {
+                            Source::Local(_, path_buf) => Source::file_open(path_buf.as_path())?,
+                            Source::Remote(prefix, url) => Source::url_open(*prefix, url)?,
+                        };
+                        for line in logreduce_iterator::BytesLines::new(reader, source.is_json()) {
+                            match line {
+                                Ok((bytes, nr)) => match std::str::from_utf8(&bytes) {
+                                    Ok(txt) => println!("{} | {}", nr, txt),
+                                    Err(e) => println!("{} | error: {}", nr, e),
+                                },
+                                Err(e) => println!("{}", e),
+                            }
+                        }
+                    }
+                    None => println!("{}: oops", path),
+                }
                 Ok(())
             }
         }

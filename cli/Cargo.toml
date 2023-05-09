@@ -16,6 +16,7 @@ edition = "2018"
 anyhow = "1.0"
 logreduce-model = { path = "../model" }
 logreduce-report = { path = "../report" }
+logreduce-iterator = { path = "../iterator" }
 clap = { version = "3", features = ["derive"] }
 atty = "0.2"
 tracing = "0.1"
