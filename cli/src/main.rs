@@ -7,6 +7,8 @@ use itertools::Itertools;
 use logreduce_model::{Content, Input, Model, OutputMode, Source};
 use std::path::PathBuf;
 
+mod dataset;
+
 #[derive(Parser)]
 #[clap(version, about, long_about = None)]
 #[clap(disable_help_subcommand = true)]
@@ -50,6 +52,12 @@ enum Commands {
     Train {
         #[clap(required = true)]
         baselines: Vec<String>,
+    },
+
+    #[clap(about = "Evaluate dataset")]
+    Test {
+        #[clap(required = true)]
+        datasets: Vec<String>,
     },
 
     // Secret options to debug specific part of the process
@@ -107,6 +115,8 @@ impl Cli {
                 )?;
                 model.save(&model_path)
             }
+
+            Commands::Test { datasets } => dataset::test_datasets(&datasets),
 
             // Debug handlers
             Commands::DebugGroups { target } => debug_groups(Input::from_string(target)),

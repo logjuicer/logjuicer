@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 #[test]
-fn it_adds_two() {
+fn it_group_by_indexname() {
     let contents = include_str!("./sf-operator-hiearchy.txt")
         .split("\n")
         .filter(|s| !s.is_empty())

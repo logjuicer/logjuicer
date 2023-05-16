@@ -49,6 +49,9 @@ impl Input {
             false => Input::Path(s),
         }
     }
+    pub fn from_pathbuf(s: PathBuf) -> Input {
+        Input::Path(s.into_os_string().into_string().unwrap())
+    }
 }
 
 /// A source of log lines.
@@ -86,6 +89,9 @@ impl std::fmt::Display for Source {
 }
 
 impl Source {
+    pub fn from_pathbuf(p: PathBuf) -> Source {
+        Source::Local(0, p)
+    }
     pub fn is_json(&'_ self) -> bool {
         self.get_relative().ends_with(".json")
     }
@@ -325,6 +331,11 @@ impl Content {
                 Content::from_url(Url::parse(&url_str).expect("Failed to parse url"))
             }
         }
+    }
+
+    /// Create content from raw file path, usefule for testing.
+    pub fn from_pathbuf(p: PathBuf) -> Content {
+        Content::File(Source::from_pathbuf(p))
     }
 
     /// Discover the baselines for this Content.
