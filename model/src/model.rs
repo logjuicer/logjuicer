@@ -117,7 +117,7 @@ impl Source {
                     // config
                     ".yaml", ".ini", ".conf",
                     // not relevant
-                    "job-output.json", "zuul-manifest.json", ".html",
+                    "job-output.json", "log-classify.json", "zuul-manifest.json", ".html",
                     // binary data with known location
                     "cacerts",
                     "local/creds", "pacemaker/authkey",
