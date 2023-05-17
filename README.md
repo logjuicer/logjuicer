@@ -1,6 +1,28 @@
-# logreduce-rust
+# logreduce extract anomaly from log files
 
-This repository contains the last version of the [logreduce][logreduce]'s project.
+Based on success logs, logreduce highlights useful text in failed logs.
+The goal is to save time in finding a failure's root cause.
+
+## How it works
+
+logreduce uses a *model* to learn successful logs and detect novelties in
+failed logs:
+
+* Random words are manually removed using regular expression
+* Then lines are converted to a matrix of token occurrences
+  (using **HashingVectorizer**),
+* An unsupervised learner implements neighbor searches
+  (using **NearestNeighbors**).
+
+
+### Caveats
+
+This method doesn't work when debug content is only included in failed logs.
+To successfully detect anomalies, failed and success logs needs to be similar,
+otherwise the extra informations in failed logs will be considered anomalous.
+
+For example this happens with testr where success logs only contains 'SUCCESS'.
+
 
 ## Install
 
@@ -57,9 +79,10 @@ Run the project:
 cargo run -p logreduce-cli -- --help
 ```
 
+Join the project Matrix room: [#logeduce:matrix.org](https://matrix.to/#/#logreduce:matrix.org).
+
 ## Roadmap
 
-* HTML report
 * `current-build` target
 * detect `prow` and `jenkins` url
 * Reports minification
