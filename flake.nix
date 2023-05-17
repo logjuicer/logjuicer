@@ -1,5 +1,5 @@
 {
-  description = "The logreduce-cli app";
+  description = "The logreduce app";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/release-22.11";

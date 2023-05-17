@@ -8,7 +8,7 @@ The goal is to save time in finding a failure's root cause.
 logreduce uses a *model* to learn successful logs and detect novelties in
 failed logs:
 
-* Random words are manually removed using regular expression
+* Random words are manually removed using regular expression,
 * Then lines are converted to a matrix of token occurrences
   (using **HashingVectorizer**),
 * An unsupervised learner implements neighbor searches
@@ -26,7 +26,7 @@ For example this happens with testr where success logs only contains 'SUCCESS'.
 
 ## Install
 
-Install the `logreduce-cli` command line by running:
+Install the `logreduce` command line by running:
 
 ```
 cargo install --git https://github.com/logreduce/logreduce-rust logreduce-cli
@@ -40,13 +40,13 @@ cargo install --git https://github.com/logreduce/logreduce-rust logreduce-cli
 Analyze a local file:
 
 ```ShellSession
-$ logreduce-cli file /var/log/zuul/scheduler.log
+$ logreduce file /var/log/zuul/scheduler.log
 ```
 
 Analyze a remote url:
 
 ```ShellSession
-$ logreduce-cli url https://zuul/build/uuid
+$ logreduce url https://zuul/build/uuid
 ```
 
 Save and re-use trained model using the `--model file-path` argument.
