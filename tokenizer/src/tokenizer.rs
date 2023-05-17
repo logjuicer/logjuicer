@@ -136,7 +136,7 @@ fn is_error(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
             "(?i-u:^(",
-            "error|failure|failed|warning|",
+            "error|fatal|failure|failed|warning|",
             "err|fail|warn|",
             "denied|",
             "assert|assertion|non-zero|",
@@ -155,6 +155,7 @@ fn contains_odd_char(word: &str) -> bool {
     }
     RE.is_match(word)
 }
+
 #[test]
 fn test_contains_odd_char() {
     tokens_eq!("A{$@42", "$A%TE");
