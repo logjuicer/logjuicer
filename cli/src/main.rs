@@ -319,7 +319,7 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
                 match index.get_processor(
                     output_mode,
                     &source,
-                    &mut std::collections::HashSet::new(),
+                    &mut logreduce_model::unordered::KnownLines::new(),
                 ) {
                     Ok(mut processor) => {
                         for anomaly in processor.by_ref() {

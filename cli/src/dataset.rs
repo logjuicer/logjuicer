@@ -60,7 +60,7 @@ fn process(path: &Path, dataset: Dataset) -> Result<()> {
                 .inspect(
                     om,
                     &Source::from_pathbuf(fail.to_path_buf()),
-                    &mut std::collections::HashSet::new(),
+                    &mut logreduce_model::unordered::KnownLines::new(),
                 )
                 .collect::<Result<Vec<AnomalyContext>>>()?;
             let anomalies_count = anomalies.len();
