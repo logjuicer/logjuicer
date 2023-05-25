@@ -4,9 +4,10 @@
 //! This module provides the core utilities to use logreduce-index with Read objects.
 
 use anyhow::Result;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::io::Read;
 
+use crate::unordered::KnownLines;
 use crate::{Anomaly, AnomalyContext, ChunkIndex};
 use logreduce_iterator::LogLine;
 
@@ -18,7 +19,7 @@ const CHUNK_SIZE: usize = 512;
 pub struct ChunkTrainer<'a> {
     index: &'a mut ChunkIndex,
     is_json: bool,
-    skip_lines: HashSet<String>,
+    skip_lines: KnownLines,
     baselines: Vec<String>,
     pub line_count: usize,
     pub byte_count: usize,
@@ -29,7 +30,7 @@ impl<'a> ChunkTrainer<'a> {
         ChunkTrainer {
             index,
             is_json,
-            skip_lines: HashSet::new(),
+            skip_lines: KnownLines::new(),
             baselines: Vec::new(),
             line_count: 0,
             byte_count: 0,
@@ -53,8 +54,7 @@ impl<'a> ChunkTrainer<'a> {
             self.byte_count += line.0.len();
             let tokens = self.index.tokenize(raw_str);
 
-            if !self.skip_lines.contains(&tokens) {
-                self.skip_lines.insert(tokens.clone());
+            if self.skip_lines.insert(&tokens) {
                 self.baselines.push(tokens);
 
                 if self.baselines.len() == CHUNK_SIZE {
@@ -92,7 +92,7 @@ pub struct ChunkProcessor<'a, R: Read> {
     /// The list of anomalies recently found.
     anomalies: VecDeque<AnomalyContext>,
     /// The list of unique log lines, to avoid searching a line twice.
-    skip_lines: &'a mut HashSet<String>,
+    skip_lines: &'a mut KnownLines,
     /// The current line coordinate.
     coord: usize,
     /// Total lines count
@@ -122,7 +122,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
         read: R,
         index: &'a ChunkIndex,
         is_json: bool,
-        skip_lines: &'a mut HashSet<String>,
+        skip_lines: &'a mut KnownLines,
     ) -> ChunkProcessor<'a, R> {
         ChunkProcessor {
             reader: logreduce_iterator::BytesLines::new(read, is_json),
@@ -160,9 +160,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
             // Keep in the buffer all the lines until we get CHUNK_SIZE unique lines
             self.buffer.push((line, self.coord));
 
-            if !self.skip_lines.contains(&tokens) {
-                self.skip_lines.insert(tokens.clone());
-
+            if self.skip_lines.insert(&tokens) {
                 self.targets.push(tokens);
                 self.targets_coord.push(self.coord);
 
@@ -346,7 +344,7 @@ fn collect_before(
 #[test]
 fn test_leftovers() {
     let index = crate::hashing_index::new();
-    let mut skip_lines = HashSet::new();
+    let mut skip_lines = KnownLines::new();
     let mut cp = ChunkProcessor::new(std::io::Cursor::new(""), &index, false, &mut skip_lines);
 
     cp.buffer.push((("001 log line".into(), 0), 0));
@@ -421,7 +419,7 @@ fn test_chunk_processor() {
         .join("\n"),
     );
     let mut anomalies = Vec::new();
-    let mut skip_lines = HashSet::new();
+    let mut skip_lines = KnownLines::new();
     let processor = ChunkProcessor::new(data, &index, false, &mut skip_lines);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();

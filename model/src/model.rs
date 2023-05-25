@@ -8,14 +8,16 @@
 use anyhow::{Context, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use url::Url;
 
+use crate::unordered::KnownLines;
 pub mod files;
 pub mod process;
 mod reader;
+pub mod unordered;
 pub mod urls;
 pub mod zuul;
 
@@ -291,7 +293,7 @@ impl Index {
         &'a self,
         output_mode: OutputMode,
         source: &Source,
-        skip_lines: &'a mut HashSet<String>,
+        skip_lines: &'a mut KnownLines,
     ) -> Result<process::ChunkProcessor<crate::reader::DecompressReader>> {
         debug_or_progress(output_mode, &format!("Inspecting {}", source));
         let fp = match source {
@@ -311,7 +313,7 @@ impl Index {
         &'a self,
         output_mode: OutputMode,
         source: &Source,
-        skip_lines: &'a mut HashSet<String>,
+        skip_lines: &'a mut KnownLines,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
         match self.get_processor(output_mode, source, skip_lines) {
             Ok(processor) => Box::new(processor),
@@ -469,7 +471,7 @@ impl Model {
         let mut total_line_count = 0;
         let mut total_anomaly_count = 0;
         for (index_name, sources) in Content::group_sources(&[target.clone()])?.drain() {
-            let mut skip_lines = HashSet::new();
+            let mut skip_lines = KnownLines::new();
             match self.get_index(&index_name) {
                 Some(index) => {
                     for source in sources {
