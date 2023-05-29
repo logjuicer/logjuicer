@@ -11,3 +11,6 @@ members = [
   "cli",
   "generate",
 ]
+
+[profile.release]
+lto = true
