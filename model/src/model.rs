@@ -9,6 +9,7 @@ use anyhow::{Context, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use url::Url;
@@ -20,6 +21,11 @@ mod reader;
 pub mod unordered;
 pub mod urls;
 pub mod zuul;
+
+const MODEL_MAGIC: &str = "LGRD";
+
+// Remember to bump this value when changing the tokenizer or the vectorizer to avoid using incompatible models.
+const MODEL_VERSION: usize = 1;
 
 #[derive(Clone, Copy)]
 pub enum OutputMode {
@@ -434,24 +440,64 @@ impl Model {
         })
     }
 
+    fn validate_magic<R: Read>(input: &mut R) -> Result<()> {
+        bincode::deserialize_from(input)
+            .context("Loading model magic")
+            .and_then(|cookie: String| {
+                if cookie == MODEL_MAGIC {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("bad cookie: {}", cookie))
+                }
+            })
+    }
+
+    fn validate_version<R: Read>(input: &mut R) -> Result<()> {
+        bincode::deserialize_from(input)
+            .context("Loading model version")
+            .and_then(|version: usize| {
+                if version == MODEL_VERSION {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("bad version: {}", version))
+                }
+            })
+    }
+
+    fn validate_timestamp<R: Read>(input: &mut R) -> Result<SystemTime> {
+        bincode::deserialize_from(input).context("Loading model timestamp")
+    }
+
+    fn validate<R: Read>(input: &mut R) -> Result<SystemTime> {
+        Model::validate_magic(input)?;
+        Model::validate_version(input)?;
+        Model::validate_timestamp(input)
+    }
+
+    pub fn check(path: &Path) -> Result<SystemTime> {
+        let mut input =
+            flate2::read::GzDecoder::new(std::fs::File::open(path).context("Can't open file")?);
+        Model::validate(&mut input)
+    }
+
     pub fn load(path: &Path) -> Result<Model> {
         tracing::info!(path = path.to_str(), "Loading provided model");
-        bincode::deserialize_from(flate2::read::GzDecoder::new(
-            std::fs::File::open(path).context("Can't open file")?,
-        ))
-        .context("Can't load model")
+        let mut input =
+            flate2::read::GzDecoder::new(std::fs::File::open(path).context("Can't open file")?);
+        Model::validate(&mut input)?;
+        bincode::deserialize_from(input).context("Can't load model")
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
         tracing::info!(path = path.to_str(), "Saving model");
-        bincode::serialize_into(
-            flate2::write::GzEncoder::new(
-                std::fs::File::create(path).context("Can't create file")?,
-                flate2::Compression::fast(),
-            ),
-            self,
-        )
-        .context("Can't save model")
+        let mut output = flate2::write::GzEncoder::new(
+            std::fs::File::create(path).context("Can't create file")?,
+            flate2::Compression::fast(),
+        );
+        bincode::serialize_into(&mut output, MODEL_MAGIC).context("Can't save cookie")?;
+        bincode::serialize_into(&mut output, &MODEL_VERSION).context("Can't save time")?;
+        bincode::serialize_into(&mut output, &SystemTime::now()).context("Can't save time")?;
+        bincode::serialize_into(output, self).context("Can't save model")
     }
 
     /// Get the matching index for a given Source.
@@ -629,4 +675,17 @@ pub mod noop_index {
         distances.resize(targets.len(), 0.0);
         distances
     }
+}
+
+#[test]
+fn test_save_load() {
+    let model = Model {
+        created_at: SystemTime::now(),
+        baselines: Vec::new(),
+        indexes: HashMap::new(),
+    };
+    let dir = tempfile::tempdir().expect("tmpdir");
+    let model_path = dir.path().join("model.bin");
+    model.save(&model_path).expect("save");
+    Model::load(&model_path).expect("load");
 }
