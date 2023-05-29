@@ -47,11 +47,18 @@ enum Commands {
 
     #[clap(about = "When running in CI, analyze the current build")]
     ZuulBuild {
-        #[clap(help = "The zuul.executor.log_root value", value_name = "PATH")]
-        log_root: String,
-
         #[clap(long, help = "Zuul API url to fetch baselines", value_name = "URL")]
         api_url: String,
+
+        #[clap(long, help = "Look for baseline from the current project")]
+        model_per_project: bool,
+
+        #[clap(
+            parse(from_os_str),
+            help = "The zuul.executor.log_root value",
+            value_name = "PATH"
+        )]
+        log_root: PathBuf,
     },
 
     #[clap(about = "Train a model")]
@@ -99,12 +106,16 @@ impl Cli {
             Commands::Url { url } => {
                 process(progress, self.report, self.model, None, Input::Url(url))
             }
-            Commands::ZuulBuild { log_root, api_url } => process(
+            Commands::ZuulBuild {
+                log_root,
+                api_url,
+                model_per_project,
+            } => process(
                 progress,
                 self.report,
                 self.model,
                 None,
-                Input::ZuulBuild(log_root, api_url),
+                Input::ZuulBuild(log_root, api_url, model_per_project),
             ),
             Commands::Journald { .. } => todo!(),
 
