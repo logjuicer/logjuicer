@@ -961,6 +961,7 @@ dependencies = [
  "mockito",
  "reqwest",
  "serde",
+ "serde_yaml",
  "tempfile",
  "tracing",
  "url",
@@ -2275,5 +2276,6 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
+ "serde_yaml",
  "url",
 ]

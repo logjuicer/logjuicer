@@ -41,6 +41,31 @@ fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
 }
 
 impl Build {
+    pub fn from_inventory(
+        api: Url,
+        inventory: zuul_build::zuul_inventory::InventoryRoot,
+    ) -> Result<Build> {
+        let vars = inventory.all.vars.zuul;
+        let log_url = api
+            .join("t")?
+            .join(&vars.tenant)?
+            .join("build")?
+            .join(&vars.build)
+            .context("Adding build url suffix")?;
+        Ok(Build {
+            api,
+            uuid: vars.build,
+            job_name: vars.job,
+            project: vars.project.name,
+            branch: vars.branch,
+            result: "FAILED".to_string(),
+            pipeline: vars.pipeline,
+            log_url,
+            ref_url: vars.change_url,
+            end_time: Utc::now(),
+            change: 0,
+        })
+    }
     fn get_success_samples(&self) -> Result<Vec<zuul_build::Build>> {
         let base = self.api.join("builds").context("Can't create builds url")?;
         let url = Url::parse_with_params(

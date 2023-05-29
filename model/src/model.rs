@@ -48,6 +48,7 @@ impl OutputMode {
 pub enum Input {
     Path(String),
     Url(String),
+    ZuulBuild(String, String),
 }
 
 impl Input {
@@ -68,6 +69,7 @@ pub enum Content {
     File(Source),
     Directory(Source),
     Zuul(Box<zuul::Build>),
+    LocalZuul(PathBuf, Box<zuul::Build>),
 }
 
 impl std::fmt::Display for Content {
@@ -76,6 +78,7 @@ impl std::fmt::Display for Content {
             Content::File(src) => write!(f, "File({})", src),
             Content::Directory(src) => write!(f, "Directory({})", src),
             Content::Zuul(build) => write!(f, "Zuul({})", build),
+            Content::LocalZuul(src, _build) => write!(f, "LocalZuul({:?})", src.as_os_str()),
         }
     }
 }
@@ -338,6 +341,18 @@ impl Content {
             Input::Url(url_str) => {
                 Content::from_url(Url::parse(&url_str).expect("Failed to parse url"))
             }
+            Input::ZuulBuild(path_str, url_str) => {
+                let path = Path::new(&path_str);
+                let url = Url::parse(&url_str).expect("Failed to parse url");
+                let manifest = std::fs::File::open(path.join("zuul-info").join("inventory.yaml"))
+                    .context("Loading inventory.yaml")?;
+                let inventory_obj =
+                    serde_yaml::from_reader(manifest).context("Decoding inventory.yaml")?;
+                Ok(Content::LocalZuul(
+                    path.to_path_buf(),
+                    Box::new(crate::zuul::Build::from_inventory(url, inventory_obj)?),
+                ))
+            }
         }
     }
 
@@ -362,6 +377,7 @@ impl Content {
                 "Can't discover directory baselines, they need to be provided",
             )),
             Content::Zuul(build) => build.discover_baselines(),
+            Content::LocalZuul(_, build) => build.discover_baselines(),
         })
         .and_then(|baselines| match baselines.len() {
             0 => Err(anyhow::anyhow!("Empty discovered baselines")),
@@ -394,6 +410,7 @@ impl Content {
                 Source::Remote(_, url) => Box::new(Source::httpdir_iter(url)),
             },
             Content::Zuul(build) => Box::new(build.sources_iter()),
+            Content::LocalZuul(src, _) => Box::new(Source::dir_iter(src.as_path())),
         }
     }
 
