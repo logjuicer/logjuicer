@@ -1,0 +1,24 @@
+# Update from https://github.com/logreduce/logreduce/releases
+logreduce_version: v0.7.0-rc1
+
+# Set this to true to run logreduce
+logreduce_optin: false
+
+# How old (in days) can a built model be used
+logreduce_model_age: 7
+
+# Set this to false if the job is used accross project to re-use a single model
+logreduce_model_per_project: true
+
+# Enable logreduce debug logs
+logreduce_debug: false
+
+# Maximum runtime in seconds
+logreduce_max_run_time: 900
+
+# Zuul API to query for baseline
+logreduce_zuul_web: https://softwarefactory-project.io/zuul
+logreduce_model_store_url: https://softwarefactory-project.io/logs/classifiers
+
+# Local path
+logreduce_tmp_dir: /tmp/logreduce

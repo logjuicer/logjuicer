@@ -1,0 +1,54 @@
+---
+- name: Set model name
+  set_fact:
+    _model_name: "{% if logreduce_model_per_project|bool %}{{ zuul.project.name }}/{% endif %}{{ zuul.job }}/{{ zuul.branch }}.bin"
+    _model_path: "{{ logreduce_tmp_dir }}/model.bin"
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    mode: 0700
+    state: directory
+  with_items:
+    - "{{ logreduce_tmp_dir }}"
+
+- name: Download pre-built model
+  get_url:
+    url: "{{ logreduce_model_store_url }}/{{ _model_name }}"
+    dest: "{{ _model_path }}"
+  failed_when: false
+
+- name: Check pre-built model
+  shell: |
+    {{ logreduce_cmd }} model-check {{ _model_path }} --max-age {{ logreduce_model_age }} || rm -f {{ _model_path }}
+  register: _prebuilt_model_status
+
+- name: Analyse the logs
+  command: >
+    /usr/bin/time -v timeout {{ logreduce_max_run_time }}s {{ logreduce_cmd }}
+      --model {{ _model_path }}
+      --report {{ zuul.executor.log_root }}/logreduce.html
+      zuul-build
+      --api-url {{ logreduce_zuul_web }}
+      {% if logreduce_model_per_project|bool %}--model-per-project{% endif %}
+      {{ zuul.executor.log_root }}
+
+- name: Copy built model
+  when: "'Good model' not in _prebuilt_model_status.stdout"
+  block:
+    - name: Move model to executor log
+      command: "mv {{ _model_path }} {{ zuul.executor.log_root }}/model.bin"
+
+    - name: Write model name
+      copy:
+        content: "{{ _model_name }}"
+        dest: "{{ zuul.executor.log_root }}/model.name"
+
+- name: Return the report artifact
+  delegate_to: localhost
+  zuul_return:
+    data:
+      zuul:
+        artifacts:
+          - name: "LogReduce report"
+            url: "logreduce.html"

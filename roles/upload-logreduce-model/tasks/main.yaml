@@ -1,7 +1,7 @@
 ---
 - name: Check for a model
   stat:
-    path: "{{ zuul.executor.log_root }}/model.clf"
+    path: "{{ zuul.executor.log_root }}/model.bin"
     get_checksum: no
     get_mime: no
     get_attributes: no
@@ -9,7 +9,7 @@
   delegate_to: localhost
 
 - name: Upload classifier model
-  # Avoid error
+  # Ignore errors when uploading the model because we don't want to make the job fail in that case.
   ignore_errors: yes
   block:
     - name: Get model name
@@ -19,7 +19,7 @@
 
     - name: Set model path
       set_fact:
-        _model_dest_path: "{{ logclassify_model_root }}/{{ _model_name.stdout }}"
+        _model_dest_path: "{{ logreduce_model_root }}/{{ _model_name.stdout }}"
 
     - name: Ensure classifier directory exists
       file:
@@ -37,7 +37,7 @@
         path: "{{ zuul.executor.log_root }}/model.{{ item }}"
         state: absent
       with_items:
-        - clf
+        - bin
         - name
       delegate_to: localhost
   when: _model_file.stat.exists
