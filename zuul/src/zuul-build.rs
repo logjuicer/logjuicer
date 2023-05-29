@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Red Hat
+// SPDX-License-Identifier: Apache-2.0
+
 //! This library provides data types for [zuul-ci](https://zuul-ci.org).
 //!
 //! # Installation
@@ -12,6 +15,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+pub mod zuul_inventory;
 
 /// A Build result.
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
