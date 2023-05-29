@@ -60,6 +60,12 @@ enum Commands {
         datasets: Vec<String>,
     },
 
+    #[clap(about = "Check a pre-built model")]
+    CheckModel {
+        #[clap(long, help = "Validate model age", value_name = "DAYS")]
+        max_age: Option<usize>,
+    },
+
     // Secret options to debug specific part of the process
     #[clap(hide = true, about = "List source groups")]
     DebugGroups { target: String },
@@ -114,6 +120,30 @@ impl Cli {
                     logreduce_model::hashing_index::new,
                 )?;
                 model.save(&model_path)
+            }
+
+            Commands::CheckModel { max_age } => {
+                let model_path = self.model.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "check-model requires a path, please add a `--model FILE` argument"
+                    )
+                })?;
+                let timestamp = Model::check(&model_path)?;
+                match max_age {
+                    Some(age) => {
+                        let elapsed = std::time::SystemTime::now()
+                            .duration_since(timestamp)
+                            .context("Duration")?;
+                        if elapsed <= std::time::Duration::from_secs(3600 * 24 * age as u64) {
+                            Ok(())
+                        } else {
+                            Err(anyhow::anyhow!("The model is too old: {:#?}", elapsed))
+                        }
+                    }
+                    None => Ok(()),
+                }?;
+                println!("Good model: created_at {:#?}", timestamp);
+                Ok(())
             }
 
             Commands::Test { datasets } => dataset::test_datasets(&datasets),

@@ -41,6 +41,7 @@ flate2 = "1.0"
 criterion = "0.3"
 logreduce-generate = { path = "../generate" }
 mockito = "0.31"
+tempfile = "*"
 
 [[bench]]
 name = "bench-model"
