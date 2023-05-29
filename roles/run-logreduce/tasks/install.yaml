@@ -1,0 +1,26 @@
+---
+- name: Check for pre-installed logreduce
+  command: bash -c "type -p logreduce"
+  environment:
+    PATH: "{{ ansible_env.PATH }}:{{ ansible_env.HOME }}/.local/bin"
+  register: _logreduce_cmd_path
+  failed_when: false
+  changed_when: false
+
+- name: Install logreduce if needed
+  block:
+    - name: Download latest release
+      shell: |
+        mkdir -p ~/.local/
+        cd ~/.local
+        curl -L https://github.com/logreduce/logreduce/releases/download/{{ logreduce_version }}/logreduce-x86_64-linux.tar.bz2 | tar xjvf -
+
+    - name: Update logreduce command path
+      command: "realpath ~/.local/bin/logreduce"
+      register: _logreduce_cmd_path
+      changed_when: false
+  when: _logreduce_cmd_path.rc != 0
+
+- name: Set logreduce_cmd fact
+  set_fact:
+    logreduce_cmd: "{% if logreduce_debug %}env LOGREDUCE_LOG=debug {% endif %}{{ _logreduce_cmd_path.stdout }}"
