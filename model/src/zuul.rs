@@ -13,6 +13,7 @@ use crate::{Baselines, Content, Source};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Build {
     api: Url,
+    per_project: bool,
     pub uuid: String,
     pub job_name: String,
     pub project: String,
@@ -44,6 +45,7 @@ impl Build {
     pub fn from_inventory(
         api: Url,
         inventory: zuul_build::zuul_inventory::InventoryRoot,
+        per_project: bool,
     ) -> Result<Build> {
         let vars = inventory.all.vars.zuul;
         let log_url = api
@@ -54,6 +56,7 @@ impl Build {
             .context("Adding build url suffix")?;
         Ok(Build {
             api,
+            per_project,
             uuid: vars.build,
             job_name: vars.job,
             project: vars.project.name,
@@ -68,16 +71,17 @@ impl Build {
     }
     fn get_success_samples(&self) -> Result<Vec<zuul_build::Build>> {
         let base = self.api.join("builds").context("Can't create builds url")?;
-        let url = Url::parse_with_params(
-            base.as_str(),
-            [
-                ("job_name", self.job_name.as_str()),
-                // ("complete", "true"),
-                ("limit", "500"),
-                ("result", "SUCCESS"),
-            ],
-        )
-        .context("Can't create query url")?;
+        let mut args = vec![
+            ("job_name", self.job_name.as_str()),
+            ("complete", "true"),
+            ("limit", "500"),
+            ("result", "SUCCESS"),
+        ];
+        if self.per_project {
+            args.push(("project", self.project.as_str()))
+        };
+        let url =
+            Url::parse_with_params(base.as_str(), args.iter()).context("Can't create query url")?;
         tracing::info!(url = url.as_str(), "Discovering baselines for {}", self);
         get_builds(&self.api, &url)
     }
@@ -158,6 +162,8 @@ impl Build {
 fn new_content(api: Url, build: zuul_build::Build) -> Content {
     Content::Zuul(Box::new(Build {
         api,
+        // TODO: make this configurable
+        per_project: false,
         uuid: build.uuid,
         job_name: build.job_name,
         project: build.project,
@@ -306,6 +312,7 @@ fn test_zuul_api() -> Result<()> {
     crate::reader::drop_url(&url.join("/zuul/api/")?, &url.join(api_path)?)?;
     let content = Content::from_zuul_url(&build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(Build {
+        per_project: false,
         api: url.join("/zuul/api/")?,
         uuid: "a498f74ab32b49ffa9c9e7463fbf8885".to_string(),
         job_name: "zuul-tox-py38-multi-scheduler".to_string(),
