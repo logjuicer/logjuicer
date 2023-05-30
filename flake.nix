@@ -1,3 +1,4 @@
+# Build release with: nix -L build .#release
 {
   description = "The logreduce app";
 
@@ -41,8 +42,38 @@
             pkgs.blas
           ]);
 
-        # static build
         toolchain = fenix.packages.${system}.default.toolchain;
+
+        # static build
+        toolchain-musl = with fenix.packages.${system};
+          combine [
+            minimal.rustc
+            minimal.cargo
+            targets.x86_64-unknown-linux-musl.latest.rust-std
+          ];
+        naersk-musl-lib = naersk.lib.${system}.override {
+          cargo = toolchain-musl;
+          rustc = toolchain-musl;
+        };
+        static-exe = naersk-musl-lib.buildPackage {
+          pname = "logreduce-cli";
+          src = self;
+
+          nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc ];
+
+          CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+          CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+
+          # lorgeduce-httpdir test are broken with musl
+          doCheck = false;
+        };
+        release = pkgs.runCommand "logreduce-release" { } ''
+          echo Creating release tarball with ${static-exe}
+          cd ${static-exe};
+          tar -cf - bin/ | ${pkgs.bzip2}/bin/bzip2 -9 > $out
+          echo cp $out logreduce-x86_64-linux.tar.bz2
+        '';
+
       in {
         defaultPackage = logreduce;
         apps.default = flake-utils.lib.mkApp { drv = logreduce; };
@@ -55,5 +86,8 @@
         packages.python = python;
         devShells.python = pkgs.mkShell { buildInputs = [ python ]; };
 
+        # nix build .#static
+        packages.static = static-exe;
+        packages.release = release;
       });
 }
