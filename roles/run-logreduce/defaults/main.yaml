@@ -1,5 +1,5 @@
 # Update from https://github.com/logreduce/logreduce/releases
-logreduce_version: v0.7.0-rc1
+logreduce_version: 0.7.0-rc1
 
 # Set this to true to run logreduce
 logreduce_optin: false
@@ -17,8 +17,8 @@ logreduce_debug: false
 logreduce_max_run_time: 900
 
 # Zuul API to query for baseline
-logreduce_zuul_web: https://softwarefactory-project.io/zuul
+logreduce_zuul_web: https://softwarefactory-project.io/zuul/
 logreduce_model_store_url: https://softwarefactory-project.io/logs/classifiers
 
 # Local path
-logreduce_tmp_dir: /tmp/logreduce
+logreduce_tmp_dir: "{{ ansible_env.HOME }}/.logreduce"
