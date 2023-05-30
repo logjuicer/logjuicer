@@ -25,7 +25,7 @@
 
 - name: Analyse the logs
   command: >
-    /usr/bin/time -v timeout {{ logreduce_max_run_time }}s {{ logreduce_cmd }}
+    timeout {{ logreduce_max_run_time }}s {{ logreduce_cmd }}
       --model {{ _model_path }}
       --report {{ zuul.executor.log_root }}/logreduce.html
       zuul-build
