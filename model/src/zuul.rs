@@ -173,7 +173,7 @@ fn new_content(api: Url, build: zuul_build::Build) -> Content {
         log_url: build.log_url.expect("Invalid build"),
         ref_url: build.ref_url.expect("Invalid build"),
         end_time: build.end_time,
-        change: build.change.expect("Invalid build"),
+        change: build.change.unwrap_or(0),
     }))
 }
 
