@@ -29,7 +29,7 @@
 
     - name: Upload classifier
       copy:
-        src: "{{ zuul.executor.log_root }}/model.clf"
+        src: "{{ zuul.executor.log_root }}/model.bin"
         dest: "{{ _model_dest_path }}"
 
     - name: Remove classifier from job logs
