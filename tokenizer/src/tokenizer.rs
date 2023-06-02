@@ -75,7 +75,7 @@ fn global_filter(line: &str) -> bool {
             // shell debugs
             r"|(^\+\+ echo [^ ]+$)",
             // key's randomart
-            r#"|(^[ '",]*\|.{17}\|[ '",]*$)"#
+            r#"|([ '",]*\|.{17}\|[ '",]*$)"#
         )).unwrap();
     }
     let is_single_word = !line.contains(|c: char| c.is_whitespace());
@@ -95,6 +95,7 @@ fn test_global_filter() {
     );
     assert_eq!(process("++ echo mswAxrrS1YwyGtIut9Vd"), "%GL_FILTER");
     assert!(global_filter("|        =+ooo=+.o|"));
+    assert!(global_filter("hostname: |.o.B ..+S        |"));
     assert!(global_filter("                    \"|           oo... |\""));
 }
 
@@ -164,8 +165,13 @@ fn test_contains_odd_char() {
 /// Check if a word only contains hexa and sep char.
 fn is_uid(word: &str) -> bool {
     lazy_static! {
-        static ref RE: Regex =
-            Regex::new(concat!("^(:*", r"[\[\]0-9a-fA-FxZ]+[:.-]*", ")+$")).unwrap();
+        static ref RE: Regex = Regex::new(concat!(
+            "^(:*",
+            r"[\[\]0-9a-fA-FxZ]+[:.-]*",
+            r"|rabbitmq-cluster-id-.*",
+            ")+$"
+        ))
+        .unwrap();
     }
     RE.is_match(word)
 }
@@ -174,6 +180,10 @@ fn test_is_uid() {
     tokens_eq!("the_ip is 127.0.0.1", "the_ip is ::1");
     tokens_eq!("the_mac is aa:bb:cc", "the_mac is 00:11:cc");
     tokens_eq!("the_num is 0x4243", "the_num is 0x4142");
+    tokens_eq!(
+        "internal_cluster_id \"rabbitmq-cluster-id-WL19_cCo6Ttpy8mXLuPZ9g\"",
+        "internal_cluster_id \"rabbitmq-cluster-id-WM19-cCo6Ttpy8mXLuPZ8g\""
+    );
 }
 
 /// 3 x 4letters word separated by -
