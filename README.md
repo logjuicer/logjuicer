@@ -29,11 +29,12 @@ For example this happens with testr where success logs only contains 'SUCCESS'.
 Install the `logreduce` command line by running:
 
 ```
-cargo install --git https://github.com/logreduce/logreduce-rust logreduce-cli
+cargo install --git https://github.com/logreduce/logreduce logreduce-cli
 ```
 
 > If you don't have `cargo`, see this [install rust](https://www.rust-lang.org/tools/install) documentation.
 
+Or grab the latest release assets `logreduce-x86_64-linux.tar.bz2` from https://github.com/logreduce/logreduce/releases
 
 ## Use
 
@@ -47,6 +48,12 @@ Analyze a remote url:
 
 ```ShellSession
 $ logreduce url https://zuul/build/uuid
+```
+
+Compare two inputs (when baseline discovery doesn't work):
+
+```ShellSession
+$ logreduce diff https://zuul/build/success-build https://zuul/build/failed-build
 ```
 
 Save and re-use trained model using the `--model file-path` argument.
@@ -69,7 +76,7 @@ To read more about the project:
 Clone the project and run tests:
 
 ```
-git clone https://github.comm/logreduce/logreduce-rust && cd logreduce-rust
+git clone https://github.comm/logreduce/logreduce && cd logreduce
 cargo test && cargo fmt && cargo clippy
 ```
 
