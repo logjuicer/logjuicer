@@ -1,7 +1,13 @@
 # Copied from https://github.com/Geal/nom/blob/main/.github/workflows/ci.yml
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 env:
   CARGO_INCREMENTAL: 0
