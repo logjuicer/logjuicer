@@ -43,16 +43,16 @@ fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
 
 impl Build {
     pub fn from_inventory(
-        api: Url,
+        api_base: Url,
         inventory: zuul_build::zuul_inventory::InventoryRoot,
         per_project: bool,
     ) -> Result<Build> {
         let vars = inventory.all.vars.zuul;
+        let api = api_base
+            .join(&format!("api/tenant/{}/", vars.tenant))
+            .context("Adding tenant apis")?;
         let log_url = api
-            .join("t")?
-            .join(&vars.tenant)?
-            .join("build")?
-            .join(&vars.build)
+            .join(&format!("api/tenant/{}/build/{}", vars.tenant, vars.build))
             .context("Adding build url suffix")?;
         Ok(Build {
             api,
