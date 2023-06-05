@@ -1,5 +1,5 @@
 # Update from https://github.com/logreduce/logreduce/releases
-logreduce_version: 0.7.0-rc1
+logreduce_version: 0.7.0
 
 # Set this to true to run logreduce
 logreduce_optin: false

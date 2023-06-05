@@ -7,7 +7,7 @@
     if test -f /bin/logreduce; then
       ln -s /bin/logreduce bin
     else
-      curl -L https://github.com/logreduce/logreduce/releases/download/v{{ logreduce_version }}/logreduce-x86_64-linux.tar.bz2 | tar xjvf -
+      curl -L https://github.com/logreduce/logreduce/releases/download/{{ logreduce_version }}/logreduce-x86_64-linux.tar.bz2 | tar xjvf -
     fi
 
 - name: Set logreduce_cmd fact
