@@ -16,11 +16,11 @@ name = "httpdir"
 path = "src/httpdir.rs"
 
 [dependencies]
-threadpool = "1"
-url = "2"
-reqwest = { version = "0.11", default-features = false, features = ["blocking", "rustls-tls", "gzip", "deflate"] }
-regex = "1"
-lazy_static = "1.4.0"
+threadpool = { workspace = true }
+url = { workspace = true }
+reqwest = { workspace = true }
+regex = { workspace = true }
+lazy_static = { workspace = true }
 
 [dev-dependencies]
-mockito = "0.31"
+mockito = { workspace = true }
