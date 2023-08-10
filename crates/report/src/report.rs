@@ -349,7 +349,7 @@ fn render_lines(loglines: &mut Node, anomalies: &[logreduce_model::AnomalyContex
     for anomaly in anomalies {
         let starting_pos = anomaly.anomaly.pos - 1 - anomaly.before.len();
         if let Some(last_pos) = last_pos {
-            if last_pos != starting_pos {
+            if last_pos < starting_pos {
                 loglines.hr().attr("class=\"ls\"");
             }
         }
