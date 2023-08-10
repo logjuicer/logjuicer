@@ -273,11 +273,11 @@ fn parse_index_of(base_url: Url, page: &str) -> Result<Vec<Url>> {
 
 #[test]
 fn test_httpdir() {
-    use mockito::mock;
+    let mut server = mockito::Server::new();
 
     let root = "/logs/98/24398/5/check/dhall-diff/23b9eed/";
-    let url = Url::parse(&mockito::server_url()).unwrap().join(root);
-    let base_mock = mock("GET", root)
+    let url = Url::parse(&server.url()).unwrap().join(root);
+    let base_mock = server.mock("GET", root)
         .with_body(
             r#"
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
@@ -300,13 +300,14 @@ fn test_httpdir() {
 </body></html>
 "#).expect(2).create(); // we expect 2 because we run the crawler twice
 
-    let info_mock = mock("GET", &*format!("{}zuul-info/", root)).with_body(
+    let info_mock = server.mock("GET", &*format!("{}zuul-info/", root)).with_body(
         r#"
 <tr><td valign="top"><img src="/icons/back.gif" alt="[PARENTDIR]"></td><td><a href="/logs/98/24398/5/check/dhall-diff/23b9eed/">Parent Directory</a></td><td>&nbsp;</td><td align="right">  - </td></tr>
 <tr><td valign="top"><img src="/icons/text.gif" alt="[TXT]"></td><td><a href="inventory.yaml">inventory.yaml</a></td><td align="right">2022-03-23 17:31  </td><td align="right">817 </td></tr>
 "#).expect(2).create();
 
-    let catch_all = mock("GET", mockito::Matcher::Any)
+    let catch_all = server
+        .mock("GET", mockito::Matcher::Any)
         .with_body("oops")
         .expect(0)
         .create();

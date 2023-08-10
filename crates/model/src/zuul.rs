@@ -276,11 +276,12 @@ fn test_zuul_url() {
 
 #[test]
 fn test_zuul_api() -> Result<()> {
-    use mockito::mock;
-    let url = Url::parse(&mockito::server_url())?;
+    let mut server = mockito::Server::new();
+    let url = Url::parse(&server.url())?;
     let build_url = url.join("/zuul/build/2498d287ec4b442a95184b7a4bec9b2d")?;
     let api_path = "/zuul/api/build/2498d287ec4b442a95184b7a4bec9b2d";
-    let base_mock = mock("GET", api_path)
+    let base_mock = server
+        .mock("GET", api_path)
         .with_body(
             r#"{
               "uuid": "a498f74ab32b49ffa9c9e7463fbf8885",
@@ -304,7 +305,8 @@ fn test_zuul_api() -> Result<()> {
         )
         .expect(1)
         .create();
-    let catch_all = mock("GET", mockito::Matcher::Any)
+    let catch_all = server
+        .mock("GET", mockito::Matcher::Any)
         .with_body("oops")
         .expect(0)
         .create();

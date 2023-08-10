@@ -13,15 +13,10 @@ mod dataset;
 #[clap(version, about, long_about = None)]
 #[clap(disable_help_subcommand = true)]
 struct Cli {
-    #[clap(long, parse(from_os_str), help = "Create an html report")]
+    #[clap(long, help = "Create an html report")]
     report: Option<PathBuf>,
 
-    #[clap(
-        long,
-        parse(from_os_str),
-        help = "Load or save the model",
-        value_name = "FILE"
-    )]
+    #[clap(long, help = "Load or save the model", value_name = "FILE")]
     model: Option<PathBuf>,
 
     #[clap(subcommand)]
@@ -53,11 +48,7 @@ enum Commands {
         #[clap(long, help = "Look for baseline from the current project")]
         model_per_project: bool,
 
-        #[clap(
-            parse(from_os_str),
-            help = "The zuul.executor.log_root value",
-            value_name = "PATH"
-        )]
+        #[clap(help = "The zuul.executor.log_root value", value_name = "PATH")]
         log_root: PathBuf,
     },
 
