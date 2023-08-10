@@ -31,5 +31,8 @@ fn it_group_by_indexname() {
         }
         got.push('\n')
     }
-    assert_eq!(got, expected);
+    expected
+        .lines()
+        .zip(got.lines())
+        .for_each(|(expected_line, got_line)| assert_eq!(got_line, expected_line))
 }

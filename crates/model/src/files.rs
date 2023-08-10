@@ -132,9 +132,26 @@ fn parent_str(path: &Path) -> Option<(&'_ Path, &'_ str)> {
     })
 }
 
+fn remove_uid(base: &str) -> String {
+    lazy_static::lazy_static! {
+        // ignore components that are 64 char long
+        static ref RE: regex::Regex = regex::Regex::new("[a-zA-Z0-9]{63,64}").unwrap();
+    }
+    RE.replace_all(base, "UID").to_string()
+}
+
+#[test]
+fn test_uid_remove() {
+    assert_eq!(
+        "UID",
+        remove_uid("6339eec3cA2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59bvwstc")
+    )
+}
+
 impl IndexName {
     pub fn from_path(base: &str) -> IndexName {
-        let path = Path::new(base);
+        let base_no_id = remove_uid(base);
+        let path = Path::new(&base_no_id);
         let filename: &str = path
             .file_name()
             .and_then(|os_str| os_str.to_str())
@@ -186,6 +203,13 @@ fn log_model_name() {
         (
             "zuul/merger.log",
             ["zuul/merger.log", "zuul/merger.log.2017-11-12"],
+        ),
+        (
+            "pod/UID.txt",
+            [
+                "pod/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59bvwstc.txt",
+                "pod/6339eec3cA2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59bvwstc.txt",
+            ],
         ),
     ])
     .for_each(|(expected_model, paths)| {
