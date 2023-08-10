@@ -3,12 +3,13 @@
   description = "The logreduce app";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/release-22.11";
+    # nixpkgs is tracking nixpkgs-unstable
+    nixpkgs.url = "github:NixOS/nixpkgs/3d6ebeb283be256f008541ce2b089eb5fb0e4e01";
     naersk.url =
-      "github:nix-community/naersk/88cd22380154a2c36799fe8098888f0f59861a15";
+      "github:nix-community/naersk/d9a33d69a9c421d64c8d925428864e93be895dcc";
     naersk.inputs.nixpkgs.follows = "nixpkgs";
     fenix.url =
-      "github:nix-community/fenix/2914d6b361c565356da6c03a8b36bc240f188aef";
+      "github:nix-community/fenix/6c9f0709358f212766cff5ce79f6e8300ec1eb91";
     fenix.inputs.nixpkgs.follows = "nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
   };
@@ -19,7 +20,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
         naersk-lib = naersk.lib."${system}";
         logreduce = naersk-lib.buildPackage {
-          pname = "logreduce-cli";
+          pname = "logreduce";
           src = self;
           nativeBuildInputs = with pkgs; [ openssl pkg-config ];
           doCheck = true;
@@ -56,7 +57,7 @@
           rustc = toolchain-musl;
         };
         static-exe = naersk-musl-lib.buildPackage {
-          pname = "logreduce-cli";
+          pname = "logreduce";
           src = self;
 
           nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc ];
