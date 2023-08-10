@@ -1,15 +1,15 @@
 [workspace]
 members = [
-  "iterator",
-  "tokenizer",
-  "index",
-  "model",
-  "zuul",
-  "report",
-  "cache",
-  "httpdir",
-  "cli",
-  "generate",
+  "crates/iterator",
+  "crates/tokenizer",
+  "crates/index",
+  "crates/model",
+  "crates/zuul",
+  "crates/report",
+  "crates/cache",
+  "crates/httpdir",
+  "crates/cli",
+  "crates/generate",
 ]
 
 [profile.release]
