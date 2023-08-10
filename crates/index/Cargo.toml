@@ -17,14 +17,14 @@ name = "logreduce_index"
 path = "src/index.rs"
 
 [dependencies]
-sprs = { version = "0.11", features = ["serde"] }
-fxhash = "0.2"
-itertools = "0.10"
+sprs = { workspace = true }
+fxhash = { workspace = true }
+itertools = { workspace = true }
 # fasthash = "0.4"
-bincode = "1.3"
+bincode = { workspace = true }
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = { workspace = true }
 logreduce-generate = { path = "../generate" }
 
 [[bench]]

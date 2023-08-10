@@ -17,21 +17,21 @@ name = "logreduce"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = "1.0"
-itertools = "0.10"
+anyhow = { workspace = true }
+itertools = { workspace = true }
 logreduce-model = { path = "../model" }
 logreduce-report = { path = "../report" }
 logreduce-iterator = { path = "../iterator" }
-clap = { version = "3", features = ["derive"] }
-atty = "0.2"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-tree = "0.2"
-tracing-chrome = "0.5"
+clap = { workspace = true }
+atty = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-tree = { workspace = true }
+tracing-chrome = { workspace = true }
 
 # dataset eval
-serde_yaml = "*"
-serde = { version = "1.0", features = ["derive"] }
+serde_yaml = { workspace = true }
+serde = { workspace = true }
 
 # debug helper
 logreduce-tokenizer = { path = "../tokenizer" }

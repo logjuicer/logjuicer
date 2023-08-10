@@ -17,32 +17,32 @@ name = "logreduce_model"
 path = "src/model.rs"
 
 [dependencies]
-anyhow = "1.0"
-walkdir = "2.3"
+anyhow = { workspace = true }
+walkdir = { workspace = true }
 logreduce-index = { path = "../index" }
 logreduce-tokenizer = { path = "../tokenizer" }
 logreduce-iterator = { path = "../iterator" }
 logreduce-httpdir = { path = "../httpdir" }
 logreduce-cache = { path = "../cache" }
 zuul-build = { path = "../zuul" }
-url = { version = "2", features = ["serde"] }
-reqwest = { version = "0.11", default-features = false, features = ["blocking", "rustls-tls", "gzip", "deflate"] }
-serde = "1.0"
-serde_yaml = "*"
-tracing = "0.1"
-lazy_static = "1.4.0"
-itertools = "0.10"
-chrono = { version = "0.4", features = ["serde"] }
+url = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+tracing = { workspace = true }
+lazy_static = { workspace = true }
+itertools = { workspace = true }
+chrono = { workspace = true }
 
 # Model save/load
-bincode = "1.3"
-flate2 = "1.0"
+bincode = { workspace = true }
+flate2 = { workspace = true }
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = { workspace = true }
 logreduce-generate = { path = "../generate" }
-mockito = "0.31"
-tempfile = "*"
+mockito = { workspace = true }
+tempfile = { workspace = true }
 
 [[bench]]
 name = "bench-model"

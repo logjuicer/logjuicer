@@ -17,5 +17,5 @@ name = "logreduce_generate"
 path = "src/generate.rs"
 
 [dependencies]
-rand = "0.8"
-rand_chacha = "0.3"
+rand = { workspace = true }
+rand_chacha = { workspace = true }

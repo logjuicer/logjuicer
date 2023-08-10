@@ -16,9 +16,9 @@ name = "logreduce_cache"
 path = "src/cache.rs"
 
 [dependencies]
-anyhow = "1.0"
-xdg = "^2.1"
-sha2 = "0.10"
-bincode = "1.3"
-url = { version = "2", features = ["serde"] }
-flate2 = "1.0"
+anyhow = { workspace = true }
+xdg = { workspace = true }
+sha2 = { workspace = true }
+bincode = { workspace = true }
+url = { workspace = true }
+flate2 = { workspace = true }

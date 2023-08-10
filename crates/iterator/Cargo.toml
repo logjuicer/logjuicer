@@ -17,4 +17,4 @@ name = "logreduce_iterator"
 path = "src/iterator.rs"
 
 [dependencies]
-bytes = "1.1"
+bytes = { workspace = true }
