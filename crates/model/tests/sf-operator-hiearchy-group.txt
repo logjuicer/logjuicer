@@ -1,8 +1,8 @@
 bundle-catalog-ns/events.txt: local: k8s-resources/bundle-catalog-ns/events.txt
 bundle-catalog-ns/resources-all.txt: local: k8s-resources/bundle-catalog-ns/resources-all.txt
 catalogsource.operators.coreos.com/sf-operator-catalog.txt: local: k8s-resources/bundle-catalog-ns/catalogsource.operators.coreos.com/sf-operator-catalog.txt
+configmap/UID.txt: local: k8s-resources/bundle-catalog-ns/configmap/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b6e7ee.txt
 configmap/cert-manager-webhook.txt: local: k8s-resources/bundle-catalog-ns/configmap/cert-manager-webhook.txt
-configmap/eeccadaebdaacbecbddcbcbbeee.txt: local: k8s-resources/bundle-catalog-ns/configmap/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b6e7ee.txt
 configmap/gerrit-pi-config-map.txt: local: k8s-resources/sf/configmap/gerrit-pi-config-map.txt
 configmap/git-server-pi-config-map.txt: local: k8s-resources/sf/configmap/git-server-pi-config-map.txt
 configmap/kube-root-ca.crt.txt: local: k8s-resources/bundle-catalog-ns/configmap/kube-root-ca.crt.txt local: k8s-resources/sf/configmap/kube-root-ca.crt.txt
@@ -43,8 +43,8 @@ deployment.apps/nodepool-launcher.txt: local: k8s-resources/sf/deployment.apps/n
 deployment.apps/sf-operator-controller-manager.txt: local: k8s-resources/bundle-catalog-ns/deployment.apps/sf-operator-controller-manager.txt
 deployment.apps/zuul-web.txt: local: k8s-resources/sf/deployment.apps/zuul-web.txt
 job-output.txt: local: job-output.txt.gz
+job.batch/UID.txt: local: k8s-resources/bundle-catalog-ns/job.batch/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b6e7ee.txt
 job.batch/config-base-secret.txt: local: k8s-resources/sf/job.batch/config-base-secret.txt
-job.batch/eeccadaebdaacbecbddcbcbbeee.txt: local: k8s-resources/bundle-catalog-ns/job.batch/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b6e7ee.txt
 job.batch/gerrit-post-init.txt: local: k8s-resources/sf/job.batch/gerrit-post-init.txt
 job.batch/setup-config-repo.txt: local: k8s-resources/sf/job.batch/setup-config-repo.txt
 ks-cluster-resources/nodes.txt: local: k8s-cluster-resources/nodes.txt
@@ -57,8 +57,8 @@ persistentvolumeclaim/zookeeper-data-zookeeper-.txt: local: k8s-resources/sf/per
 persistentvolumeclaim/zookeeper-zookeeper-.txt: local: k8s-resources/sf/persistentvolumeclaim/zookeeper-zookeeper-0.txt
 persistentvolumeclaim/zuul-executor-zuul-executor-.txt: local: k8s-resources/sf/persistentvolumeclaim/zuul-executor-zuul-executor-0.txt
 persistentvolumeclaim/zuul-scheduler-zuul-scheduler-.txt: local: k8s-resources/sf/persistentvolumeclaim/zuul-scheduler-zuul-scheduler-0.txt
-pod/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b8t6m9: local: k8s-resources/bundle-catalog-ns/pod/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b8t6m9-extract-logs.txt
-pod/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b8t6m9.txt: local: k8s-resources/bundle-catalog-ns/pod/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b8t6m9.txt
+pod/UID: local: k8s-resources/bundle-catalog-ns/pod/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b8t6m9-extract-logs.txt
+pod/UID.txt: local: k8s-resources/bundle-catalog-ns/pod/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59b8t6m9.txt
 pod/cert: local: k8s-resources/bundle-catalog-ns/pod/cert-manager-566c69b6cb-mgztl-cert-manager-controller-logs.txt local: k8s-resources/bundle-catalog-ns/pod/cert-manager-566c69b6cb-mgztl.txt local: k8s-resources/bundle-catalog-ns/pod/cert-manager-cainjector-f9b6b49-bqm6b-cert-manager-cainjector-logs.txt local: k8s-resources/bundle-catalog-ns/pod/cert-manager-cainjector-f9b6b49-bqm6b.txt local: k8s-resources/bundle-catalog-ns/pod/cert-manager-webhook-6845dffd6f-4gpzw-cert-manager-webhook-logs.txt local: k8s-resources/bundle-catalog-ns/pod/cert-manager-webhook-6845dffd6f-4gpzw.txt
 pod/config: local: k8s-resources/sf/pod/config-base-secret-jbdtd-sf-operator-logs.txt local: k8s-resources/sf/pod/config-base-secret-jbdtd.txt
 pod/gerrit: local: k8s-resources/sf/pod/gerrit-0-gerrit-logs.txt local: k8s-resources/sf/pod/gerrit-0.txt local: k8s-resources/sf/pod/gerrit-post-init-6xn2j-gerrit-post-init-container-logs.txt local: k8s-resources/sf/pod/gerrit-post-init-6xn2j.txt

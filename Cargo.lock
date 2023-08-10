@@ -1054,6 +1054,7 @@ dependencies = [
  "logreduce-iterator",
  "logreduce-tokenizer",
  "mockito",
+ "regex",
  "reqwest",
  "serde",
  "serde_yaml",
