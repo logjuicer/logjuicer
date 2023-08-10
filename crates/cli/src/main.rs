@@ -58,7 +58,7 @@ enum Commands {
         baselines: Vec<String>,
     },
 
-    #[clap(about = "Evaluate dataset")]
+    #[clap(about = "Evaluate datasets from the logreduce-tests project")]
     Test {
         #[clap(required = true)]
         datasets: Vec<String>,
@@ -71,6 +71,8 @@ enum Commands {
     },
 
     // Secret options to debug specific part of the process
+
+    // Debug log files grouping
     #[clap(hide = true, about = "List source groups")]
     DebugGroups { target: String },
 
@@ -292,7 +294,10 @@ fn process(
     }?;
 
     match model_path {
-        Some(ref path) if !path.exists() => model.save(path),
+        Some(ref path) if !path.exists() => {
+            clear_progress(output_mode);
+            model.save(path)
+        }
         _ => Ok(()),
     }?;
 
@@ -343,7 +348,7 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
                         0
                     };
                     if let Some(last_pos) = last_pos {
-                        if last_pos != starting_pos {
+                        if last_pos < starting_pos {
                             println!("--");
                         }
                     }
@@ -394,14 +399,14 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
             }
         }
     }
-    if output_mode.inlined() && !progress_sep_shown {
+    if !progress_sep_shown {
         // If the last source didn't had an anomaly, then erase the current progress
-        print!("\r\x1b[K");
+        clear_progress(output_mode);
     }
     logreduce_model::debug_or_progress(
         output_mode,
         &format!(
-            "{}: Reduced from {} to {}",
+            "{}: Reduced from {} to {}\n",
             content, total_line_count, total_anomaly_count
         ),
     );
@@ -417,4 +422,10 @@ fn debug_groups(input: Input) -> Result<()> {
         println!("{:?}: {:#?}", index_name, sources);
     }
     Ok(())
+}
+
+fn clear_progress(output_mode: OutputMode) {
+    if output_mode.inlined() {
+        print!("\r\x1b[K");
+    }
 }
