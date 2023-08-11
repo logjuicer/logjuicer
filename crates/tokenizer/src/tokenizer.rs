@@ -253,7 +253,7 @@ fn is_hash(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
             "(?i:^",
-            "(hash|sha|md)[0-9]*:",
+            "(hash|sha|md)[0-9]*[:~]",
             ")|",
             // csrf tokens
             "\\.?[a-zA-Z0-9_+/-]{64,}?"
@@ -268,6 +268,9 @@ fn test_is_hash() {
         "md5:d41d8cd98f00b204e9800998ecf8427e",
         "md5:e7b26fc34f528b5b19c4450867b9d597"
     );
+    assert!(is_hash(
+        "sha256~fDvjOUfdzu5KKztYJO98QqiOQFiSp2sSPQjEE2SexmE"
+    ));
     assert!(is_hash(
         "zjxRGFLA4ZVTXXSKpL_U37kHYHoyJ25GcMqoN27A5OS4PodEjDomArnq_36WggVk"
     ));
