@@ -1,14 +1,14 @@
 [package]
 name = "logreduce-cli"
-version = "0.7.0"
+version = "0.7.1"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce-tokenizer"
-documentation = "https://docs.rs/logreduce-tokenizer/"
+repository = "https://github.com/logreduce/logreduce"
+documentation = "https://docs.rs/logreduce/"
 authors = ["TristanCacqueray"]
 readme = "README.md"
 
-description = "A python binding for the logreduce project."
+description = "A command line to extract anomaly from log files."
 
 edition = "2018"
 

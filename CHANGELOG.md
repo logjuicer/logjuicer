@@ -1,3 +1,10 @@
+0.7.1
+=====
+
+- Improve index name tokenization to handle kubernetes random string.
+- Add statistics to the command line output.
+- New debug-model command.
+
 0.7.0
 =====
 
