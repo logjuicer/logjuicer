@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use url::Url;
 
+pub use logreduce_tokenizer::index_name::IndexName;
+
 use crate::unordered::KnownLines;
 pub mod files;
 pub mod process;
@@ -166,23 +168,8 @@ pub struct Model {
     indexes: HashMap<IndexName, Index>,
 }
 
-/// A LogModelName is an identifier that is used to group similar source.
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct IndexName(pub String);
-
-impl std::fmt::Display for IndexName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.0)
-    }
-}
-
-impl IndexName {
-    pub fn from_source(source: &Source) -> IndexName {
-        IndexName::from_path(source.get_relative())
-    }
-    pub fn as_str(&self) -> &'_ str {
-        self.0.as_str()
-    }
+pub fn indexname_from_source(source: &Source) -> IndexName {
+    IndexName::from_path(source.get_relative())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -426,7 +413,7 @@ impl Content {
         for baseline in baselines {
             for source in baseline.get_sources()? {
                 groups
-                    .entry(IndexName::from_source(&source))
+                    .entry(indexname_from_source(&source))
                     .or_insert_with(Vec::new)
                     .push(source);
             }

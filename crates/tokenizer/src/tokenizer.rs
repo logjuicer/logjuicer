@@ -40,6 +40,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use regex::Split;
 
+pub mod index_name;
+
 fn words(line: &str) -> Split {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"([ \t]|\\[nr])+").unwrap();
