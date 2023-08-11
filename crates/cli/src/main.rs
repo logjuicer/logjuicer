@@ -419,7 +419,10 @@ fn debug_groups(input: Input) -> Result<()> {
         .drain()
         .sorted_by(|x, y| Ord::cmp(&x.0, &y.0))
     {
-        println!("{:?}: {:#?}", index_name, sources);
+        println!("{}:", index_name);
+        sources.iter().for_each(|source| {
+            println!("  {}", source);
+        });
     }
     Ok(())
 }

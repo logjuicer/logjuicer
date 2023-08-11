@@ -31,48 +31,14 @@ fn test_is_small_hash() {
     )
 }
 
-fn is_k8s_service(filename: &str) -> Option<&str> {
-    if filename.starts_with("k8s_") {
-        match filename.split_once('-') {
-            Some((service, _uuid)) => Some(service),
-            None => None,
-        }
-    } else if filename.starts_with("pvc-") {
-        Some("pvc")
-    } else {
-        None
-    }
+fn contains_vowel(name: &str) -> bool {
+    name.contains(|c: char| matches!(c.to_ascii_lowercase(), 'a' | 'e' | 'i' | 'o' | 'u' | 'y'))
 }
 
-#[test]
-fn test_is_k8s_service() {
-    assert_eq!(is_k8s_service("k8s_zuul-uuid"), Some("k8s_zuul"));
-    assert_eq!(is_k8s_service("k3s_zuul-uuid"), None);
-    assert_eq!(
-        is_k8s_service("pvc-328297fa-9941-4df5-b34f-336f02c76be4.txt"),
-        Some("pvc")
-    );
-}
-
-// Handle k8s uuid by dropping everything after the first -
-fn take_until_pod_uuid(filename: &str) -> &str {
-    if let Some(p) = filename.split('-').next() {
-        p
-    } else {
-        filename
-    }
-}
-
-#[test]
-fn test_take_until_pod_uuid() {
-    assert_eq!(
-        take_until_pod_uuid("pod/zuul-7fdb57778f-qkzkc.log"),
-        "pod/zuul"
-    );
-    assert_eq!(
-        take_until_pod_uuid("pod/nodepool-launcher-fcd58c584-wbcmc.txt"),
-        "pod/nodepool"
-    )
+fn is_dir_name_irrelevant(name: &str) -> bool {
+    is_small_hash(name)
+        || !contains_vowel(name)
+        || matches!(name, "util" | "tasks" | "manager" | "current")
 }
 
 // Return the parent path and it's name.
@@ -84,12 +50,34 @@ fn parent_str(path: &Path) -> Option<(&'_ Path, &'_ str)> {
     })
 }
 
+fn get_parent_name(path: &Path) -> Option<&'_ str> {
+    match parent_str(path) {
+        None => None,
+        // Check if parent is relevant
+        Some((_, name)) if !is_dir_name_irrelevant(name) => Some(name),
+        // Get the parent's parent
+        Some((parent, _)) => get_parent_name(parent),
+    }
+}
+
+#[test]
+fn test_get_parent() {
+    assert_eq!(get_parent_name(Path::new("titi/current/log")), Some("titi"));
+    assert_eq!(get_parent_name(Path::new("log")), None);
+}
+
 fn remove_uid(base: &str) -> String {
+    use regex::Regex;
     lazy_static::lazy_static! {
         // ignore components that are 64 char long
-        static ref RE: regex::Regex = regex::Regex::new("[a-zA-Z0-9]{63,64}").unwrap();
+        static ref UID: Regex = Regex::new(concat!(
+            // Very long continuous word
+            r"([0-9a-zA-Z]{63,128}",
+            // uuid
+            r"|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            r")")).unwrap();
     }
-    RE.replace_all(base, "UID").to_string()
+    UID.replace_all(base, "UID").to_string()
 }
 
 #[test]
@@ -98,6 +86,37 @@ fn test_uid_remove() {
         "UID",
         remove_uid("6339eec3cA2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59bvwstc")
     )
+}
+
+fn remove_non_vowel_component(name: &str) -> String {
+    name.split(&['-', '_'])
+        .filter(|component| contains_vowel(component))
+        .collect::<Vec<&str>>()
+        .join("-")
+        .to_string()
+}
+
+#[test]
+fn test_vowel_remove() {
+    assert_eq!(
+        "test-test".to_string(),
+        remove_non_vowel_component("test-fdskl-test")
+    )
+}
+
+fn clean_name(base: &str) -> String {
+    if base.starts_with("instance-00") {
+        "instance".to_string()
+    } else {
+        remove_non_vowel_component(base)
+            .replace(
+                |c: char| !c.is_ascii_alphabetic() && !matches!(c, '.' | '-'),
+                "",
+            )
+            .trim_matches(|c| matches!(c, '.' | '_' | '-'))
+            .trim_end_matches(".gz")
+            .to_string()
+    }
 }
 
 impl IndexName {
@@ -113,36 +132,12 @@ impl IndexName {
         let filename: &str = path
             .file_name()
             .and_then(|os_str| os_str.to_str())
-            .unwrap_or("N/A");
-        // shortfilename is the filename with it's first parent directory name
-        let shortfilename: String = match parent_str(path) {
-            None => filename.to_string(),
-            Some((parent, name)) if is_small_hash(name) => format!(
-                "{}/{}",
-                parent_str(parent).map(|(_, name)| name).unwrap_or(""),
-                filename
-            ),
-            Some((_, name)) => format!("{}/{}", name, filename),
+            .unwrap_or("NA");
+        let index_name = match get_parent_name(path) {
+            None => clean_name(filename),
+            Some(name) => format!("{}/{}", clean_name(name), clean_name(filename)),
         };
-
-        let model_name = if shortfilename.starts_with("qemu/instance-") {
-            "qemu/instance".to_string()
-        } else if shortfilename.starts_with("pod/") {
-            take_until_pod_uuid(&shortfilename).to_string()
-        } else if let Some(service) = is_k8s_service(filename) {
-            service.to_string()
-        } else {
-            // removes number and symbols
-            shortfilename
-                .replace(
-                    |c: char| !c.is_ascii_alphabetic() && !matches!(c, '/' | '.' | '_' | '-'),
-                    "",
-                )
-                .trim_matches(|c| matches!(c, '/' | '.' | '_' | '-'))
-                .trim_end_matches(".gz")
-                .to_string()
-        };
-        IndexName(model_name)
+        IndexName(index_name)
     }
 }
 
@@ -156,7 +151,7 @@ fn log_model_name() {
                 "libvirt/qemu/instance-000000ec.log.txt.gz",
             ],
         ),
-        ("log", ["builds/2/log", "42/log"]),
+        ("builds/log", ["builds/2/log", "builds/42/log"]),
         ("audit/audit.log", ["audit/audit.log", "audit/audit.log.1"]),
         (
             "zuul/merger.log",
