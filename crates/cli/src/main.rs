@@ -7,7 +7,7 @@ use itertools::Itertools;
 use logreduce_model::{Content, Input, Model, OutputMode, Source};
 use std::path::PathBuf;
 use std::time::Instant;
-use time_humanize::HumanTime;
+use time_humanize::{Accuracy, HumanTime, Tense};
 
 mod dataset;
 
@@ -89,6 +89,10 @@ enum Commands {
     // Debug index name
     #[clap(hide = true, about = "Debug index name")]
     DebugIndexname { path: String },
+
+    // Debug saved model
+    #[clap(hide = true, about = "Debug index name")]
+    DebugModel,
 }
 
 impl Cli {
@@ -199,6 +203,15 @@ impl Cli {
                     None => println!("{}: oops", path),
                 }
                 Ok(())
+            }
+            Commands::DebugModel => {
+                let model_path = self.model.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "debug-model requires a path, please add a `--model FILE` argument"
+                    )
+                })?;
+                let model = Model::load(&model_path)?;
+                debug_model(model)
             }
         }
     }
@@ -411,7 +424,7 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
     }
     let process_time = start_time.elapsed();
     let total_mb_count = (total_byte_count as f64) / (1024.0 * 1024.0);
-    let speed: f64 = (total_mb_count as f64) / process_time.as_secs_f64();
+    let speed: f64 = total_mb_count / process_time.as_secs_f64();
     logreduce_model::debug_or_progress(
         output_mode,
         &format!(
@@ -437,6 +450,39 @@ fn debug_groups(input: Input) -> Result<()> {
             println!("  {}", source);
         });
     }
+    Ok(())
+}
+
+fn bytes_to_mb(bytes: usize) -> f64 {
+    (bytes as f64) / (1024.0 * 1024.0)
+}
+
+fn debug_model(model: Model) -> Result<()> {
+    println!(
+        "created: {}",
+        HumanTime::from(model.created_at).to_text_en(Accuracy::Rough, Tense::Past)
+    );
+    println!("baselines:");
+    model.baselines.iter().for_each(|content| {
+        println!("  {}", content);
+    });
+    println!("indexes:");
+    model
+        .indexes
+        .iter()
+        .sorted_by(|x, y| Ord::cmp(&x.0, &y.0))
+        .for_each(|(indexname, index)| {
+            println!("- {}:", indexname);
+            println!(
+                "  info: {} msec, {} lines, {:.2} MB",
+                index.train_time.as_millis(),
+                index.line_count,
+                bytes_to_mb(index.byte_count)
+            );
+            index.sources.iter().for_each(|source| {
+                println!("  from: {}", source);
+            })
+        });
     Ok(())
 }
 

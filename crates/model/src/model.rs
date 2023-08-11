@@ -163,9 +163,9 @@ type Baselines = Vec<Content>;
 /// An archive of baselines that is used to search anomaly.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Model {
-    created_at: SystemTime,
-    baselines: Baselines,
-    indexes: HashMap<IndexName, Index>,
+    pub created_at: SystemTime,
+    pub baselines: Baselines,
+    pub indexes: HashMap<IndexName, Index>,
 }
 
 pub fn indexname_from_source(source: &Source) -> IndexName {
@@ -174,12 +174,12 @@ pub fn indexname_from_source(source: &Source) -> IndexName {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Index {
-    created_at: SystemTime,
-    train_time: Duration,
-    sources: Vec<Source>,
+    pub created_at: SystemTime,
+    pub train_time: Duration,
+    pub sources: Vec<Source>,
     index: ChunkIndex,
-    line_count: usize,
-    byte_count: usize,
+    pub line_count: usize,
+    pub byte_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

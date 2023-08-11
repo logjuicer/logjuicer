@@ -38,7 +38,10 @@ fn contains_vowel(name: &str) -> bool {
 fn is_dir_name_irrelevant(name: &str) -> bool {
     is_small_hash(name)
         || !contains_vowel(name)
-        || matches!(name, "util" | "tasks" | "manager" | "current")
+        || matches!(
+            name,
+            "util" | "tasks" | "manager" | "current" | "logs" | "init"
+        )
 }
 
 // Return the parent path and it's name.
@@ -63,6 +66,10 @@ fn get_parent_name(path: &Path) -> Option<&'_ str> {
 #[test]
 fn test_get_parent() {
     assert_eq!(get_parent_name(Path::new("titi/current/log")), Some("titi"));
+    assert_eq!(
+        get_parent_name(Path::new("galera/logs/service.txt")),
+        Some("galera")
+    );
     assert_eq!(get_parent_name(Path::new("log")), None);
 }
 
