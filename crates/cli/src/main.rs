@@ -6,6 +6,8 @@ use clap::{Parser, Subcommand};
 use itertools::Itertools;
 use logreduce_model::{Content, Input, Model, OutputMode, Source};
 use std::path::PathBuf;
+use std::time::Instant;
+use time_humanize::HumanTime;
 
 mod dataset;
 
@@ -333,7 +335,10 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
 
     let mut progress_sep_shown = false;
     let mut total_line_count = 0;
+    let mut total_byte_count = 0;
     let mut total_anomaly_count = 0;
+    let start_time = Instant::now();
+
     for source in content.get_sources()? {
         let index_name = logreduce_model::indexname_from_source(&source);
         match model.get_index(&index_name) {
@@ -386,6 +391,7 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
                             }
                         }
                         total_line_count += processor.line_count;
+                        total_byte_count += processor.byte_count;
                     }
                     Err(err) => {
                         println!("Could not read {}: {}", &source, err);
@@ -403,11 +409,18 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
         // If the last source didn't had an anomaly, then erase the current progress
         clear_progress(output_mode);
     }
+    let process_time = start_time.elapsed();
+    let total_mb_count = (total_byte_count as f64) / (1024.0 * 1024.0);
+    let speed: f64 = (total_mb_count as f64) / process_time.as_secs_f64();
     logreduce_model::debug_or_progress(
         output_mode,
         &format!(
-            "{}: Reduced from {} to {}\n",
-            content, total_line_count, total_anomaly_count
+            "Completed {}: Reduced from {} to {} {} at {:.2} MB/s\n",
+            content,
+            total_line_count,
+            total_anomaly_count,
+            HumanTime::from(process_time),
+            speed,
         ),
     );
     Ok(())

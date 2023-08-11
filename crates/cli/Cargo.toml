@@ -28,6 +28,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-tree = { workspace = true }
 tracing-chrome = { workspace = true }
+time-humanize = { workspace = true }
 
 # dataset eval
 serde_yaml = { workspace = true }

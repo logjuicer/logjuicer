@@ -23,6 +23,7 @@ lazy_static = "1"
 walkdir = "2"
 chrono = { version = "0.4", features = ["serde"] }
 html-builder = "0.5"
+time-humanize = "0.1"
 
 # index
 sprs = { version = "0.11", features = ["serde"] }
