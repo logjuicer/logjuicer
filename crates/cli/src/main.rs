@@ -335,7 +335,7 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
     let mut total_line_count = 0;
     let mut total_anomaly_count = 0;
     for source in content.get_sources()? {
-        let index_name = logreduce_model::IndexName::from_source(&source);
+        let index_name = logreduce_model::indexname_from_source(&source);
         match model.get_index(&index_name) {
             Some(index) => {
                 let mut last_pos = None;

@@ -22,6 +22,7 @@ path = "src/tokenizer.rs"
 [dependencies]
 regex = { workspace = true }
 lazy_static = { workspace = true }
+serde = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
