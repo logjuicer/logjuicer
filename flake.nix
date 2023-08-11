@@ -81,6 +81,7 @@
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [ toolchain openssl pkg-config ];
           LOGREDUCE_CACHE = "1";
+          UPDATE_GOLDENFILES = "1";
         };
 
         # nix develop .#python
