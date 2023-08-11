@@ -286,26 +286,35 @@ fn process(
     // Convert user Input to target Content.
     let content = Content::from_input(input)?;
 
+    let train_model = |baselines: Option<Vec<Input>>| {
+        // Lookup baselines.
+        tracing::debug!("Finding baselines");
+        let baselines = match baselines {
+            None => content.discover_baselines(),
+            Some(baselines) => baselines
+                .into_iter()
+                .map(Content::from_input)
+                .collect::<Result<Vec<_>>>(),
+        }?;
+
+        // Create the model. TODO: enable custom index.
+        tracing::debug!("Building model");
+        Model::train(output_mode, baselines, logreduce_model::hashing_index::new)
+    };
+
     let model = match model_path {
         Some(ref path) if path.exists() => match baselines {
-            None => Model::load(path),
+            None => match Model::load(path) {
+                Ok(model) => Ok(model),
+                Err(e) => {
+                    tracing::error!("Removing model becase: {}", e);
+                    std::fs::remove_file(path)?;
+                    train_model(baselines)
+                }
+            },
             Some(_) => Err(anyhow::anyhow!("Ambiguous baselines and model provided")),
         },
-        _ => {
-            // Lookup baselines.
-            tracing::debug!("Finding baselines");
-            let baselines = match baselines {
-                None => content.discover_baselines(),
-                Some(baselines) => baselines
-                    .into_iter()
-                    .map(Content::from_input)
-                    .collect::<Result<Vec<_>>>(),
-            }?;
-
-            // Create the model. TODO: enable custom index.
-            tracing::debug!("Building model");
-            Model::train(output_mode, baselines, logreduce_model::hashing_index::new)
-        }
+        _ => train_model(baselines),
     }?;
 
     match model_path {
