@@ -26,6 +26,7 @@ serde = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
+goldenfile = { workspace = true }
 logreduce-generate = { path = "../generate" }
 
 [[bench]]

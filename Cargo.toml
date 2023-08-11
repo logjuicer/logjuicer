@@ -58,6 +58,7 @@ atty = "0.2"
 criterion = "0.5"
 mockito = "1"
 tempfile = "*"
+goldenfile = "1"
 
 [profile.release]
 lto = true
