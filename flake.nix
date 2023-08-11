@@ -71,7 +71,7 @@
         release = pkgs.runCommand "logreduce-release" { } ''
           echo Creating release tarball with ${static-exe}
           cd ${static-exe};
-          tar -cf - bin/ | ${pkgs.bzip2}/bin/bzip2 -9 > $out
+          tar --owner=0 --group=0 --mode='0755' -cf - bin/ | ${pkgs.bzip2}/bin/bzip2 -9 > $out
           echo cp $out logreduce-x86_64-linux.tar.bz2
         '';
 

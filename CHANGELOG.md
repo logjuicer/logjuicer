@@ -4,6 +4,7 @@
 - Improve index name tokenization to handle kubernetes random string.
 - Add statistics to the command line output.
 - New debug-model command.
+- Fix bad release tarball permissions.
 
 0.7.0
 =====
