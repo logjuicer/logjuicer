@@ -5,6 +5,7 @@ members = [
   "crates/index",
   "crates/model",
   "crates/zuul",
+  "crates/prow",
   "crates/report",
   "crates/cache",
   "crates/httpdir",

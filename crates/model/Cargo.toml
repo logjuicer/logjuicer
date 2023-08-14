@@ -25,6 +25,7 @@ logreduce-iterator = { path = "../iterator" }
 logreduce-httpdir = { path = "../httpdir" }
 logreduce-cache = { path = "../cache" }
 zuul-build = { path = "../zuul" }
+prow-build = { path = "../prow" }
 url = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
