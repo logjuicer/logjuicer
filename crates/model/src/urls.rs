@@ -17,6 +17,8 @@ impl Content {
             Err(anyhow::anyhow!("Bad url {}", url))
         } else if let Some(content) = Content::from_zuul_url(&url) {
             content
+        } else if let Some(content) = Content::from_prow_url(&url) {
+            content
         } else if url.as_str().ends_with('/') {
             Ok(Content::Directory(Source::Remote(0, url)))
         } else {
