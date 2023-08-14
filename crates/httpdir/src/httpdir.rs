@@ -138,6 +138,7 @@ impl Crawler {
         tx: &Sender<Message>,
         url: Url,
     ) {
+        let base_url = url.as_str().to_string();
         if let Some(visitor) = visitor.visit(&url) {
             // Increase reference counts.
             let tx = tx.clone();
@@ -149,7 +150,7 @@ impl Crawler {
                 // We decoded some urls.
                 Ok(urls) => {
                     for url in urls {
-                        if url.path().ends_with("/etc/") {
+                        if url.path().ends_with("/etc/") || !url.as_str().starts_with(&base_url) {
                             // Special case to avoid system config directory
                             continue;
                         } else if let Some(url) = path_dir(&url) {
@@ -326,4 +327,89 @@ fn test_httpdir() {
     catch_all.assert();
     info_mock.assert();
     base_mock.assert();
+}
+
+#[test]
+fn test_prow_httpdir() {
+    let mut server = mockito::Server::new();
+
+    let root = "/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/";
+    let url = Url::parse(&server.url()).unwrap().join(root);
+    let base_mock = server.mock("GET", root)
+        .with_body(
+            r#"
+    <!doctype html>
+    <html>
+    <head>
+        <link rel="stylesheet" type="text/css" href="/styles/style.css">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>GCS browser: origin-ci-test</title>
+    </head>
+    <body>
+    <header>
+        <h1>origin-ci-test</h1>
+        <h3>/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/</h3>
+    </header>
+    <ul class="resource-grid">
+
+    <li class="pure-g">
+        <div class="pure-u-2-5 grid-head">Name</div>
+        <div class="pure-u-1-5 grid-head">Size</div>
+        <div class="pure-u-2-5 grid-head">Modified</div>
+    </li>
+
+    <li class="pure-g grid-row">
+        <div class="pure-u-2-5"><a href="/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/"><img src="/icons/back.png"> ..</a></div>
+        <div class="pure-u-1-5">-</div>
+        <div class="pure-u-2-5">-</div>
+    </li>
+
+    <li class="pure-g grid-row">
+        <div class="pure-u-2-5"><a href="/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/artifacts/"><img src="/icons/dir.png"> artifacts/</a></div>
+        <div class="pure-u-1-5">-</div>
+        <div class="pure-u-2-5">-</div>
+    </li>
+
+    <li class="pure-g grid-row">
+        <div class="pure-u-2-5"><a href="/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/build-log.txt"><img src="/icons/file.png"> build-log.txt</a></div>
+        <div class="pure-u-1-5">1627</div>
+        <div class="pure-u-2-5">Thu, 10 Aug 2023 13:14:15 UTC</div>
+    </li>
+    </ul>
+    <details>
+        <summary style="display: list-item; padding-left: 1em">Download</summary>
+        <div style="padding: 1em">
+            You can download this directory by running the following <a href="https://cloud.google.com/storage/docs/gsutil">gsutil</a> command:
+            <pre>gsutil -m cp -r gs://origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/artifacts/ .</pre>
+        </div>
+    </details>
+    </body></html>
+"#).expect(1).create();
+    let artifacts_mock = server.mock("GET", &*format!("{}artifacts/", root)).with_body(
+        r#"
+    <div class="pure-u-2-5"><a href="/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/"><img src="/icons/back.png"> ..</a></div>
+    <div class="pure-u-2-5"><a href="/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/artifacts/build-logs/"><img src="/icons/dir.png"> build-logs/</a></div>
+    <div class="pure-u-2-5"><a href="/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/artifacts/ci-operator-step-graph.json"><img src="/icons/file.png"> ci-operator-step-graph.json</a></div>
+"#).expect(1).create();
+    let builds_mock = server.mock("GET", &*format!("{}artifacts/build-logs/", root)).with_body(
+        r#"
+    <div class="pure-u-2-5"><a href="/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/artifacts/"><img src="/icons/back.png"> ..</a></div>
+    <div class="pure-u-2-5"><a href="/gcs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/437/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1689624623181729792/artifacts/build-logs/ci-framework-image.log"><img src="/icons/file.png"> ci-framework-image.log</a></div>
+"#).expect(1).create();
+    let catch_all = server
+        .mock("GET", mockito::Matcher::Any)
+        .with_body("oops")
+        .expect(0)
+        .create();
+
+    let res = list(url.clone().unwrap()).unwrap();
+
+    dbg!(&res);
+    assert_eq!(res.len(), 3);
+
+    catch_all.assert();
+    base_mock.assert();
+    builds_mock.assert();
+    artifacts_mock.assert();
 }

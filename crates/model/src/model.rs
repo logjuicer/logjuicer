@@ -19,6 +19,7 @@ pub use logreduce_tokenizer::index_name::IndexName;
 use crate::unordered::KnownLines;
 pub mod files;
 pub mod process;
+pub mod prow;
 mod reader;
 pub mod unordered;
 pub mod urls;
@@ -71,6 +72,7 @@ pub enum Content {
     File(Source),
     Directory(Source),
     Zuul(Box<zuul::Build>),
+    Prow(Box<prow::Build>),
     LocalZuulBuild(PathBuf, Box<zuul::Build>),
 }
 
@@ -80,6 +82,7 @@ impl std::fmt::Display for Content {
             Content::File(src) => write!(f, "File({})", src),
             Content::Directory(src) => write!(f, "Directory({})", src),
             Content::Zuul(build) => write!(f, "Zuul({})", build),
+            Content::Prow(build) => write!(f, "Prow({})", build),
             Content::LocalZuulBuild(src, _build) => {
                 write!(f, "LocalZuulBuild({:?})", src.as_os_str())
             }
@@ -370,6 +373,7 @@ impl Content {
             Content::Directory(_) => Err(anyhow::anyhow!(
                 "Can't discover directory baselines, they need to be provided",
             )),
+            Content::Prow(build) => build.discover_prow_baselines(),
             Content::Zuul(build) => build.discover_baselines(),
             Content::LocalZuulBuild(_, build) => build.discover_baselines(),
         })
@@ -404,6 +408,7 @@ impl Content {
                 Source::Remote(_, url) => Box::new(Source::httpdir_iter(url)),
             },
             Content::Zuul(build) => Box::new(build.sources_iter()),
+            Content::Prow(build) => Box::new(build.sources_prow_iter()),
             Content::LocalZuulBuild(src, _) => Box::new(Source::dir_iter(src.as_path())),
         }
     }
