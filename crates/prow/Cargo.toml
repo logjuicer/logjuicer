@@ -1,0 +1,31 @@
+[package]
+name = "prow-build"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce"
+documentation = "https://docs.rs/prow-build/"
+authors = ["TristanCacqueray"]
+readme = "README.md"
+
+description = "Decoders and Iterators for https://prow.k8s.io/"
+
+keywords = ["serde", "prow"]
+categories = ["api-bindings", "development-tools"]
+
+edition = "2018"
+
+[lib]
+name = "prow_build"
+path = "src/prow_build.rs"
+
+[dependencies]
+thiserror = "1.0"
+reqwest = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+url = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+mockito = { workspace = true }
