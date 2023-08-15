@@ -82,7 +82,7 @@ impl std::fmt::Display for Content {
             Content::File(src) => write!(f, "File({})", src),
             Content::Directory(src) => write!(f, "Directory({})", src),
             Content::Zuul(build) => write!(f, "Zuul({})", build),
-            Content::Prow(build) => write!(f, "Prow({})", build),
+            Content::Prow(build) => write!(f, "Prow({})", build.url.as_str()),
             Content::LocalZuulBuild(src, _build) => {
                 write!(f, "LocalZuulBuild({:?})", src.as_os_str())
             }
@@ -379,7 +379,10 @@ impl Content {
         })
         .and_then(|baselines| match baselines.len() {
             0 => Err(anyhow::anyhow!("Empty discovered baselines")),
-            _ => Ok(baselines),
+            _ => {
+                tracing::info!("Found the following baselines: {:?}", baselines);
+                Ok(baselines)
+            }
         })
     }
 

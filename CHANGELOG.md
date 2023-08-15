@@ -1,3 +1,8 @@
+0.8.0
+=====
+
+- Prow build url can now be used to extract anomalies from prow build artifacts.
+
 0.7.1
 =====
 

@@ -1401,6 +1401,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "tracing",
  "url",
 ]
 

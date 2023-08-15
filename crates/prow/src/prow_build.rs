@@ -16,7 +16,7 @@
 //!   storage_path: "origin-ci-test".into(),
 //! };
 //! let max_result = 42;
-//! for build in prow_build::BuildIterator::new(client, "my-job").take(max_result) {
+//! for build in prow_build::BuildIterator::new(&client, "my-job").take(max_result) {
 //!   println!("{:#?}", build);
 //! }
 //! # }
@@ -45,15 +45,15 @@ pub struct Client {
 #[derive(Error, Debug)]
 pub enum Error {
     /// The provided url is not usable.
-    #[error("bad api url")]
+    #[error("bad api url: {0}")]
     BadUrl(#[from] url::ParseError),
 
     /// The api reply contained an unexpected error.
-    #[error("bad api reply")]
+    #[error("bad api reply: {0}")]
     BadReply(#[from] std::io::Error),
 
     /// The api query failed.
-    #[error("bad api query")]
+    #[error("bad api query: {0}")]
     BadQuery(#[from] reqwest::Error),
 
     /// The api response was not usable.
@@ -61,7 +61,7 @@ pub enum Error {
     BadResponse,
 
     /// The api response couldn't be decoded.
-    #[error("Api response decoding error")]
+    #[error("Api response decoding error: {0}")]
     BadBuild(#[from] serde_json::Error),
 }
 
@@ -71,12 +71,22 @@ pub enum Error {
 pub struct ProwID(String);
 
 /// The storage type, e.g. "gs"
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct StorageType(String);
 
 /// The storage path, e.g. "origin-ci-test"
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct StoragePath(String);
+
+impl From<&str> for ProwID {
+    /// Converts to this type from the input type.
+    #[inline]
+    fn from(s: &str) -> ProwID {
+        ProwID(s.to_owned())
+    }
+}
 
 impl From<&str> for StorageType {
     /// Converts to this type from the input type.
@@ -145,7 +155,7 @@ impl Iterator for BuildIterator<'_> {
         } else if let Some(res) = self.buffer.pop_front() {
             Some(Ok(res))
         } else {
-            match get_prow_job_history(&self.client, &self.job_name, &self.skip) {
+            match get_prow_job_history(self.client, self.job_name, &self.skip) {
                 Ok(res) => self.handle_new_builds(res),
                 Err(err) => {
                     self.done = true;
@@ -188,6 +198,7 @@ pub fn get_prow_job_history(
     if let Some(after) = after {
         api_url.set_query(Some(&format!("buildId={}", after.0)))
     }
+    tracing::debug!(url = api_url.as_str(), "Querying prow job history");
     let reader = client.client.get(api_url).send().map_err(Error::BadQuery)?;
     let js_objs = std::io::BufReader::new(reader).lines().find(|le| {
         le.as_ref()
@@ -198,7 +209,7 @@ pub fn get_prow_job_history(
         Some(Err(err)) => Err(Error::BadReply(err)),
         Some(Ok(js_objs)) => {
             let start_pos = js_objs.find('=').unwrap_or(0) + 1;
-            serde_json::de::from_str(js_objs.get(start_pos..).unwrap_or(""))
+            serde_json::de::from_str(js_objs.get(start_pos..).unwrap_or("").trim_end_matches(';'))
                 .map_err(Error::BadBuild)
         }
     }

@@ -8,14 +8,17 @@ use std::io::Read;
 use url::Url;
 
 use crate::{Baselines, Content, Source};
+use prow_build::{ProwID, StoragePath, StorageType};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Build {
     pub url: Url,
-    pub uuid: String,
+    pub uid: ProwID,
     pub job_name: String,
     pub project: String,
     pub pr: u64,
+    pub storage_type: StorageType,
+    pub storage_path: StoragePath,
 }
 
 impl std::fmt::Display for Build {
@@ -29,26 +32,27 @@ fn is_prow_uid(uid: &str) -> bool {
 }
 
 fn parse_prow_url(url: &Url) -> Option<Result<Build>> {
-    url.path_segments().and_then(|mut iter| {
-        // Check if the last segment is a uuid
-        iter.next_back().and_then(|uid| match is_prow_uid(uid) {
-            false => None,
-            true => iter.next_back().and_then(|job_name| {
-                iter.next_back().and_then(|pr| match pr.parse() {
-                    Err(e) => Some(Err(anyhow::anyhow!("{}: invalid pr number {}", e, pr))),
-                    Ok(pr) => iter.next_back().map(|project| {
-                        Ok(Build {
-                            url: url.clone(),
-                            uuid: uid.to_string(),
-                            job_name: job_name.to_string(),
-                            project: project.to_string(),
-                            pr,
-                        })
-                    }),
-                })
-            }),
-        })
-    })
+    match url.path_segments()?.collect::<Vec<_>>()[..] {
+        ["view", storage_type, storage_path, "pr-logs", "pull", project, pr, job, uid] => {
+            match (is_prow_uid(uid), pr.parse()) {
+                (true, Ok(pr)) => Some(Ok(Build {
+                    url: url.clone(),
+                    uid: uid.into(),
+                    job_name: job.to_string(),
+                    project: project.to_string(),
+                    pr,
+                    storage_type: storage_type.into(),
+                    storage_path: storage_path.into(),
+                })),
+                (_, Err(e)) => Some(Err(anyhow::anyhow!("{}: invalid pr number {}", pr, e))),
+                _ => Some(Err(anyhow::anyhow!(
+                    "{}: couldn't decode build info",
+                    url.as_str()
+                ))),
+            }
+        }
+        _ => None,
+    }
 }
 
 #[test]
@@ -59,10 +63,12 @@ fn test_parse_prow_url() {
         res,
         Build {
             url: url,
-            uuid: "1689624623181729792".to_string(),
+            uid: "1689624623181729792".into(),
             job_name: "pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test".to_string(),
             project: "openstack-k8s-operators_ci-framework".to_string(),
             pr: 437,
+            storage_type: "gs".into(),
+            storage_path: "origin-ci-test".into(),
         }
     );
 }
@@ -78,8 +84,8 @@ impl Content {
     }
 }
 
-fn get_prow_artifact_url(build: &Build) -> Result<Url> {
-    let mut reader = crate::reader::from_url(&build.url, &build.url)?;
+fn get_prow_artifact_url(url: &Url) -> Result<Url> {
+    let mut reader = crate::reader::from_url(url, url)?;
     let mut buffer = String::new();
     reader.read_to_string(&mut buffer)?;
 
@@ -90,7 +96,7 @@ fn get_prow_artifact_url(build: &Build) -> Result<Url> {
     match RE.captures(&buffer) {
         None => Err(anyhow::anyhow!(
             "{}: could not find artifacts link in {}",
-            build.url.as_str(),
+            url.as_str(),
             buffer
         )),
         Some(c) => Url::parse(c.get(1).unwrap().as_str()).context("Can't recreate artifact url"),
@@ -100,13 +106,7 @@ fn get_prow_artifact_url(build: &Build) -> Result<Url> {
 #[test]
 fn test_get_prow_artifact_url() -> Result<()> {
     let mut server = mockito::Server::new();
-    let build = Build {
-        url: Url::parse(&server.url())?,
-        job_name: "test".to_string(),
-        pr: 42,
-        project: "proj".to_string(),
-        uuid: "42".to_string(),
-    };
+    let url = Url::parse(&server.url())?;
     let base_mock = server
         .mock("GET", mockito::Matcher::Any)
         .with_body(
@@ -122,9 +122,9 @@ fn test_get_prow_artifact_url() -> Result<()> {
         )
         .expect(1)
         .create();
-    crate::reader::drop_url(&build.url, &build.url)?;
+    crate::reader::drop_url(&url, &url)?;
 
-    let artifact_url = get_prow_artifact_url(&build).expect("Artifact url");
+    let artifact_url = get_prow_artifact_url(&url).expect("Artifact url");
     assert_eq!(
         artifact_url.as_str(),
         "https://artifacts.example.com/the-build/437/"
@@ -135,12 +135,43 @@ fn test_get_prow_artifact_url() -> Result<()> {
 }
 
 impl Build {
+    fn from_build_result(build: &Build, br: prow_build::BuildResult) -> Result<Build> {
+        let url = build.url.join(&br.path)?;
+        Ok(Build {
+            url: url.clone(),
+            uid: br.uid,
+            job_name: build.job_name.clone(),
+            project: "tbd".into(),
+            pr: 0,
+            storage_type: build.storage_type.clone(),
+            storage_path: build.storage_path.clone(),
+        })
+    }
+
     pub fn discover_prow_baselines(&self) -> Result<Baselines> {
+        let client = prow_build::Client {
+            client: reqwest::blocking::Client::new(),
+            api_url: self.url.clone(),
+            storage_type: self.storage_type.clone(),
+            storage_path: self.storage_path.clone(),
+        };
+        tracing::info!("Discovering baselines for {}", self);
+        for baseline in prow_build::BuildIterator::new(&client, &self.job_name).take(200) {
+            match baseline {
+                Err(e) => return Err(anyhow::anyhow!("Failed to discover baseline: {}", e)),
+                Ok(build) if build.result == "SUCCESS" => {
+                    return Ok(vec![Content::Prow(Box::new(Build::from_build_result(
+                        self, build,
+                    )?))])
+                }
+                Ok(_) => {}
+            }
+        }
         Ok(vec![])
     }
 
     pub fn sources_prow_iter(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
-        match get_prow_artifact_url(self) {
+        match get_prow_artifact_url(&self.url) {
             Err(e) => Box::new(std::iter::once(Err(e))),
             Ok(url) => Source::httpdir_iter(&url),
         }
