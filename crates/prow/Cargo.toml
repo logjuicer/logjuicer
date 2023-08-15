@@ -21,6 +21,7 @@ path = "src/prow_build.rs"
 
 [dependencies]
 thiserror = "1.0"
+tracing = { workspace = true }
 reqwest = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
