@@ -6,7 +6,7 @@ license = "Apache-2.0"
 repository = "https://github.com/logreduce/logreduce"
 documentation = "https://docs.rs/prow-build/"
 authors = ["TristanCacqueray"]
-readme = "README.md"
+readme = false
 
 description = "Decoders and Iterators for https://prow.k8s.io/"
 
