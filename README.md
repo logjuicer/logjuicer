@@ -90,7 +90,7 @@ Join the project Matrix room: [#logeduce:matrix.org](https://matrix.to/#/#logred
 
 ## Roadmap
 
-* detect `prow` and `jenkins` url
+* detect `jenkins` url
 * Reports minification
 
 
