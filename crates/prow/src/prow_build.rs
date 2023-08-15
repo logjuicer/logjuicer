@@ -1,6 +1,27 @@
 // Copyright (C) 2023 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
+#![warn(missing_docs)]
+
+//! This library provides an Iterator to crawl build results from [prow](https://prow.k8s.io/).
+//!
+//! Here is an example usage:
+//!
+//! ```no_run
+//! # fn main() {
+//! let client = prow_build::Client {
+//!   client: reqwest::blocking::Client::new(),
+//!   api_url: url::Url::parse("https://prow.ci.openshift.org/").unwrap(),
+//!   storage_type: "gs".into(),
+//!   storage_path: "origin-ci-test".into(),
+//! };
+//! let max_result = 42;
+//! for build in prow_build::BuildIterator::new(client, "my-job").take(max_result) {
+//!   println!("{:#?}", build);
+//! }
+//! # }
+//! ```
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -8,42 +29,57 @@ use std::io::BufRead;
 use thiserror::Error;
 use url::Url;
 
+/// The prow client.
 pub struct Client {
+    /// The HTTP client.
     pub client: reqwest::blocking::Client,
+    /// The prow api url.
     pub api_url: Url,
+    /// The build storage type.
     pub storage_type: StorageType,
+    /// The build storage path.
     pub storage_path: StoragePath,
 }
 
+/// The prow error.
 #[derive(Error, Debug)]
 pub enum Error {
+    /// The provided url is not usable.
     #[error("bad api url")]
     BadUrl(#[from] url::ParseError),
 
+    /// The api reply contained an unexpected error.
     #[error("bad api reply")]
     BadReply(#[from] std::io::Error),
 
+    /// The api query failed.
     #[error("bad api query")]
     BadQuery(#[from] reqwest::Error),
 
+    /// The api response was not usable.
     #[error("Api response didn't contain builds")]
     BadResponse,
 
+    /// The api response couldn't be decoded.
     #[error("Api response decoding error")]
     BadBuild(#[from] serde_json::Error),
 }
 
+/// A build id.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ProwID(String);
 
+/// The storage type, e.g. "gs"
 #[derive(Clone, Debug, PartialEq)]
 pub struct StorageType(String);
 
+/// The storage path, e.g. "origin-ci-test"
 #[derive(Clone, Debug, PartialEq)]
 pub struct StoragePath(String);
 
 impl From<&str> for StorageType {
+    /// Converts to this type from the input type.
     #[inline]
     fn from(s: &str) -> StorageType {
         StorageType(s.to_owned())
@@ -51,36 +87,45 @@ impl From<&str> for StorageType {
 }
 
 impl From<&str> for StoragePath {
+    /// Converts to this type from the input type.
     #[inline]
     fn from(s: &str) -> StoragePath {
         StoragePath(s.to_owned())
     }
 }
 
+/// A build result.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BuildResult {
+    /// The build id.
     #[serde(rename = "ID")]
     pub uid: ProwID,
+    /// The spyglass path.
     #[serde(rename = "SpyglassLink")]
     pub path: String,
+    /// The build result.
     #[serde(rename = "Result")]
     pub result: String,
+    /// The build started date.
     #[serde(rename = "Started")]
     pub started: DateTime<Utc>,
+    /// The build duration.
     #[serde(rename = "Duration")]
     pub duration: usize,
 }
 
-pub struct BuildIterator {
-    client: Client,
-    job_name: String,
+/// The iterator state.
+pub struct BuildIterator<'a> {
+    client: &'a Client,
+    job_name: &'a str,
     skip: Option<ProwID>,
     buffer: VecDeque<BuildResult>,
     done: bool,
 }
 
-impl BuildIterator {
-    pub fn new(client: Client, job_name: String) -> Self {
+impl<'a> BuildIterator<'a> {
+    /// Create a new iterator.
+    pub fn new(client: &'a Client, job_name: &'a str) -> Self {
         BuildIterator {
             client,
             job_name,
@@ -91,7 +136,7 @@ impl BuildIterator {
     }
 }
 
-impl Iterator for BuildIterator {
+impl Iterator for BuildIterator<'_> {
     type Item = Result<BuildResult, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -111,7 +156,7 @@ impl Iterator for BuildIterator {
     }
 }
 
-impl BuildIterator {
+impl BuildIterator<'_> {
     fn handle_new_builds(
         &mut self,
         builds: Vec<BuildResult>,
@@ -129,6 +174,7 @@ impl BuildIterator {
 }
 
 // It doesn't seem like prow provides a REST API. Thus this function decodes the builds embeded as JSON object inside the html page.
+/// The low-level function to query a single page.
 pub fn get_prow_job_history(
     client: &Client,
     job_name: &str,
@@ -210,7 +256,7 @@ fn test_get_prow_job_history() {
     dbg!(&builds);
     assert_eq!(builds.len(), 1);
 
-    let builds2 = BuildIterator::new(client, job_name.to_string()).collect::<Vec<_>>();
+    let builds2 = BuildIterator::new(&client, job_name).collect::<Vec<_>>();
     assert_eq!(builds2.len(), 2);
     base_mock.assert();
     page_1.assert();
