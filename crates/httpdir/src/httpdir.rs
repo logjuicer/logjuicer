@@ -1,7 +1,9 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! This library provides an Iterator to crawl the list of files available through Index of http url.
+#![warn(missing_docs)]
+
+//! This library provides an Iterator to crawl the list of files available through Index of HTTP url.
 //!
 //! Here is an example usage:
 //!

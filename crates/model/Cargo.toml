@@ -22,7 +22,7 @@ walkdir = { workspace = true }
 logreduce-index = { path = "../index" }
 logreduce-tokenizer = { path = "../tokenizer" }
 logreduce-iterator = { path = "../iterator" }
-logreduce-httpdir = { path = "../httpdir" }
+httpdir = { path = "../httpdir" }
 logreduce-cache = { path = "../cache" }
 zuul-build = { path = "../zuul" }
 prow-build = { path = "../prow" }
