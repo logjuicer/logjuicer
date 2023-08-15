@@ -3,9 +3,17 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::io::BufRead;
 use thiserror::Error;
 use url::Url;
+
+pub struct Client {
+    pub client: reqwest::blocking::Client,
+    pub api_url: Url,
+    pub storage_type: StorageType,
+    pub storage_path: StoragePath,
+}
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -63,25 +71,78 @@ pub struct BuildResult {
     pub duration: usize,
 }
 
+pub struct BuildIterator {
+    client: Client,
+    job_name: String,
+    skip: Option<ProwID>,
+    buffer: VecDeque<BuildResult>,
+    done: bool,
+}
+
+impl BuildIterator {
+    pub fn new(client: Client, job_name: String) -> Self {
+        BuildIterator {
+            client,
+            job_name,
+            skip: None,
+            buffer: VecDeque::new(),
+            done: false,
+        }
+    }
+}
+
+impl Iterator for BuildIterator {
+    type Item = Result<BuildResult, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            None
+        } else if let Some(res) = self.buffer.pop_front() {
+            Some(Ok(res))
+        } else {
+            match get_prow_job_history(&self.client, &self.job_name, &self.skip) {
+                Ok(res) => self.handle_new_builds(res),
+                Err(err) => {
+                    self.done = true;
+                    Some(Err(err))
+                }
+            }
+        }
+    }
+}
+
+impl BuildIterator {
+    fn handle_new_builds(
+        &mut self,
+        builds: Vec<BuildResult>,
+    ) -> Option<Result<BuildResult, Error>> {
+        if let Some(last) = builds.last() {
+            // We have some builds
+            self.skip = Some(last.uid.clone());
+            self.buffer = builds.into();
+            self.next()
+        } else {
+            self.done = true;
+            None
+        }
+    }
+}
+
 // It doesn't seem like prow provides a REST API. Thus this function decodes the builds embeded as JSON object inside the html page.
 pub fn get_prow_job_history(
-    client: reqwest::blocking::Client,
-    api_url: &Url,
-    storage_type: StorageType,
-    storage_path: StoragePath,
+    client: &Client,
     job_name: &str,
-    after: Option<ProwID>,
+    after: &Option<ProwID>,
 ) -> Result<Vec<BuildResult>, Error> {
-    let mut api_url = api_url.clone();
+    let mut api_url = client.api_url.clone();
     api_url.set_path(&format!(
         "/job-history/{}/{}/pr-logs/directory/{}",
-        storage_type.0, storage_path.0, job_name
+        client.storage_type.0, client.storage_path.0, job_name
     ));
     if let Some(after) = after {
         api_url.set_query(Some(&format!("buildId={}", after.0)))
     }
-    dbg!(&api_url.as_str());
-    let reader = client.get(api_url).send().map_err(Error::BadQuery)?;
+    let reader = client.client.get(api_url).send().map_err(Error::BadQuery)?;
     let js_objs = std::io::BufReader::new(reader).lines().find(|le| {
         le.as_ref()
             .is_ok_and(|l| l.trim().starts_with("var allBuilds = "))
@@ -121,22 +182,37 @@ fn test_get_prow_job_history() {
 <html>
 "#,
         )
+        .expect(2) // We call this route twice
+        .create();
+
+    let page_1_path = format!("{}?buildId={}", path, "1691081796252340224");
+    let page_1 = server.mock("GET", &*page_1_path).with_body(
+        r#"
+  var allBuilds = [{"SpyglassLink":"/view/gs/origin-ci-test/pr-logs/pull/openstack-k8s-operators_ci-framework/444/pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test/1691081796252340224","ID":"1691081796252340225","Started":"2023-08-14T13:38:24Z","Duration":241000000000,"Result":"SUCCESS","Refs":{"org":"openstack-k8s-operators","repo":"ci-framework","repo_link":"https://github.com/openstack-k8s-operators/ci-framework","base_ref":"main","base_sha":"fefd236c551a4ce7a2bd5a582bb6b3b23a86b3b0","base_link":"https://github.com/openstack-k8s-operators/ci-framework/commit/fefd236c551a4ce7a2bd5a582bb6b3b23a86b3b0","pulls":[{"number":444,"author":"raukadah","sha":"da139a175eaabe4052899b1beda10798d34d62c8","title":"Added taskfiles to collect edpm logs from edpm vms","head_ref":"edpm_logging","link":"https://github.com/openstack-k8s-operators/ci-framework/pull/444","commit_link":"https://github.com/openstack-k8s-operators/ci-framework/pull/444/commits/da139a175eaabe4052899b1beda10798d34d62c8","author_link":"https://github.com/raukadah"}]}}]
+"#,
+).expect(1).create();
+
+    let page_2_path = format!("{}?buildId={}", path, "1691081796252340225");
+    let page_2 = server
+        .mock("GET", &*page_2_path)
+        .with_body(r#"  var allBuilds = []"#)
         .expect(1)
         .create();
 
-    let client = reqwest::blocking::Client::new();
+    let client = Client {
+        client: reqwest::blocking::Client::new(),
+        api_url: Url::parse(&server.url()).unwrap(),
+        storage_type: "gs".into(),
+        storage_path: "origin-ci-test".into(),
+    };
 
-    let url = Url::parse(&server.url()).unwrap();
-    let builds = get_prow_job_history(
-        client,
-        &url,
-        "gs".into(),
-        "origin-ci-test".into(),
-        job_name,
-        None,
-    )
-    .unwrap();
+    let builds = get_prow_job_history(&client, job_name, &None).unwrap();
     dbg!(&builds);
     assert_eq!(builds.len(), 1);
+
+    let builds2 = BuildIterator::new(client, job_name.to_string()).collect::<Vec<_>>();
+    assert_eq!(builds2.len(), 2);
     base_mock.assert();
+    page_1.assert();
+    page_2.assert()
 }
