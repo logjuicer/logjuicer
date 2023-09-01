@@ -1,6 +1,8 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
+//! This module is the entrypoint of the logreduce command line.
+
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
@@ -275,6 +277,7 @@ fn main() -> Result<()> {
     })
 }
 
+/// process is the logreduce implementation after command line parsing.
 #[tracing::instrument(level = "debug", skip(output_mode))]
 fn process(
     output_mode: OutputMode,

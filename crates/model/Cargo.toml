@@ -3,10 +3,9 @@ name = "logreduce-model"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce-rust"
-documentation = "https://docs.rs/logreduce-logfile-iterator/"
+repository = "https://github.com/logreduce/logreduce"
+documentation = "https://docs.rs/logreduce-model/"
 authors = ["TristanCacqueray"]
-readme = "README.md"
 
 description = "The core logic of the logreduce project."
 

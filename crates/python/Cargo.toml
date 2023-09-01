@@ -6,7 +6,6 @@ license = "Apache-2.0"
 repository = "https://github.com/logreduce/logreduce-tokenizer"
 documentation = "https://docs.rs/logreduce-tokenizer/"
 authors = ["TristanCacqueray"]
-readme = "README.md"
 
 description = "A python binding for the logreduce project."
 

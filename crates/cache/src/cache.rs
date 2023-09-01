@@ -56,6 +56,7 @@ impl Cache {
             .context("Failed to get xdg cache directory")
     }
 
+    /// Get a cached head result.
     pub fn head(&self, base: &Url, path: &Url) -> Option<bool> {
         match self.get(&filename::head_success(base, path)) {
             Some(_) => Some(true),
@@ -63,6 +64,7 @@ impl Cache {
         }
     }
 
+    /// Store a head result.
     pub fn head_set(&self, base: &Url, path: &Url, result: bool) -> Result<bool> {
         let fp = if result {
             filename::head_success(base, path)
