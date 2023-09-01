@@ -3,10 +3,9 @@ name = "zuul-build"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce-rust"
+repository = "https://github.com/logreduce/logreduce"
 documentation = "https://docs.rs/zuul-build/"
 authors = ["TristanCacqueray"]
-readme = "README.md"
 
 description = "Decoders for https://zuul-ci.org."
 

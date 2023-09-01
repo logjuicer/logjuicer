@@ -5,7 +5,6 @@ version = "0.1.0"
 license = "Apache-2.0"
 repository = "https://github.com/logreduce/logreduce"
 authors = ["TristanCacqueray"]
-readme = "README.md"
 
 description = "Crawl HTTP Index of page"
 

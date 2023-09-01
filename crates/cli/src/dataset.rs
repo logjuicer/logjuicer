@@ -1,6 +1,9 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
+//! This module contains the logic for the test command.
+//! See the <https://github.com/logreduce/logreduce-tests> project
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
