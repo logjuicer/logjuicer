@@ -41,6 +41,11 @@ pub fn list(url: Url) -> Result<Vec<Url>> {
     Crawler::new().list(url)
 }
 
+/// The list function, but using the provided reqwest::blocking::Client.
+pub fn list_with_client(client: Client, url: Url) -> Result<Vec<Url>> {
+    Crawler::new_with_client(client).list(url)
+}
+
 /// Helper struct to prevent infinit loop.
 struct Visitor {
     // todo: add unique host check
@@ -87,12 +92,13 @@ fn mk_error(msg: &str) -> std::io::Error {
 impl Crawler {
     /// Initialize the Crawler state.
     pub fn new() -> Crawler {
+        Crawler::new_with_client(Client::new())
+    }
+
+    /// Initialize the Crawler state with the reqwest::blocking::Client.
+    pub fn new_with_client(client: Client) -> Crawler {
         let workers = ThreadPool::new(4);
         let (tx, rx) = channel();
-        let client = Client::builder()
-            .danger_accept_invalid_certs(std::env::var("LOGREDUCE_SSL_NO_VERIFY").is_ok())
-            .build()
-            .expect("Client");
         Crawler {
             workers,
             client,
