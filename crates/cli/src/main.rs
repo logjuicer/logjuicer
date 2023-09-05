@@ -6,7 +6,8 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
-use logreduce_model::{Content, Input, Model, OutputMode, Source};
+use logreduce_model::env::{Env, OutputMode};
+use logreduce_model::{Content, Input, Model, Source};
 use std::path::PathBuf;
 use std::time::Instant;
 use time_humanize::{Accuracy, HumanTime, Tense};
@@ -98,21 +99,20 @@ enum Commands {
 }
 
 impl Cli {
-    fn run(self, progress: OutputMode) -> Result<()> {
+    fn run(self, output: OutputMode) -> Result<()> {
+        let env = Env::new_with_output(output);
         match self.command {
             // Discovery commands
             Commands::Path { path } => {
-                process(progress, self.report, self.model, None, Input::Path(path))
+                process(&env, self.report, self.model, None, Input::Path(path))
             }
-            Commands::Url { url } => {
-                process(progress, self.report, self.model, None, Input::Url(url))
-            }
+            Commands::Url { url } => process(&env, self.report, self.model, None, Input::Url(url)),
             Commands::ZuulBuild {
                 log_root,
                 api_url,
                 model_per_project,
             } => process(
-                progress,
+                &env,
                 self.report,
                 self.model,
                 None,
@@ -122,7 +122,7 @@ impl Cli {
 
             // Manual commands
             Commands::Diff { src, dst } => process(
-                progress,
+                &env,
                 self.report,
                 self.model,
                 Some(src.into_iter().map(Input::from_string).collect()),
@@ -135,11 +135,11 @@ impl Cli {
                     )
                 })?;
                 let model = Model::train(
-                    progress,
+                    &env,
                     baselines
                         .into_iter()
                         .map(Input::from_string)
-                        .map(Content::from_input)
+                        .map(|x| Content::from_input(&env, x))
                         .collect::<Result<Vec<_>>>()?,
                     logreduce_model::hashing_index::new,
                 )?;
@@ -170,10 +170,10 @@ impl Cli {
                 Ok(())
             }
 
-            Commands::Test { datasets } => dataset::test_datasets(&datasets),
+            Commands::Test { datasets } => dataset::test_datasets(&env, &datasets),
 
             // Debug handlers
-            Commands::DebugGroups { target } => debug_groups(Input::from_string(target)),
+            Commands::DebugGroups { target } => debug_groups(&env, Input::from_string(target)),
             Commands::DebugTokenizer { line } => {
                 println!("{}\n", logreduce_tokenizer::process(&line));
                 Ok(())
@@ -184,13 +184,13 @@ impl Cli {
             }
             Commands::DebugIterator { path } => {
                 let input = Input::Path(path.clone());
-                let content = Content::from_input(input)?;
-                let sources = content.get_sources()?;
+                let content = Content::from_input(&env, input)?;
+                let sources = content.get_sources(&env)?;
                 match sources.first() {
                     Some(source) => {
                         let reader = match source {
                             Source::Local(_, path_buf) => Source::file_open(path_buf.as_path())?,
-                            Source::Remote(prefix, url) => Source::url_open(*prefix, url)?,
+                            Source::Remote(prefix, url) => Source::url_open(&env, *prefix, url)?,
                         };
                         for line in logreduce_iterator::BytesLines::new(reader, source.is_json()) {
                             match line {
@@ -278,31 +278,31 @@ fn main() -> Result<()> {
 }
 
 /// process is the logreduce implementation after command line parsing.
-#[tracing::instrument(level = "debug", skip(output_mode))]
+#[tracing::instrument(level = "debug", skip(env))]
 fn process(
-    output_mode: OutputMode,
+    env: &Env,
     report: Option<PathBuf>,
     model_path: Option<PathBuf>,
     baselines: Option<Vec<Input>>,
     input: Input,
 ) -> Result<()> {
     // Convert user Input to target Content.
-    let content = Content::from_input(input)?;
+    let content = Content::from_input(env, input)?;
 
     let train_model = |baselines: Option<Vec<Input>>| {
         // Lookup baselines.
         tracing::debug!("Finding baselines");
         let baselines = match baselines {
-            None => content.discover_baselines(),
+            None => content.discover_baselines(env),
             Some(baselines) => baselines
                 .into_iter()
-                .map(Content::from_input)
+                .map(|x| Content::from_input(env, x))
                 .collect::<Result<Vec<_>>>(),
         }?;
 
         // Create the model. TODO: enable custom index.
         tracing::debug!("Building model");
-        Model::train(output_mode, baselines, logreduce_model::hashing_index::new)
+        Model::train(env, baselines, logreduce_model::hashing_index::new)
     };
 
     let model = match model_path {
@@ -322,7 +322,7 @@ fn process(
 
     match model_path {
         Some(ref path) if !path.exists() => {
-            clear_progress(output_mode);
+            clear_progress(env.output);
             model.save(path)
         }
         _ => Ok(()),
@@ -330,9 +330,9 @@ fn process(
 
     tracing::debug!("Inspecting");
     match report {
-        None => process_live(output_mode, &content, &model),
+        None => process_live(env, &content, &model),
         Some(file) => {
-            let report = model.report(output_mode, content)?;
+            let report = model.report(env, content)?;
 
             // Save raw report for debug purpose
             if std::env::var("LOGREDUCE_CACHE").is_ok() {
@@ -351,7 +351,7 @@ fn process(
     }
 }
 
-fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Result<()> {
+fn process_live(env: &Env, content: &Content, model: &Model) -> Result<()> {
     let print_context = |pos: usize, xs: &[String]| {
         xs.iter()
             .enumerate()
@@ -364,7 +364,7 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
     let mut total_anomaly_count = 0;
     let start_time = Instant::now();
 
-    for source in content.get_sources()? {
+    for source in content.get_sources(env)? {
         let index_name = logreduce_model::indexname_from_source(&source);
         match model.get_index(&index_name) {
             Some(index) => {
@@ -396,13 +396,13 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
                 };
                 progress_sep_shown = false;
                 match index.get_processor(
-                    output_mode,
+                    env,
                     &source,
                     &mut logreduce_model::unordered::KnownLines::new(),
                 ) {
                     Ok(mut processor) => {
                         for anomaly in processor.by_ref() {
-                            if output_mode.inlined() && !progress_sep_shown {
+                            if env.output.inlined() && !progress_sep_shown {
                                 // Show a progress separator for the first anomaly.
                                 println!();
                                 progress_sep_shown = true;
@@ -432,28 +432,25 @@ fn process_live(output_mode: OutputMode, content: &Content, model: &Model) -> Re
     }
     if !progress_sep_shown {
         // If the last source didn't had an anomaly, then erase the current progress
-        clear_progress(output_mode);
+        clear_progress(env.output);
     }
     let process_time = start_time.elapsed();
     let total_mb_count = (total_byte_count as f64) / (1024.0 * 1024.0);
     let speed: f64 = total_mb_count / process_time.as_secs_f64();
-    logreduce_model::debug_or_progress(
-        output_mode,
-        &format!(
-            "Completed {}: Reduced from {} to {} {} at {:.2} MB/s\n",
-            content,
-            total_line_count,
-            total_anomaly_count,
-            HumanTime::from(process_time),
-            speed,
-        ),
-    );
+    env.debug_or_progress(&format!(
+        "Completed {}: Reduced from {} to {} {} at {:.2} MB/s\n",
+        content,
+        total_line_count,
+        total_anomaly_count,
+        HumanTime::from(process_time),
+        speed,
+    ));
     Ok(())
 }
 
-fn debug_groups(input: Input) -> Result<()> {
-    let content = Content::from_input(input)?;
-    for (index_name, sources) in Content::group_sources(&[content])?
+fn debug_groups(env: &Env, input: Input) -> Result<()> {
+    let content = Content::from_input(env, input)?;
+    for (index_name, sources) in Content::group_sources(env, &[content])?
         .drain()
         .sorted_by(|x, y| Ord::cmp(&x.0, &y.0))
     {

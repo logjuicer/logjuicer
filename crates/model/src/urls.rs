@@ -4,6 +4,7 @@
 use anyhow::{Context, Result};
 use url::Url;
 
+use crate::env::Env;
 use crate::{Content, Source};
 
 lazy_static::lazy_static! {
@@ -11,11 +12,11 @@ lazy_static::lazy_static! {
 }
 
 impl Content {
-    #[tracing::instrument(level = "debug")]
-    pub fn from_url(url: Url) -> Result<Content> {
+    #[tracing::instrument(level = "debug", skip(env))]
+    pub fn from_url(env: &Env, url: Url) -> Result<Content> {
         if !url.has_authority() {
             Err(anyhow::anyhow!("Bad url {}", url))
-        } else if let Some(content) = Content::from_zuul_url(&url) {
+        } else if let Some(content) = Content::from_zuul_url(env, &url) {
             content
         } else if let Some(content) = Content::from_prow_url(&url) {
             content
@@ -28,13 +29,17 @@ impl Content {
 }
 
 impl Source {
-    #[tracing::instrument(level = "debug")]
-    pub fn url_open(prefix: usize, url: &Url) -> Result<crate::reader::DecompressReader> {
+    #[tracing::instrument(level = "debug", skip(env))]
+    pub fn url_open(
+        env: &Env,
+        prefix: usize,
+        url: &Url,
+    ) -> Result<crate::reader::DecompressReader> {
         tracing::debug!(url = url.as_str(), "Fetching url");
         if prefix == 0 {
-            crate::reader::from_url(url, url)
+            crate::reader::from_url(env, url, url)
         } else {
-            crate::reader::from_url(&Url::parse(&url.as_str()[..42])?, url)
+            crate::reader::from_url(env, &Url::parse(&url.as_str()[..42])?, url)
         }
     }
 

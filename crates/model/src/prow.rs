@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::io::Read;
 use url::Url;
 
+use crate::env::Env;
 use crate::{Baselines, Content, Source};
 use prow_build::{ProwID, StoragePath, StorageType};
 
@@ -84,8 +85,8 @@ impl Content {
     }
 }
 
-fn get_prow_artifact_url(url: &Url) -> Result<Url> {
-    let mut reader = crate::reader::from_url(url, url)?;
+fn get_prow_artifact_url(env: &Env, url: &Url) -> Result<Url> {
+    let mut reader = crate::reader::from_url(env, url, url)?;
     let mut buffer = String::new();
     reader.read_to_string(&mut buffer)?;
 
@@ -105,6 +106,7 @@ fn get_prow_artifact_url(url: &Url) -> Result<Url> {
 
 #[test]
 fn test_get_prow_artifact_url() -> Result<()> {
+    let env = Env::new();
     let mut server = mockito::Server::new();
     let url = Url::parse(&server.url())?;
     let base_mock = server
@@ -122,9 +124,9 @@ fn test_get_prow_artifact_url() -> Result<()> {
         )
         .expect(1)
         .create();
-    crate::reader::drop_url(&url, &url)?;
+    crate::reader::drop_url(&env, &url, &url)?;
 
-    let artifact_url = get_prow_artifact_url(&url).expect("Artifact url");
+    let artifact_url = get_prow_artifact_url(&env, &url).expect("Artifact url");
     assert_eq!(
         artifact_url.as_str(),
         "https://artifacts.example.com/the-build/437/"
@@ -170,8 +172,8 @@ impl Build {
         Ok(vec![])
     }
 
-    pub fn sources_prow_iter(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
-        match get_prow_artifact_url(&self.url) {
+    pub fn sources_prow_iter(&self, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
+        match get_prow_artifact_url(env, &self.url) {
             Err(e) => Box::new(std::iter::once(Err(e))),
             Ok(url) => Source::httpdir_iter(&url),
         }

@@ -8,6 +8,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::env::Env;
 use crate::{Baselines, Content, Source};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -69,7 +70,8 @@ impl Build {
             change: 0,
         })
     }
-    fn get_success_samples(&self) -> Result<Vec<zuul_build::Build>> {
+
+    fn get_success_samples(&self, env: &Env) -> Result<Vec<zuul_build::Build>> {
         let base = self.api.join("builds").context("Can't create builds url")?;
         let mut args = vec![
             ("job_name", self.job_name.as_str()),
@@ -83,7 +85,7 @@ impl Build {
         let url =
             Url::parse_with_params(base.as_str(), args.iter()).context("Can't create query url")?;
         tracing::info!(url = url.as_str(), "Discovering baselines for {}", self);
-        get_builds(&self.api, &url)
+        get_builds(env, &self.api, &url)
     }
 
     fn baseline_score(&self, target: &zuul_build::Build, now: &NaiveDate) -> Option<i32> {
@@ -115,10 +117,10 @@ impl Build {
         }
     }
 
-    fn logs_available(target: &zuul_build::Build) -> bool {
+    fn logs_available(env: &Env, target: &zuul_build::Build) -> bool {
         match target.log_url {
             None => false,
-            Some(ref url) => match crate::reader::head_url(url, url) {
+            Some(ref url) => match crate::reader::head_url(env, url, url) {
                 Err(e) => {
                     tracing::info!(
                         url = url.as_str(),
@@ -132,8 +134,8 @@ impl Build {
         }
     }
 
-    pub fn discover_baselines(&self) -> Result<Baselines> {
-        let samples = self.get_success_samples()?;
+    pub fn discover_baselines(&self, env: &Env) -> Result<Baselines> {
+        let samples = self.get_success_samples(env)?;
         let max_builds = 1;
         let now = Utc::now().date_naive();
         Ok(samples
@@ -145,7 +147,7 @@ impl Build {
             // Order by descending score
             .sorted_by(|(score1, _), (score2, _)| score2.cmp(score1))
             // Filter stalled url
-            .filter(|(_, build)| Self::logs_available(build))
+            .filter(|(_, build)| Self::logs_available(env, build))
             // .map(|b| dbg!(b))
             // Keep the best
             .take(max_builds)
@@ -177,20 +179,20 @@ fn new_content(api: Url, build: zuul_build::Build) -> Content {
     }))
 }
 
-fn get_build(api: &Url, uid: &str) -> Result<zuul_build::Build> {
+fn get_build(env: &Env, api: &Url, uid: &str) -> Result<zuul_build::Build> {
     let url = api.join("build/")?.join(uid)?;
-    let reader = crate::reader::from_url(api, &url)?;
+    let reader = crate::reader::from_url(env, api, &url)?;
     match zuul_build::decode_build(reader).context("Can't decode zuul api") {
         Ok(x) => Ok(x),
-        Err(e) => crate::reader::drop_url(api, &url).map_or_else(Err, |_| Err(e)),
+        Err(e) => crate::reader::drop_url(env, api, &url).map_or_else(Err, |_| Err(e)),
     }
 }
 
-fn get_builds(api: &Url, url: &Url) -> Result<Vec<zuul_build::Build>> {
-    let reader = crate::reader::from_url(api, url)?;
+fn get_builds(env: &Env, api: &Url, url: &Url) -> Result<Vec<zuul_build::Build>> {
+    let reader = crate::reader::from_url(env, api, url)?;
     match zuul_build::decode_builds(reader).context("Can't decode zuul api") {
         Ok(xs) => Ok(xs),
-        Err(e) => crate::reader::drop_url(api, url).map_or_else(Err, |_| Err(e)),
+        Err(e) => crate::reader::drop_url(env, api, url).map_or_else(Err, |_| Err(e)),
     }
 }
 
@@ -245,9 +247,11 @@ fn get_zuul_api_url(url: &'_ Url) -> Option<Result<(Url, &'_ str)>> {
 }
 
 impl Content {
-    pub fn from_zuul_url(url: &Url) -> Option<Result<Content>> {
+    pub fn from_zuul_url(env: &Env, url: &Url) -> Option<Result<Content>> {
         get_zuul_api_url(url).map(|res| {
-            res.and_then(|(api, uid)| get_build(&api, uid).map(|build| new_content(api, build)))
+            res.and_then(|(api, uid)| {
+                get_build(env, &api, uid).map(|build| new_content(api, build))
+            })
         })
     }
 }
@@ -276,6 +280,7 @@ fn test_zuul_url() {
 
 #[test]
 fn test_zuul_api() -> Result<()> {
+    let env = Env::new();
     let mut server = mockito::Server::new();
     let url = Url::parse(&server.url())?;
     let build_url = url.join("/zuul/build/2498d287ec4b442a95184b7a4bec9b2d")?;
@@ -311,8 +316,8 @@ fn test_zuul_api() -> Result<()> {
         .expect(0)
         .create();
 
-    crate::reader::drop_url(&url.join("/zuul/api/")?, &url.join(api_path)?)?;
-    let content = Content::from_zuul_url(&build_url).unwrap()?;
+    crate::reader::drop_url(&env, &url.join("/zuul/api/")?, &url.join(api_path)?)?;
+    let content = Content::from_zuul_url(&env, &build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(Build {
         per_project: false,
         api: url.join("/zuul/api/")?,
