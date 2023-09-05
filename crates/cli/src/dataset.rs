@@ -10,7 +10,8 @@ use std::ffi::OsStr;
 use std::iter::zip;
 use std::path::Path;
 
-use logreduce_model::{AnomalyContext, Content, IndexName, Model, OutputMode, Source};
+use logreduce_model::env::Env;
+use logreduce_model::{AnomalyContext, Content, IndexName, Model, Source};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct DatasetAnomaly {
@@ -29,16 +30,16 @@ fn load_inf(path: &Path) -> Result<Dataset> {
     Ok(serde_yaml::from_reader(file)?)
 }
 
-pub fn test_datasets(paths: &[String]) -> Result<()> {
+pub fn test_datasets(env: &Env, paths: &[String]) -> Result<()> {
     for path_str in paths {
         let path = Path::new(&path_str);
         let inf = load_inf(path)?;
-        process(path, inf)?
+        process(env, path, inf)?
     }
     Ok(())
 }
 
-fn process(path: &Path, dataset: Dataset) -> Result<()> {
+fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
     let expected_count = dataset.anomalies.len();
     let paths = std::fs::read_dir(path)?
         .map(|d| d.unwrap().path())
@@ -52,16 +53,15 @@ fn process(path: &Path, dataset: Dataset) -> Result<()> {
             .find(|p| p.extension() == Some(OsStr::new("fail"))),
     ) {
         (Some(good), Some(fail)) => {
-            let om = OutputMode::Debug;
             let model = Model::train(
-                om,
+                env,
                 [Content::from_pathbuf(good.to_path_buf())].to_vec(),
                 logreduce_model::hashing_index::new,
             )?;
             let index = model.get_index(&IndexName("".to_string())).unwrap();
             let anomalies = index
                 .inspect(
-                    om,
+                    env,
                     &Source::from_pathbuf(fail.to_path_buf()),
                     &mut logreduce_model::unordered::KnownLines::new(),
                 )

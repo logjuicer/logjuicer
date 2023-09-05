@@ -6,6 +6,7 @@
 use anyhow::{Context, Result};
 use std::path::Path;
 
+use crate::env::Env;
 use crate::{Baselines, Content, Input, Source};
 
 impl Content {
@@ -22,12 +23,12 @@ impl Content {
         }
     }
 
-    #[tracing::instrument(level = "debug")]
-    pub fn discover_baselines_from_path(path: &Path) -> Result<Baselines> {
+    #[tracing::instrument(level = "debug", skip(env))]
+    pub fn discover_baselines_from_path(env: &Env, path: &Path) -> Result<Baselines> {
         // TODO: implement discovery by looking for common rotated file names.
         let mut path_str = path.to_path_buf().into_os_string().into_string().unwrap();
         path_str.push_str(".0");
-        let baseline = Content::from_input(Input::Path(path_str))?;
+        let baseline = Content::from_input(env, Input::Path(path_str))?;
         Ok(vec![baseline])
     }
 }

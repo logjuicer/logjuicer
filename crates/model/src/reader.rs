@@ -10,30 +10,20 @@ use url::Url;
 
 use std::fs::File;
 
+use crate::env::Env;
 use flate2::read::GzDecoder;
-
-// TODO: use a struct to pass these references.
-lazy_static::lazy_static! {
-    static ref CACHE: logreduce_cache::Cache = logreduce_cache::Cache::new().expect("Cache");
-    static ref CLIENT: reqwest::blocking::Client = reqwest::blocking::Client::builder()
-        .danger_accept_invalid_certs(std::env::var("LOGREDUCE_SSL_NO_VERIFY").is_ok())
-        .build()
-        .expect("Client");
-
-    static ref USE_CACHE: bool = std::env::var("LOGREDUCE_CACHE").is_ok();
-}
 
 /// Handle remote object.
 use reqwest::blocking::Response;
 mod remote {
     use super::*;
 
-    pub fn get_url(url: &Url) -> Result<Response> {
-        CLIENT.get(url.clone()).send().context("Can't get url")
+    pub fn get_url(client: &reqwest::blocking::Client, url: &Url) -> Result<Response> {
+        client.get(url.clone()).send().context("Can't get url")
     }
 
-    pub fn head(url: &Url) -> Result<bool> {
-        let resp = CLIENT.head(url.clone()).send().context("Can't head url")?;
+    pub fn head(client: &reqwest::blocking::Client, url: &Url) -> Result<bool> {
+        let resp = client.head(url.clone()).send().context("Can't head url")?;
         Ok(resp.status().is_success())
     }
 }
@@ -59,45 +49,46 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
     })
 }
 
-pub fn head_url(base: &Url, url: &Url) -> Result<bool> {
-    if *USE_CACHE {
-        match CACHE.head(base, url) {
+pub fn head_url(env: &Env, base: &Url, url: &Url) -> Result<bool> {
+    if env.use_cache {
+        match env.cache.head(base, url) {
             Some(result) => {
                 tracing::debug!("Cache hit for {}", url);
                 Ok(result)
             }
             None => {
                 tracing::debug!("Cache miss for {}", url);
-                CACHE.head_set(base, url, remote::head(url)?)
+                env.cache
+                    .head_set(base, url, remote::head(&env.client, url)?)
             }
         }
     } else {
-        remote::head(url)
+        remote::head(&env.client, url)
     }
 }
 
-pub fn from_url(base: &Url, url: &Url) -> Result<DecompressReader> {
-    if *USE_CACHE {
-        match CACHE.remote_get(base, url) {
+pub fn from_url(env: &Env, base: &Url, url: &Url) -> Result<DecompressReader> {
+    if env.use_cache {
+        match env.cache.remote_get(base, url) {
             Some(cache) => {
                 tracing::debug!("Cache hit for {}", url);
                 cache.map(Gz)
             }
             None => {
                 tracing::debug!("Cache miss for {}", url);
-                let resp = remote::get_url(url)?;
-                let cache = CACHE.remote_add(base, url, resp)?;
+                let resp = remote::get_url(&env.client, url)?;
+                let cache = env.cache.remote_add(base, url, resp)?;
                 Ok(Cached(cache))
             }
         }
     } else {
-        Ok(Remote(remote::get_url(url)?))
+        Ok(Remote(remote::get_url(&env.client, url)?))
     }
 }
 
-pub fn drop_url(base: &Url, url: &Url) -> Result<()> {
-    if *USE_CACHE {
-        CACHE.remote_drop(base, url)
+pub fn drop_url(env: &Env, base: &Url, url: &Url) -> Result<()> {
+    if env.use_cache {
+        env.cache.remote_drop(base, url)
     } else {
         Ok(())
     }

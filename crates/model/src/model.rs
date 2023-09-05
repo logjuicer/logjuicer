@@ -16,7 +16,9 @@ use url::Url;
 
 pub use logreduce_tokenizer::index_name::IndexName;
 
+use crate::env::Env;
 use crate::unordered::KnownLines;
+pub mod env;
 pub mod files;
 pub mod process;
 pub mod prow;
@@ -29,22 +31,6 @@ const MODEL_MAGIC: &str = "LGRD";
 
 // Remember to bump this value when changing the tokenizer or the vectorizer to avoid using incompatible models.
 const MODEL_VERSION: usize = 2;
-
-#[derive(Clone, Copy)]
-pub enum OutputMode {
-    // Print every steps
-    Debug,
-    // Print progress using \r
-    FastTerminal,
-    // Do not print progress, only errors
-    Quiet,
-}
-
-impl OutputMode {
-    pub fn inlined(&self) -> bool {
-        matches!(self, OutputMode::FastTerminal)
-    }
-}
 
 /// The user input.
 #[derive(Debug, Serialize, Deserialize)]
@@ -259,8 +245,8 @@ impl Report {
 }
 
 impl Index {
-    #[tracing::instrument(level = "debug", name = "Index::train", skip(index))]
-    pub fn train(sources: &[Source], mut index: ChunkIndex) -> Result<Index> {
+    #[tracing::instrument(level = "debug", name = "Index::train", skip(env, index))]
+    pub fn train(env: &Env, sources: &[Source], mut index: ChunkIndex) -> Result<Index> {
         let created_at = SystemTime::now();
         let start_time = Instant::now();
         let is_json = if let Some(source) = sources.first() {
@@ -272,7 +258,7 @@ impl Index {
         for source in sources {
             let reader = match source {
                 Source::Local(_, path_buf) => Source::file_open(path_buf.as_path())?,
-                Source::Remote(prefix, url) => Source::url_open(*prefix, url)?,
+                Source::Remote(prefix, url) => Source::url_open(env, *prefix, url)?,
             };
             if let Err(e) = trainer.add(reader) {
                 tracing::error!("{}: failed to load: {}", source, e)
@@ -292,14 +278,14 @@ impl Index {
 
     pub fn get_processor<'a>(
         &'a self,
-        output_mode: OutputMode,
+        env: &Env,
         source: &Source,
         skip_lines: &'a mut KnownLines,
     ) -> Result<process::ChunkProcessor<crate::reader::DecompressReader>> {
-        debug_or_progress(output_mode, &format!("Inspecting {}", source));
+        env.debug_or_progress(&format!("Inspecting {}", source));
         let fp = match source {
             Source::Local(_, path_buf) => Source::file_open(path_buf.as_path()),
-            Source::Remote(prefix, url) => Source::url_open(*prefix, url),
+            Source::Remote(prefix, url) => Source::url_open(env, *prefix, url),
         }?;
         Ok(process::ChunkProcessor::new(
             fp,
@@ -309,14 +295,14 @@ impl Index {
         ))
     }
 
-    #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self, output_mode))]
+    #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self, env))]
     pub fn inspect<'a>(
         &'a self,
-        output_mode: OutputMode,
+        env: &Env,
         source: &Source,
         skip_lines: &'a mut KnownLines,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
-        match self.get_processor(output_mode, source, skip_lines) {
+        match self.get_processor(env, source, skip_lines) {
             Ok(processor) => Box::new(processor),
             // If the file can't be open, the first iterator result will be the error.
             Err(e) => Box::new(std::iter::once(Err(e))),
@@ -326,12 +312,12 @@ impl Index {
 
 impl Content {
     /// Apply convertion rules to convert the user Input to Content.
-    #[tracing::instrument(level = "debug")]
-    pub fn from_input(input: Input) -> Result<Content> {
+    #[tracing::instrument(level = "debug", skip(env))]
+    pub fn from_input(env: &Env, input: Input) -> Result<Content> {
         match input {
             Input::Path(path_str) => Content::from_path(Path::new(&path_str)),
             Input::Url(url_str) => {
-                Content::from_url(Url::parse(&url_str).expect("Failed to parse url"))
+                Content::from_url(env, Url::parse(&url_str).expect("Failed to parse url"))
             }
             Input::ZuulBuild(path_buf, url_str, per_project) => {
                 let url = Url::parse(&url_str).expect("Failed to parse url");
@@ -359,12 +345,12 @@ impl Content {
     }
 
     /// Discover the baselines for this Content.
-    #[tracing::instrument(level = "debug")]
-    pub fn discover_baselines(&self) -> Result<Baselines> {
+    #[tracing::instrument(level = "debug", skip(env))]
+    pub fn discover_baselines(&self, env: &Env) -> Result<Baselines> {
         (match self {
             Content::File(src) => match src {
                 Source::Local(_, pathbuf) => {
-                    Content::discover_baselines_from_path(pathbuf.as_path())
+                    Content::discover_baselines_from_path(env, pathbuf.as_path())
                 }
                 Source::Remote(_, _) => Err(anyhow::anyhow!(
                     "Can't find remmote baselines, they need to be provided"
@@ -374,8 +360,8 @@ impl Content {
                 "Can't discover directory baselines, they need to be provided",
             )),
             Content::Prow(build) => build.discover_prow_baselines(),
-            Content::Zuul(build) => build.discover_baselines(),
-            Content::LocalZuulBuild(_, build) => build.discover_baselines(),
+            Content::Zuul(build) => build.discover_baselines(env),
+            Content::LocalZuulBuild(_, build) => build.discover_baselines(env),
         })
         .and_then(|baselines| match baselines.len() {
             0 => Err(anyhow::anyhow!("Empty discovered baselines")),
@@ -387,9 +373,9 @@ impl Content {
     }
 
     /// Get the sources of log lines for this Content.
-    #[tracing::instrument(level = "debug")]
-    pub fn get_sources(&self) -> Result<Vec<Source>> {
-        self.get_sources_iter()
+    #[tracing::instrument(level = "debug", skip(env))]
+    pub fn get_sources(&self, env: &Env) -> Result<Vec<Source>> {
+        self.get_sources_iter(env)
             .filter(|source| {
                 source
                     .as_ref()
@@ -403,7 +389,7 @@ impl Content {
             })
     }
 
-    pub fn get_sources_iter(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
+    pub fn get_sources_iter(&self, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
         match self {
             Content::File(src) => Box::new(src.file_iter()),
             Content::Directory(src) => match src {
@@ -411,15 +397,18 @@ impl Content {
                 Source::Remote(_, url) => Box::new(Source::httpdir_iter(url)),
             },
             Content::Zuul(build) => Box::new(build.sources_iter()),
-            Content::Prow(build) => Box::new(build.sources_prow_iter()),
+            Content::Prow(build) => Box::new(build.sources_prow_iter(env)),
             Content::LocalZuulBuild(src, _) => Box::new(Source::dir_iter(src.as_path())),
         }
     }
 
-    pub fn group_sources(baselines: &[Content]) -> Result<HashMap<IndexName, Vec<Source>>> {
+    pub fn group_sources(
+        env: &Env,
+        baselines: &[Content],
+    ) -> Result<HashMap<IndexName, Vec<Source>>> {
         let mut groups = HashMap::new();
         for baseline in baselines {
-            for source in baseline.get_sources()? {
+            for source in baseline.get_sources(env)? {
                 groups
                     .entry(indexname_from_source(&source))
                     .or_insert_with(Vec::new)
@@ -432,24 +421,17 @@ impl Content {
 
 impl Model {
     /// Create a Model from baselines.
-    #[tracing::instrument(level = "debug", skip(mk_index, output_mode))]
-    pub fn train(
-        output_mode: OutputMode,
-        baselines: Baselines,
-        mk_index: fn() -> ChunkIndex,
-    ) -> Result<Model> {
+    #[tracing::instrument(level = "debug", skip(mk_index, env))]
+    pub fn train(env: &Env, baselines: Baselines, mk_index: fn() -> ChunkIndex) -> Result<Model> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
-        for (index_name, sources) in Content::group_sources(&baselines)?.drain() {
-            debug_or_progress(
-                output_mode,
-                &format!(
-                    "Loading index {} with {}",
-                    index_name,
-                    sources.iter().format(", ")
-                ),
-            );
-            let index = Index::train(&sources, mk_index())?;
+        for (index_name, sources) in Content::group_sources(env, &baselines)?.drain() {
+            env.debug_or_progress(&format!(
+                "Loading index {} with {}",
+                index_name,
+                sources.iter().format(", ")
+            ));
+            let index = Index::train(env, &sources, mk_index())?;
             indexes.insert(index_name, index);
         }
         Ok(Model {
@@ -525,8 +507,8 @@ impl Model {
     }
 
     /// Create the final report.
-    #[tracing::instrument(level = "debug", skip(output_mode, self))]
-    pub fn report(&self, output_mode: OutputMode, target: Content) -> Result<Report> {
+    #[tracing::instrument(level = "debug", skip(env, self))]
+    pub fn report(&self, env: &Env, target: Content) -> Result<Report> {
         let start_time = Instant::now();
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
@@ -535,14 +517,14 @@ impl Model {
         let mut read_errors = Vec::new();
         let mut total_line_count = 0;
         let mut total_anomaly_count = 0;
-        for (index_name, sources) in Content::group_sources(&[target.clone()])?.drain() {
+        for (index_name, sources) in Content::group_sources(env, &[target.clone()])?.drain() {
             let mut skip_lines = KnownLines::new();
             match self.get_index(&index_name) {
                 Some(index) => {
                     for source in sources {
                         let start_time = Instant::now();
                         let mut anomalies = Vec::new();
-                        match index.get_processor(output_mode, &source, &mut skip_lines) {
+                        match index.get_processor(env, &source, &mut skip_lines) {
                             Ok(mut processor) => {
                                 for anomaly in processor.by_ref() {
                                     match anomaly {
@@ -594,15 +576,6 @@ impl Model {
             total_line_count,
             total_anomaly_count,
         })
-    }
-}
-
-/// Helper function to debug
-pub fn debug_or_progress(output_mode: OutputMode, msg: &str) {
-    match output_mode {
-        OutputMode::FastTerminal => print!("\r\x1b[1;33m[+]\x1b[0m {}", msg),
-        OutputMode::Debug => tracing::debug!("{}", msg),
-        OutputMode::Quiet => {}
     }
 }
 
