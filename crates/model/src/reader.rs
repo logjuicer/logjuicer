@@ -49,9 +49,9 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
     })
 }
 
-pub fn head_url(env: &Env, base: &Url, url: &Url) -> Result<bool> {
+pub fn head_url(env: &Env, prefix: usize, url: &Url) -> Result<bool> {
     if env.use_cache {
-        match env.cache.head(base, url) {
+        match env.cache.head(prefix, url) {
             Some(result) => {
                 tracing::debug!("Cache hit for {}", url);
                 Ok(result)
@@ -59,7 +59,7 @@ pub fn head_url(env: &Env, base: &Url, url: &Url) -> Result<bool> {
             None => {
                 tracing::debug!("Cache miss for {}", url);
                 env.cache
-                    .head_set(base, url, remote::head(&env.client, url)?)
+                    .head_set(prefix, url, remote::head(&env.client, url)?)
             }
         }
     } else {
@@ -67,9 +67,10 @@ pub fn head_url(env: &Env, base: &Url, url: &Url) -> Result<bool> {
     }
 }
 
-pub fn from_url(env: &Env, base: &Url, url: &Url) -> Result<DecompressReader> {
+/// Read a url, using a prefix size for cache grouping directory.
+pub fn from_url(env: &Env, prefix: usize, url: &Url) -> Result<DecompressReader> {
     if env.use_cache {
-        match env.cache.remote_get(base, url) {
+        match env.cache.remote_get(prefix, url) {
             Some(cache) => {
                 tracing::debug!("Cache hit for {}", url);
                 cache.map(Gz)
@@ -77,7 +78,7 @@ pub fn from_url(env: &Env, base: &Url, url: &Url) -> Result<DecompressReader> {
             None => {
                 tracing::debug!("Cache miss for {}", url);
                 let resp = remote::get_url(&env.client, url)?;
-                let cache = env.cache.remote_add(base, url, resp)?;
+                let cache = env.cache.remote_add(prefix, url, resp)?;
                 Ok(Cached(cache))
             }
         }
@@ -86,9 +87,9 @@ pub fn from_url(env: &Env, base: &Url, url: &Url) -> Result<DecompressReader> {
     }
 }
 
-pub fn drop_url(env: &Env, base: &Url, url: &Url) -> Result<()> {
+pub fn drop_url(env: &Env, prefix: usize, url: &Url) -> Result<()> {
     if env.use_cache {
-        env.cache.remote_drop(base, url)
+        env.cache.remote_drop(prefix, url)
     } else {
         Ok(())
     }

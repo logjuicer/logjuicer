@@ -85,7 +85,7 @@ impl Build {
         let url =
             Url::parse_with_params(base.as_str(), args.iter()).context("Can't create query url")?;
         tracing::info!(url = url.as_str(), "Discovering baselines for {}", self);
-        get_builds(env, &self.api, &url)
+        get_builds(env, &url)
     }
 
     fn baseline_score(&self, target: &zuul_build::Build, now: &NaiveDate) -> Option<i32> {
@@ -120,7 +120,7 @@ impl Build {
     fn logs_available(env: &Env, target: &zuul_build::Build) -> bool {
         match target.log_url {
             None => false,
-            Some(ref url) => match crate::reader::head_url(env, url, url) {
+            Some(ref url) => match crate::reader::head_url(env, 0, url) {
                 Err(e) => {
                     tracing::info!(
                         url = url.as_str(),
@@ -181,18 +181,20 @@ fn new_content(api: Url, build: zuul_build::Build) -> Content {
 
 fn get_build(env: &Env, api: &Url, uid: &str) -> Result<zuul_build::Build> {
     let url = api.join("build/")?.join(uid)?;
-    let reader = crate::reader::from_url(env, api, &url)?;
+    // Use the first few char of the url for the prefix, so that queries get grouped per api.
+    let reader = crate::reader::from_url(env, 0, &url)?;
     match zuul_build::decode_build(reader).context("Can't decode zuul api") {
         Ok(x) => Ok(x),
-        Err(e) => crate::reader::drop_url(env, api, &url).map_or_else(Err, |_| Err(e)),
+        Err(e) => crate::reader::drop_url(env, 0, &url).map_or_else(Err, |_| Err(e)),
     }
 }
 
-fn get_builds(env: &Env, api: &Url, url: &Url) -> Result<Vec<zuul_build::Build>> {
-    let reader = crate::reader::from_url(env, api, url)?;
+fn get_builds(env: &Env, url: &Url) -> Result<Vec<zuul_build::Build>> {
+    // Use the first few char of the url for the prefix, so that queries get grouped per api.
+    let reader = crate::reader::from_url(env, 0, url)?;
     match zuul_build::decode_builds(reader).context("Can't decode zuul api") {
         Ok(xs) => Ok(xs),
-        Err(e) => crate::reader::drop_url(env, api, url).map_or_else(Err, |_| Err(e)),
+        Err(e) => crate::reader::drop_url(env, 0, url).map_or_else(Err, |_| Err(e)),
     }
 }
 
@@ -316,7 +318,7 @@ fn test_zuul_api() -> Result<()> {
         .expect(0)
         .create();
 
-    crate::reader::drop_url(&env, &url.join("/zuul/api/")?, &url.join(api_path)?)?;
+    crate::reader::drop_url(&env, 0, &url.join(api_path)?)?;
     let content = Content::from_zuul_url(&env, &build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(Build {
         per_project: false,

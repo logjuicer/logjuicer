@@ -36,11 +36,7 @@ impl Source {
         url: &Url,
     ) -> Result<crate::reader::DecompressReader> {
         tracing::debug!(url = url.as_str(), "Fetching url");
-        if prefix == 0 {
-            crate::reader::from_url(env, url, url)
-        } else {
-            crate::reader::from_url(env, &Url::parse(&url.as_str()[..42])?, url)
-        }
+        crate::reader::from_url(env, prefix, url)
     }
 
     #[tracing::instrument(level = "debug")]

@@ -86,7 +86,7 @@ impl Content {
 }
 
 fn get_prow_artifact_url(env: &Env, url: &Url) -> Result<Url> {
-    let mut reader = crate::reader::from_url(env, url, url)?;
+    let mut reader = crate::reader::from_url(env, 0, url)?;
     let mut buffer = String::new();
     reader.read_to_string(&mut buffer)?;
 
@@ -124,7 +124,7 @@ fn test_get_prow_artifact_url() -> Result<()> {
         )
         .expect(1)
         .create();
-    crate::reader::drop_url(&env, &url, &url)?;
+    crate::reader::drop_url(&env, 0, &url)?;
 
     let artifact_url = get_prow_artifact_url(&env, &url).expect("Artifact url");
     assert_eq!(

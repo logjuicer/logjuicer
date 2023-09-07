@@ -15,24 +15,29 @@ mod filename {
     use super::*;
     use sha2::{Digest, Sha256};
 
-    fn new(prefix: char, url: &Url) -> String {
-        format!("{}{:X}", prefix, Sha256::digest(url.as_str()))
+    fn new(prefix: char, url: &str) -> String {
+        format!("{}{:X}", prefix, Sha256::digest(url))
+    }
+
+    fn new_base(prefix: usize, url: &Url) -> String {
+        let default_prefix = if prefix == 0 { 23 } else { prefix };
+        new('1', &url.as_str()[..default_prefix])
     }
 
     pub fn httpdir(url: &Url) -> String {
-        new('0', url)
+        new('0', url.as_str())
     }
 
-    pub fn http(base: &Url, url: &Url) -> String {
-        format!("{}/{}", new('1', base), new('2', url))
+    pub fn http(prefix: usize, url: &Url) -> String {
+        format!("{}/{}", new_base(prefix, url), new('2', url.as_str()))
     }
 
-    pub fn head_success(base: &Url, url: &Url) -> String {
-        format!("{}/{}", new('1', base), new('3', url))
+    pub fn head_success(prefix: usize, url: &Url) -> String {
+        format!("{}/{}", new_base(prefix, url), new('3', url.as_str()))
     }
 
-    pub fn head_failure(base: &Url, url: &Url) -> String {
-        format!("{}/{}", new('1', base), new('4', url))
+    pub fn head_failure(prefix: usize, url: &Url) -> String {
+        format!("{}/{}", new_base(prefix, url), new('4', url.as_str()))
     }
 
     pub fn drop(path: Option<std::path::PathBuf>) -> Result<()> {
@@ -57,34 +62,36 @@ impl Cache {
     }
 
     /// Get a cached head result.
-    pub fn head(&self, base: &Url, path: &Url) -> Option<bool> {
-        match self.get(&filename::head_success(base, path)) {
+    pub fn head(&self, prefix: usize, path: &Url) -> Option<bool> {
+        match self.get(&filename::head_success(prefix, path)) {
             Some(_) => Some(true),
-            None => self.get(&filename::head_failure(base, path)).map(|_| false),
+            None => self
+                .get(&filename::head_failure(prefix, path))
+                .map(|_| false),
         }
     }
 
     /// Store a head result.
-    pub fn head_set(&self, base: &Url, path: &Url, result: bool) -> Result<bool> {
+    pub fn head_set(&self, prefix: usize, path: &Url, result: bool) -> Result<bool> {
         let fp = if result {
-            filename::head_success(base, path)
+            filename::head_success(prefix, path)
         } else {
-            filename::head_failure(base, path)
+            filename::head_failure(prefix, path)
         };
         self.create(&fp).map(|_| result)
     }
 
     /// Get a cached file reader.
-    pub fn remote_get(&self, base: &Url, path: &Url) -> Option<Result<GzDecoder<File>>> {
-        self.get(&filename::http(base, path)).map(|buf| {
+    pub fn remote_get(&self, prefix: usize, path: &Url) -> Option<Result<GzDecoder<File>>> {
+        self.get(&filename::http(prefix, path)).map(|buf| {
             let fp = File::open(buf)?;
             Ok(GzDecoder::new(fp))
         })
     }
 
     /// Add a file reader to the cache.
-    pub fn remote_add<R: Read>(&self, base: &Url, path: &Url, obj: R) -> Result<CacheReader<R>> {
-        let fp = self.create(&filename::http(base, path))?;
+    pub fn remote_add<R: Read>(&self, prefix: usize, path: &Url, obj: R) -> Result<CacheReader<R>> {
+        let fp = self.create(&filename::http(prefix, path))?;
         Ok(CacheReader {
             remote: obj,
             local: GzEncoder::new(fp, flate2::Compression::fast()),
@@ -106,8 +113,8 @@ impl Cache {
     }
 
     /// Remove a remote file from the cache.
-    pub fn remote_drop(&self, base: &Url, path: &Url) -> Result<()> {
-        filename::drop(self.get(&filename::http(base, path)))
+    pub fn remote_drop(&self, prefix: usize, path: &Url) -> Result<()> {
+        filename::drop(self.get(&filename::http(prefix, path)))
     }
 
     /// Remove a httpdir from the cache.
@@ -186,10 +193,10 @@ fn test_remote() {
     let data = r#"test"#;
     let mut new_data = String::new();
 
-    cache.remote_drop(&base, &path).unwrap();
+    cache.remote_drop(0, &path).unwrap();
     assert!(
         cache
-            .remote_add(&base, &path, std::io::Cursor::new(data))
+            .remote_add(0, &path, std::io::Cursor::new(data))
             .unwrap()
             .read_to_string(&mut new_data)
             .unwrap()
@@ -201,7 +208,7 @@ fn test_remote() {
 
     assert!(
         cache
-            .remote_get(&base, &path)
+            .remote_get(0, &path)
             .unwrap()
             .unwrap()
             .read_to_string(&mut new_data)
