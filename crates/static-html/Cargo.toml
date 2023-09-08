@@ -1,5 +1,5 @@
 [package]
-name = "logreduce-report"
+name = "logreduce-static-html"
 version = "0.1.0"
 
 license = "Apache-2.0"
@@ -11,8 +11,8 @@ description = "HTML report for the logreduce project."
 edition = "2018"
 
 [lib]
-name = "logreduce_report"
-path = "src/report.rs"
+name = "logreduce_static_html"
+path = "src/static_html.rs"
 
 [dependencies]
 html-builder = { workspace = true }
