@@ -12,6 +12,7 @@ members = [
   "crates/httpdir",
   "crates/cli",
   "crates/generate",
+  "crates/web",
 ]
 resolver = "2"
 
