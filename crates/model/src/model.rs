@@ -16,8 +16,12 @@ use url::Url;
 
 pub use logreduce_tokenizer::index_name::IndexName;
 
+pub use logreduce_report::{AnomalyContext, IndexReport, LogReport, Report, Source};
+
 use crate::env::Env;
+use crate::files::{dir_iter, file_iter, file_open};
 use crate::unordered::KnownLines;
+use crate::urls::{httpdir_iter, url_open};
 pub mod env;
 pub mod files;
 pub mod process;
@@ -76,74 +80,36 @@ impl std::fmt::Display for Content {
     }
 }
 
-/// The location of the log lines, and the relative prefix length.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Source {
-    Local(usize, PathBuf),
-    Remote(usize, url::Url),
-}
-
-impl std::fmt::Display for Source {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Source::Local(_, _) => write!(f, "local: {}", self.get_relative()),
-            Source::Remote(_, _) => write!(f, "remote: {}", self.get_relative()),
-        }
+fn is_source_valid(source: &Source) -> bool {
+    lazy_static::lazy_static! {
+        static ref EXTS: Vec<String> = {
+            let mut v = Vec::new();
+            for ext in [
+                // binary data with known extension
+                ".ico", ".png", ".clf", ".tar", ".tar.bzip2",
+                ".subunit",
+                ".sqlite", ".db", ".bin", ".pcap.log.txt",
+                // font
+                ".eot", ".otf", ".woff", ".woff2", ".ttf",
+                // config
+                ".yaml", ".ini", ".conf",
+                // not relevant
+                "job-output.json", "log-classify.json", "zuul-manifest.json", ".html",
+                // binary data with known location
+                "cacerts",
+                "local/creds", "pacemaker/authkey",
+                "mysql/tc.log.txt", "corosync/authkey",
+                // swifts
+                "object.builder", "account.builder", "container.builder"
+            ] {
+                v.push(ext.to_string());
+                v.push(format!("{}.gz", ext))
+            }
+            v
+        };
     }
-}
-
-impl Source {
-    pub fn from_pathbuf(p: PathBuf) -> Source {
-        Source::Local(0, p)
-    }
-    pub fn is_json(&'_ self) -> bool {
-        self.get_relative().ends_with(".json")
-    }
-    pub fn get_relative(&'_ self) -> &'_ str {
-        match self {
-            Source::Local(base_len, path) => &path.to_str().unwrap_or("")[*base_len..],
-            Source::Remote(base_len, url) => &url.as_str()[*base_len..],
-        }
-    }
-
-    pub fn as_str(&'_ self) -> &'_ str {
-        match self {
-            Source::Local(_, path) => path.to_str().unwrap_or(""),
-            Source::Remote(_, url) => url.as_str(),
-        }
-    }
-
-    fn is_valid(&self) -> bool {
-        lazy_static::lazy_static! {
-            static ref EXTS: Vec<String> = {
-                let mut v = Vec::new();
-                for ext in [
-                    // binary data with known extension
-                    ".ico", ".png", ".clf", ".tar", ".tar.bzip2",
-                    ".subunit",
-                    ".sqlite", ".db", ".bin", ".pcap.log.txt",
-                    // font
-                    ".eot", ".otf", ".woff", ".woff2", ".ttf",
-                    // config
-                    ".yaml", ".ini", ".conf",
-                    // not relevant
-                    "job-output.json", "log-classify.json", "zuul-manifest.json", ".html",
-                    // binary data with known location
-                    "cacerts",
-                    "local/creds", "pacemaker/authkey",
-                    "mysql/tc.log.txt", "corosync/authkey",
-                    // swifts
-                    "object.builder", "account.builder", "container.builder"
-                ] {
-                    v.push(ext.to_string());
-                    v.push(format!("{}.gz", ext))
-                }
-                v
-            };
-        }
-        let s = self.as_str();
-        EXTS.iter().all(|ext| !s.ends_with(ext)) && !s.contains("/etc/")
-    }
+    let s = source.as_str();
+    EXTS.iter().all(|ext| !s.ends_with(ext)) && !s.contains("/etc/")
 }
 
 /// A list of nominal content, e.g. a successful build.
@@ -171,76 +137,12 @@ pub struct Index {
     pub byte_count: usize,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Anomaly {
-    pub distance: f32,
-    pub pos: usize,
-    pub line: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AnomalyContext {
-    pub before: Vec<String>,
-    pub anomaly: Anomaly,
-    pub after: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LogReport {
-    pub test_time: Duration,
-    pub line_count: usize,
-    pub byte_count: usize,
-    pub anomalies: Vec<AnomalyContext>,
-    pub source: Source,
-    pub index_name: IndexName,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct IndexReport {
-    pub train_time: Duration,
-    pub sources: Vec<Source>,
-}
-
-impl IndexReport {
-    pub fn from_index(index: &Index) -> IndexReport {
+impl Index {
+    pub fn to_report(&self) -> IndexReport {
         IndexReport {
-            train_time: index.train_time,
-            sources: index.sources.clone(),
+            train_time: self.train_time,
+            sources: self.sources.clone(),
         }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Report {
-    pub created_at: SystemTime,
-    pub run_time: Duration,
-    pub target: Content,
-    pub baselines: Vec<Content>,
-    pub log_reports: Vec<LogReport>,
-    pub index_reports: HashMap<IndexName, IndexReport>,
-    pub index_errors: Vec<Vec<Source>>,
-    pub read_errors: Vec<(Source, String)>,
-    pub total_line_count: usize,
-    pub total_anomaly_count: usize,
-}
-
-impl Report {
-    pub fn save(&self, path: &Path) -> Result<()> {
-        bincode::serialize_into(
-            flate2::write::GzEncoder::new(
-                std::fs::File::create(path).context("Can't create report file")?,
-                flate2::Compression::fast(),
-            ),
-            self,
-        )
-        .context("Can't save report")
-    }
-
-    pub fn load(path: &Path) -> Result<Report> {
-        bincode::deserialize_from(flate2::read::GzDecoder::new(
-            std::fs::File::open(path).context("Can't open report file")?,
-        ))
-        .context("Can't load report")
     }
 }
 
@@ -257,8 +159,8 @@ impl Index {
         let mut trainer = process::ChunkTrainer::new(&mut index, is_json);
         for source in sources {
             let reader = match source {
-                Source::Local(_, path_buf) => Source::file_open(path_buf.as_path())?,
-                Source::Remote(prefix, url) => Source::url_open(env, *prefix, url)?,
+                Source::Local(_, path_buf) => file_open(path_buf.as_path())?,
+                Source::Remote(prefix, url) => url_open(env, *prefix, url)?,
             };
             if let Err(e) = trainer.add(reader) {
                 tracing::error!("{}: failed to load: {}", source, e)
@@ -284,8 +186,8 @@ impl Index {
     ) -> Result<process::ChunkProcessor<crate::reader::DecompressReader>> {
         env.debug_or_progress(&format!("Inspecting {}", source));
         let fp = match source {
-            Source::Local(_, path_buf) => Source::file_open(path_buf.as_path()),
-            Source::Remote(prefix, url) => Source::url_open(env, *prefix, url),
+            Source::Local(_, path_buf) => file_open(path_buf.as_path()),
+            Source::Remote(prefix, url) => url_open(env, *prefix, url),
         }?;
         Ok(process::ChunkProcessor::new(
             fp,
@@ -376,12 +278,7 @@ impl Content {
     #[tracing::instrument(level = "debug", skip(env))]
     pub fn get_sources(&self, env: &Env) -> Result<Vec<Source>> {
         self.get_sources_iter(env)
-            .filter(|source| {
-                source
-                    .as_ref()
-                    .map(|source| source.is_valid())
-                    .unwrap_or(true)
-            })
+            .filter(|source| source.as_ref().map(is_source_valid).unwrap_or(true))
             .collect::<Result<Vec<_>>>()
             .and_then(|sources| match sources.len() {
                 0 => Err(anyhow::anyhow!(format!("Empty sources: {}", self))),
@@ -391,14 +288,14 @@ impl Content {
 
     pub fn get_sources_iter(&self, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
         match self {
-            Content::File(src) => Box::new(src.file_iter()),
+            Content::File(src) => Box::new(file_iter(src)),
             Content::Directory(src) => match src {
-                Source::Local(_, pathbuf) => Box::new(Source::dir_iter(pathbuf.as_path())),
-                Source::Remote(_, url) => Box::new(Source::httpdir_iter(url)),
+                Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
+                Source::Remote(_, url) => Box::new(httpdir_iter(url)),
             },
             Content::Zuul(build) => Box::new(build.sources_iter()),
             Content::Prow(build) => Box::new(build.sources_prow_iter(env)),
-            Content::LocalZuulBuild(src, _) => Box::new(Source::dir_iter(src.as_path())),
+            Content::LocalZuulBuild(src, _) => Box::new(dir_iter(src.as_path())),
         }
     }
 
@@ -539,10 +436,7 @@ impl Model {
                                 if !anomalies.is_empty() {
                                     total_anomaly_count += anomalies.len();
                                     if !index_reports.contains_key(&index_name) {
-                                        index_reports.insert(
-                                            index_name.clone(),
-                                            IndexReport::from_index(index),
-                                        );
+                                        index_reports.insert(index_name.clone(), index.to_report());
                                     }
                                     log_reports.push(LogReport {
                                         test_time: start_time.elapsed(),
@@ -567,8 +461,12 @@ impl Model {
         Ok(Report {
             created_at,
             run_time: start_time.elapsed(),
-            target,
-            baselines: self.baselines.clone(),
+            target: format!("{}", target),
+            baselines: self
+                .baselines
+                .iter()
+                .map(|source| format!("{}", source))
+                .collect(),
             log_reports,
             index_reports,
             index_errors,

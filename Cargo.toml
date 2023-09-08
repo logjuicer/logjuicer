@@ -4,6 +4,7 @@ members = [
   "crates/tokenizer",
   "crates/index",
   "crates/model",
+  "crates/report",
   "crates/zuul",
   "crates/prow",
   "crates/static-html",

@@ -1092,6 +1092,7 @@ dependencies = [
  "logreduce-generate",
  "logreduce-index",
  "logreduce-iterator",
+ "logreduce-report",
  "logreduce-tokenizer",
  "mockito",
  "prow-build",
@@ -1107,13 +1108,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "logreduce-report"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "chrono",
+ "flate2",
+ "logreduce-tokenizer",
+ "serde",
+ "url",
+]
+
+[[package]]
 name = "logreduce-static-html"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "html-builder",
  "itertools 0.11.0",
- "logreduce-model",
+ "logreduce-report",
 ]
 
 [[package]]

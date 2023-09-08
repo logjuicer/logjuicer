@@ -175,7 +175,7 @@ impl Build {
     pub fn sources_prow_iter(&self, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
         match get_prow_artifact_url(env, &self.url) {
             Err(e) => Box::new(std::iter::once(Err(e))),
-            Ok(url) => Source::httpdir_iter(&url),
+            Ok(url) => crate::httpdir_iter(&url),
         }
     }
 }

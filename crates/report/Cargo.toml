@@ -1,0 +1,25 @@
+[package]
+name = "logreduce-report"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logreduce/logreduce"
+authors = ["TristanCacqueray"]
+
+description = "Logreduce output report."
+
+edition = "2018"
+
+[lib]
+name = "logreduce_report"
+path = "src/report.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+bincode = { workspace = true }
+flate2 = { workspace = true }
+serde = { workspace = true }
+url = { workspace = true, features = ["serde"] }
+# For IndexName...
+logreduce-tokenizer = { path = "../tokenizer" }

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 fn render(fp: &std::path::Path) {
-    let report = logreduce_model::Report::load(fp).unwrap();
+    let report = logreduce_report::Report::load(fp).unwrap();
     let mut html = fp.to_path_buf();
     html.set_extension("html");
-    std::fs::write(&html, logreduce_report::render(&report).unwrap()).unwrap();
+    std::fs::write(&html, logreduce_static_html::render(&report).unwrap()).unwrap();
     println!("Updated {:?}", html);
 }
 

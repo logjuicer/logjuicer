@@ -189,8 +189,12 @@ impl Cli {
                 match sources.first() {
                     Some(source) => {
                         let reader = match source {
-                            Source::Local(_, path_buf) => Source::file_open(path_buf.as_path())?,
-                            Source::Remote(prefix, url) => Source::url_open(&env, *prefix, url)?,
+                            Source::Local(_, path_buf) => {
+                                logreduce_model::files::file_open(path_buf.as_path())?
+                            }
+                            Source::Remote(prefix, url) => {
+                                logreduce_model::urls::url_open(&env, *prefix, url)?
+                            }
                         };
                         for line in logreduce_iterator::BytesLines::new(reader, source.is_json()) {
                             match line {
