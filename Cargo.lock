@@ -1038,7 +1038,7 @@ dependencies = [
  "itertools 0.11.0",
  "logreduce-iterator",
  "logreduce-model",
- "logreduce-report",
+ "logreduce-static-html",
  "logreduce-tokenizer",
  "serde",
  "serde_yaml",
@@ -1107,7 +1107,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "logreduce-report"
+name = "logreduce-static-html"
 version = "0.1.0"
 dependencies = [
  "chrono",

@@ -337,14 +337,14 @@ fn process(
             // Save raw report for debug purpose
             if std::env::var("LOGREDUCE_CACHE").is_ok() {
                 let mut report_json = file.clone();
-                report_json.set_extension("json");
+                report_json.set_extension("bin");
                 report.save(&report_json)?;
             }
 
             println!("{:?}: Writing report...", file);
             std::fs::write(
                 file,
-                logreduce_report::render(&report).context("Error rendering the report")?,
+                logreduce_static_html::render(&report).context("Error rendering the report")?,
             )
             .context("Failed to write the report")
         }
