@@ -39,7 +39,8 @@
         src = pkgs.lib.cleanSourceWith {
           src = ./.; # The original, unfiltered source
           filter = path: type:
-            (pkgs.lib.hasSuffix ".html" path) || (pkgs.lib.hasSuffix ".js" path)
+            (pkgs.lib.hasSuffix ".html" path)
+            || (pkgs.lib.hasSuffix ".config.js" path)
             || (pkgs.lib.hasSuffix ".css" path)
             || (pkgs.lib.hasSuffix ".txt" path) ||
             # Default filter from crane (allow .rs files)
@@ -57,6 +58,57 @@
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         });
         exe = craneLib.buildPackage cli-info;
+
+        web-info = {
+          src = src;
+          cargoExtraArgs = "--package=logreduce-web";
+        } // craneLib.crateNameFromCargoToml {
+          cargoToml = ./crates/web/Cargo.toml;
+        };
+        web-package = {
+          name = "logreduce-web";
+          description = "Web Interface for logreduce";
+          license = "Apache-2.0";
+          homepage = "https://github.com/logreduce/logreduce";
+          repository = {
+            type = "git";
+            url = "https://github.com/logreduce/logreduce";
+          };
+          keywords = [ "anomaly-detection" "machine-learning" "wasm" "yew" ];
+          version = web-info.version;
+          files = [
+            "README.md"
+            "LICENSE"
+            "logreduce-web.js"
+            "logreduce-web.wasm"
+            "logreduce-web.css"
+          ];
+        };
+        web-package-json = pkgs.writeTextFile {
+          name = "package.json";
+          text = builtins.toJSON web-package;
+        };
+        cargoArtifactsWasm = craneLib.buildDepsOnly (web-info // {
+          doCheck = false;
+          CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+        });
+        web = craneLib.buildTrunkPackage (web-info // {
+          cargoArtifacts = cargoArtifactsWasm;
+          trunkIndexPath = "./index.html";
+          # Start the build relative to the crate to take the tailwind.config.js into account.
+          preBuild = "cd crates/web";
+          buildInputs = [ pkgs.tailwindcss ];
+          # Fixup the dist output for a publishable package.
+          postInstall = ''
+            rm $out/index.html
+            mv $out/*.js $out/logreduce-web.js
+            mv $out/*.wasm $out/logreduce-web.wasm
+            mv $out/*.css $out/logreduce-web.css
+            cp ${self}/LICENSE $out
+            cp ${self}/crates/web/README.md $out
+            cp ${web-package-json} $out/package.json
+          '';
+        });
 
         python = pkgs.python39.withPackages (ps:
           with ps; [
@@ -83,6 +135,7 @@
 
       in {
         defaultPackage = exe;
+        packages.web = web;
         apps.default = flake-utils.lib.mkApp {
           drv = exe;
           name = "logreduce";

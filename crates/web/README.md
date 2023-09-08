@@ -1,7 +1,7 @@
 # logreduce-web
 
-Try the app by running:
+Develop the web by first generating a `report.bin` file, and then running:
 
 ```ShellSession
-trunk serve
+trunk serve ./dev.html
 ```
