@@ -3,6 +3,15 @@ use gloo_net::http::Request;
 use std::ops::Deref;
 use yew::prelude::*;
 
+fn render_report(report: &logreduce_report::Report) -> Html {
+    html! {
+      <>
+           <p>{ format!("{}", report.target) }</p>
+           <div class={classes!("m-2")}>{format!("Anomaly count: {}", report.total_anomaly_count)}</div>
+      </>
+    }
+}
+
 #[function_component(App)]
 fn app() -> Html {
     let report = use_state(|| None);
@@ -30,15 +39,15 @@ fn app() -> Html {
         );
     }
 
-    let report_str = match report.deref() {
-        Some(report) => format!("{}", report.target),
-        None => "loading...".to_string(),
+    let report_html = match report.deref() {
+        Some(report) => render_report(report),
+        None => html!(<p>{"loading..."}</p>),
     };
 
     html! {
         <div>
             {"Logreduce web interface"}
-            <p>{ report_str }</p>
+            <p>{ report_html }</p>
         </div>
     }
 }

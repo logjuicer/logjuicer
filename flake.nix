@@ -88,7 +88,7 @@
           name = "logreduce";
         };
         devShell = craneLib.devShell {
-          packages = with pkgs; [ cargo-watch trunk ];
+          packages = with pkgs; [ cargo-watch trunk tailwindcss ];
           LOGREDUCE_CACHE = "1";
           UPDATE_GOLDENFILES = "1";
         };
