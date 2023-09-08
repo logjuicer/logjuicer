@@ -8,7 +8,7 @@ use std::fmt::Write;
 
 type Result<A> = core::result::Result<A, std::fmt::Error>;
 
-pub fn render(report: &logreduce_model::Report) -> Result<String> {
+pub fn render(report: &logreduce_report::Report) -> Result<String> {
     Ok(Html::from(report)?.render())
 }
 
@@ -17,7 +17,7 @@ struct Html {
 }
 
 impl Html {
-    fn from(report: &logreduce_model::Report) -> Result<Html> {
+    fn from(report: &logreduce_report::Report) -> Result<Html> {
         let mut buffer = Buffer::new();
         let mut html = buffer.html().attr("lang='en'");
 
@@ -78,7 +78,7 @@ fn add_head(parent: &mut Node, title: &str) -> Result<()> {
     Ok(())
 }
 
-fn add_body(parent: &mut Node, report: &logreduce_model::Report) -> Result<()> {
+fn add_body(parent: &mut Node, report: &logreduce_report::Report) -> Result<()> {
     fn add_script(body: &mut Node, href: &str, integrity: &str) {
         body.script()
             .attr(&format!("src=\"{}\"", href))
@@ -154,7 +154,7 @@ fn add_nav(body: &mut Node) -> Result<()> {
     Ok(())
 }
 
-fn add_container(body: &mut Node, report: &logreduce_model::Report) -> Result<()> {
+fn add_container(body: &mut Node, report: &logreduce_report::Report) -> Result<()> {
     let mut div = body
         .div()
         .attr("class=\"container\"")
@@ -166,7 +166,7 @@ fn add_container(body: &mut Node, report: &logreduce_model::Report) -> Result<()
         &mut div,
         None,
         &[
-            &["Target", &format!("{}", report.target)],
+            &["Target", &report.target.to_string()],
             &[
                 "Baselines",
                 &format!("{}", report.baselines.iter().format(", ")),
@@ -217,8 +217,8 @@ fn add_container(body: &mut Node, report: &logreduce_model::Report) -> Result<()
 
 fn render_content_report(
     list_group: &mut Node,
-    log_report: &logreduce_model::LogReport,
-    index_report: Option<&logreduce_model::IndexReport>,
+    log_report: &logreduce_report::LogReport,
+    index_report: Option<&logreduce_report::IndexReport>,
     expand: bool,
 ) -> Result<()> {
     let mut list_group_item = list_group
@@ -330,7 +330,7 @@ fn render_content_report(
     Ok(())
 }
 
-fn model_anchor(index_name: &logreduce_model::IndexName) -> String {
+fn model_anchor(index_name: &logreduce_report::IndexName) -> String {
     format!("#model_{}", index_name)
 }
 
@@ -343,7 +343,7 @@ fn render_context(loglines: &mut Node, pos: usize, xs: &[String]) -> Result<()> 
     Ok(())
 }
 
-fn render_lines(loglines: &mut Node, anomalies: &[logreduce_model::AnomalyContext]) -> Result<()> {
+fn render_lines(loglines: &mut Node, anomalies: &[logreduce_report::AnomalyContext]) -> Result<()> {
     let mut last_pos = None;
 
     for anomaly in anomalies {

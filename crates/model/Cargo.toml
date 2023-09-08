@@ -19,6 +19,7 @@ path = "src/model.rs"
 anyhow = { workspace = true }
 walkdir = { workspace = true }
 logreduce-index = { path = "../index" }
+logreduce-report = { path = "../report" }
 logreduce-tokenizer = { path = "../tokenizer" }
 logreduce-iterator = { path = "../iterator" }
 httpdir = { path = "../httpdir" }

@@ -157,7 +157,7 @@ impl Build {
     }
 
     pub fn sources_iter(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
-        Source::httpdir_iter(&self.log_url)
+        crate::httpdir_iter(&self.log_url)
     }
 }
 

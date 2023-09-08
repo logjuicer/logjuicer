@@ -33,34 +33,32 @@ impl Content {
     }
 }
 
-impl Source {
-    pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader> {
-        tracing::debug!(path = path.to_str(), "Reading file");
-        crate::reader::from_path(path).context("Failed to open file")
-    }
+pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader> {
+    tracing::debug!(path = path.to_str(), "Reading file");
+    crate::reader::from_path(path).context("Failed to open file")
+}
 
-    // A file source only has one source
-    pub fn file_iter(&self) -> impl Iterator<Item = Result<Source>> {
-        std::iter::once(Ok(self.clone()))
-    }
+// A file source only has one source
+pub fn file_iter(source: &Source) -> impl Iterator<Item = Result<Source>> {
+    std::iter::once(Ok(source.clone()))
+}
 
-    fn keep_path(result: &walkdir::Result<walkdir::DirEntry>) -> bool {
-        match result {
-            Ok(entry) if !entry.path_is_symlink() && entry.file_type().is_file() => true,
-            Ok(_) => false,
-            // Keep errors for book keeping
-            Err(_) => true,
-        }
+fn keep_path(result: &walkdir::Result<walkdir::DirEntry>) -> bool {
+    match result {
+        Ok(entry) if !entry.path_is_symlink() && entry.file_type().is_file() => true,
+        Ok(_) => false,
+        // Keep errors for book keeping
+        Err(_) => true,
     }
+}
 
-    pub fn dir_iter(path: &Path) -> impl Iterator<Item = Result<Source>> {
-        let base_len = path.to_str().map(|s| s.len()).unwrap_or(0);
-        walkdir::WalkDir::new(path)
-            .into_iter()
-            .filter(Source::keep_path)
-            .map(move |res| match res {
-                Err(e) => Err(e.into()),
-                Ok(res) => Ok(Source::Local(base_len, res.into_path())),
-            })
-    }
+pub fn dir_iter(path: &Path) -> impl Iterator<Item = Result<Source>> {
+    let base_len = path.to_str().map(|s| s.len()).unwrap_or(0);
+    walkdir::WalkDir::new(path)
+        .into_iter()
+        .filter(keep_path)
+        .map(move |res| match res {
+            Err(e) => Err(e.into()),
+            Ok(res) => Ok(Source::Local(base_len, res.into_path())),
+        })
 }

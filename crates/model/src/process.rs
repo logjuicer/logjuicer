@@ -8,8 +8,9 @@ use std::collections::VecDeque;
 use std::io::Read;
 
 use crate::unordered::KnownLines;
-use crate::{Anomaly, AnomalyContext, ChunkIndex};
+use crate::ChunkIndex;
 use logreduce_iterator::LogLine;
+use logreduce_report::{Anomaly, AnomalyContext};
 
 const THRESHOLD: logreduce_index::F = 0.3;
 const CTX_DISTANCE: usize = 3;

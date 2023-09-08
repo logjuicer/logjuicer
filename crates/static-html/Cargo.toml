@@ -18,7 +18,7 @@ path = "src/static_html.rs"
 html-builder = { workspace = true }
 itertools = { workspace = true }
 chrono = { workspace = true }
-logreduce-model = { path = "../model" }
+logreduce-report = { path = "../report" }
 
 [[example]]
 name = "render"
