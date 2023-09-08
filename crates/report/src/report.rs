@@ -53,6 +53,10 @@ impl Report {
         ))
         .map_err(Error::DecodeError)
     }
+
+    pub fn load_bytes(data: &[u8]) -> Result<Report, Error> {
+        bincode::deserialize_from(flate2::read::GzDecoder::new(data)).map_err(Error::DecodeError)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
