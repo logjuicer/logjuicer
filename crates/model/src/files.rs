@@ -9,28 +9,26 @@ use std::path::Path;
 use crate::env::Env;
 use crate::{Baselines, Content, Input, Source};
 
-impl Content {
-    #[tracing::instrument(level = "debug")]
-    pub fn from_path(path: &Path) -> Result<Content> {
-        let src = Source::Local(0, path.to_path_buf());
+#[tracing::instrument(level = "debug")]
+pub fn content_from_path(path: &Path) -> Result<Content> {
+    let src = Source::Local(0, path.to_path_buf());
 
-        if path.is_dir() {
-            Ok(Content::Directory(src))
-        } else if path.is_file() {
-            Ok(Content::File(src))
-        } else {
-            Err(anyhow::anyhow!("Unknown path: {:?}", path))
-        }
+    if path.is_dir() {
+        Ok(Content::Directory(src))
+    } else if path.is_file() {
+        Ok(Content::File(src))
+    } else {
+        Err(anyhow::anyhow!("Unknown path: {:?}", path))
     }
+}
 
-    #[tracing::instrument(level = "debug", skip(env))]
-    pub fn discover_baselines_from_path(env: &Env, path: &Path) -> Result<Baselines> {
-        // TODO: implement discovery by looking for common rotated file names.
-        let mut path_str = path.to_path_buf().into_os_string().into_string().unwrap();
-        path_str.push_str(".0");
-        let baseline = Content::from_input(env, Input::Path(path_str))?;
-        Ok(vec![baseline])
-    }
+#[tracing::instrument(level = "debug", skip(env))]
+pub fn discover_baselines_from_path(env: &Env, path: &Path) -> Result<Baselines> {
+    // TODO: implement discovery by looking for common rotated file names.
+    let mut path_str = path.to_path_buf().into_os_string().into_string().unwrap();
+    path_str.push_str(".0");
+    let baseline = crate::content_from_input(env, Input::Path(path_str))?;
+    Ok(vec![baseline])
 }
 
 pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader> {

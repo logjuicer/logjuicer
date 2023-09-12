@@ -7,7 +7,10 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
 use logreduce_model::env::{Env, OutputMode};
-use logreduce_model::{Content, Input, Model, Source};
+use logreduce_model::{
+    content_discover_baselines, content_from_input, content_get_sources, group_sources, Content,
+    Input, Model, Source,
+};
 use std::path::PathBuf;
 use std::time::Instant;
 use time_humanize::{Accuracy, HumanTime, Tense};
@@ -139,7 +142,7 @@ impl Cli {
                     baselines
                         .into_iter()
                         .map(Input::from_string)
-                        .map(|x| Content::from_input(&env, x))
+                        .map(|x| content_from_input(&env, x))
                         .collect::<Result<Vec<_>>>()?,
                     logreduce_model::hashing_index::new,
                 )?;
@@ -184,8 +187,8 @@ impl Cli {
             }
             Commands::DebugIterator { path } => {
                 let input = Input::Path(path.clone());
-                let content = Content::from_input(&env, input)?;
-                let sources = content.get_sources(&env)?;
+                let content = content_from_input(&env, input)?;
+                let sources = content_get_sources(&content, &env)?;
                 match sources.first() {
                     Some(source) => {
                         let reader = match source {
@@ -291,16 +294,16 @@ fn process(
     input: Input,
 ) -> Result<()> {
     // Convert user Input to target Content.
-    let content = Content::from_input(env, input)?;
+    let content = content_from_input(env, input)?;
 
     let train_model = |baselines: Option<Vec<Input>>| {
         // Lookup baselines.
         tracing::debug!("Finding baselines");
         let baselines = match baselines {
-            None => content.discover_baselines(env),
+            None => content_discover_baselines(&content, env),
             Some(baselines) => baselines
                 .into_iter()
-                .map(|x| Content::from_input(env, x))
+                .map(|x| content_from_input(env, x))
                 .collect::<Result<Vec<_>>>(),
         }?;
 
@@ -368,7 +371,7 @@ fn process_live(env: &Env, content: &Content, model: &Model) -> Result<()> {
     let mut total_anomaly_count = 0;
     let start_time = Instant::now();
 
-    for source in content.get_sources(env)? {
+    for source in content_get_sources(content, env)? {
         let index_name = logreduce_model::indexname_from_source(&source);
         match model.get_index(&index_name) {
             Some(index) => {
@@ -453,8 +456,8 @@ fn process_live(env: &Env, content: &Content, model: &Model) -> Result<()> {
 }
 
 fn debug_groups(env: &Env, input: Input) -> Result<()> {
-    let content = Content::from_input(env, input)?;
-    for (index_name, sources) in Content::group_sources(env, &[content])?
+    let content = content_from_input(env, input)?;
+    for (index_name, sources) in group_sources(env, &[content])?
         .drain()
         .sorted_by(|x, y| Ord::cmp(&x.0, &y.0))
     {

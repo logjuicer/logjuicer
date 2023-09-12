@@ -11,20 +11,18 @@ lazy_static::lazy_static! {
     static ref CACHE: logreduce_cache::Cache = logreduce_cache::Cache::new().expect("Cache");
 }
 
-impl Content {
-    #[tracing::instrument(level = "debug", skip(env))]
-    pub fn from_url(env: &Env, url: Url) -> Result<Content> {
-        if !url.has_authority() {
-            Err(anyhow::anyhow!("Bad url {}", url))
-        } else if let Some(content) = Content::from_zuul_url(env, &url) {
-            content
-        } else if let Some(content) = Content::from_prow_url(&url) {
-            content
-        } else if url.as_str().ends_with('/') {
-            Ok(Content::Directory(Source::Remote(0, url)))
-        } else {
-            Ok(Content::File(Source::Remote(0, url)))
-        }
+#[tracing::instrument(level = "debug", skip(env))]
+pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
+    if !url.has_authority() {
+        Err(anyhow::anyhow!("Bad url {}", url))
+    } else if let Some(content) = crate::zuul::content_from_zuul_url(env, &url) {
+        content
+    } else if let Some(content) = crate::prow::content_from_prow_url(&url) {
+        content
+    } else if url.as_str().ends_with('/') {
+        Ok(Content::Directory(Source::Remote(0, url)))
+    } else {
+        Ok(Content::File(Source::Remote(0, url)))
     }
 }
 

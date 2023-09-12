@@ -227,14 +227,10 @@ fn get_zuul_api_url(url: &'_ Url) -> Option<Result<(Url, &'_ str)>> {
     })
 }
 
-impl Content {
-    pub fn from_zuul_url(env: &Env, url: &Url) -> Option<Result<Content>> {
-        get_zuul_api_url(url).map(|res| {
-            res.and_then(|(api, uid)| {
-                get_build(env, &api, uid).map(|build| new_content(api, build))
-            })
-        })
-    }
+pub fn content_from_zuul_url(env: &Env, url: &Url) -> Option<Result<Content>> {
+    get_zuul_api_url(url).map(|res| {
+        res.and_then(|(api, uid)| get_build(env, &api, uid).map(|build| new_content(api, build)))
+    })
 }
 
 #[test]
@@ -298,7 +294,7 @@ fn test_zuul_api() -> Result<()> {
         .create();
 
     crate::reader::drop_url(&env, 0, &url.join(api_path)?)?;
-    let content = Content::from_zuul_url(&env, &build_url).unwrap()?;
+    let content = content_from_zuul_url(&env, &build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(ZuulBuild {
         per_project: false,
         api: url.join("/zuul/api/")?,

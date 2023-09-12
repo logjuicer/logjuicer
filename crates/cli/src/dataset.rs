@@ -11,7 +11,7 @@ use std::iter::zip;
 use std::path::Path;
 
 use logreduce_model::env::Env;
-use logreduce_model::{AnomalyContext, Content, IndexName, Model, Source};
+use logreduce_model::{content_from_pathbuf, AnomalyContext, IndexName, Model, Source};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct DatasetAnomaly {
@@ -55,7 +55,7 @@ fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
         (Some(good), Some(fail)) => {
             let model = Model::train(
                 env,
-                [Content::from_pathbuf(good.to_path_buf())].to_vec(),
+                [content_from_pathbuf(good.to_path_buf())].to_vec(),
                 logreduce_model::hashing_index::new,
             )?;
             let index = model.get_index(&IndexName("".to_string())).unwrap();
