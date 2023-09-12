@@ -56,14 +56,12 @@ fn test_parse_prow_url() {
     );
 }
 
-impl Content {
-    pub fn from_prow_url(url: &Url) -> Option<Result<Content>> {
-        match url.authority() {
-            "prow.ci.openshift.org" => {
-                parse_prow_url(url).map(|res| res.map(|build| Content::Prow(Box::new(build))))
-            }
-            _ => None,
+pub fn content_from_prow_url(url: &Url) -> Option<Result<Content>> {
+    match url.authority() {
+        "prow.ci.openshift.org" => {
+            parse_prow_url(url).map(|res| res.map(|build| Content::Prow(Box::new(build))))
         }
+        _ => None,
     }
 }
 

@@ -15,8 +15,8 @@ use url::Url;
 pub struct Report {
     pub created_at: SystemTime,
     pub run_time: Duration,
-    pub target: String,
-    pub baselines: Vec<String>,
+    pub target: Content,
+    pub baselines: Vec<Content>,
     pub log_reports: Vec<LogReport>,
     pub index_reports: HashMap<IndexName, IndexReport>,
     pub index_errors: Vec<Vec<Source>>,
@@ -81,6 +81,30 @@ pub struct ProwBuild {
 impl std::fmt::Display for ProwBuild {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.url.as_str())
+    }
+}
+
+/// A source of log lines.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Content {
+    File(Source),
+    Directory(Source),
+    Zuul(Box<ZuulBuild>),
+    Prow(Box<ProwBuild>),
+    LocalZuulBuild(PathBuf, Box<ZuulBuild>),
+}
+
+impl std::fmt::Display for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Content::File(src) => write!(f, "File({})", src),
+            Content::Directory(src) => write!(f, "Directory({})", src),
+            Content::Zuul(build) => write!(f, "Zuul({})", build),
+            Content::Prow(build) => write!(f, "Prow({})", build.url.as_str()),
+            Content::LocalZuulBuild(src, _build) => {
+                write!(f, "LocalZuulBuild({:?})", src.as_os_str())
+            }
+        }
     }
 }
 

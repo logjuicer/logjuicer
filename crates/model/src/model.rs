@@ -17,7 +17,7 @@ use url::Url;
 pub use logreduce_tokenizer::index_name::IndexName;
 
 pub use logreduce_report::{
-    AnomalyContext, IndexReport, LogReport, ProwBuild, Report, Source, ZuulBuild,
+    AnomalyContext, Content, IndexReport, LogReport, ProwBuild, Report, Source, ZuulBuild,
 };
 
 use crate::env::Env;
@@ -55,30 +55,6 @@ impl Input {
     }
     pub fn from_pathbuf(s: PathBuf) -> Input {
         Input::Path(s.into_os_string().into_string().unwrap())
-    }
-}
-
-/// A source of log lines.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Content {
-    File(Source),
-    Directory(Source),
-    Zuul(Box<ZuulBuild>),
-    Prow(Box<ProwBuild>),
-    LocalZuulBuild(PathBuf, Box<ZuulBuild>),
-}
-
-impl std::fmt::Display for Content {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Content::File(src) => write!(f, "File({})", src),
-            Content::Directory(src) => write!(f, "Directory({})", src),
-            Content::Zuul(build) => write!(f, "Zuul({})", build),
-            Content::Prow(build) => write!(f, "Prow({})", build.url.as_str()),
-            Content::LocalZuulBuild(src, _build) => {
-                write!(f, "LocalZuulBuild({:?})", src.as_os_str())
-            }
-        }
     }
 }
 
@@ -214,108 +190,106 @@ impl Index {
     }
 }
 
-impl Content {
-    /// Apply convertion rules to convert the user Input to Content.
-    #[tracing::instrument(level = "debug", skip(env))]
-    pub fn from_input(env: &Env, input: Input) -> Result<Content> {
-        match input {
-            Input::Path(path_str) => Content::from_path(Path::new(&path_str)),
-            Input::Url(url_str) => {
-                Content::from_url(env, Url::parse(&url_str).expect("Failed to parse url"))
-            }
-            Input::ZuulBuild(path_buf, url_str, per_project) => {
-                let url = Url::parse(&url_str).expect("Failed to parse url");
-                let manifest = std::fs::File::open(
-                    path_buf.as_path().join("zuul-info").join("inventory.yaml"),
-                )
-                .context("Loading inventory.yaml")?;
-                let inventory_obj =
-                    serde_yaml::from_reader(manifest).context("Decoding inventory.yaml")?;
-                Ok(Content::LocalZuulBuild(
-                    path_buf,
-                    Box::new(crate::zuul::from_inventory(
-                        url,
-                        inventory_obj,
-                        per_project,
-                    )?),
-                ))
-            }
+/// Apply convertion rules to convert the user Input to Content.
+#[tracing::instrument(level = "debug", skip(env))]
+pub fn content_from_input(env: &Env, input: Input) -> Result<Content> {
+    match input {
+        Input::Path(path_str) => crate::files::content_from_path(Path::new(&path_str)),
+        Input::Url(url_str) => {
+            crate::urls::content_from_url(env, Url::parse(&url_str).expect("Failed to parse url"))
+        }
+
+        Input::ZuulBuild(path_buf, url_str, per_project) => {
+            let url = Url::parse(&url_str).expect("Failed to parse url");
+            let manifest =
+                std::fs::File::open(path_buf.as_path().join("zuul-info").join("inventory.yaml"))
+                    .context("Loading inventory.yaml")?;
+            let inventory_obj =
+                serde_yaml::from_reader(manifest).context("Decoding inventory.yaml")?;
+            Ok(Content::LocalZuulBuild(
+                path_buf,
+                Box::new(crate::zuul::from_inventory(
+                    url,
+                    inventory_obj,
+                    per_project,
+                )?),
+            ))
         }
     }
+}
 
-    /// Create content from raw file path, usefule for testing.
-    pub fn from_pathbuf(p: PathBuf) -> Content {
-        Content::File(Source::from_pathbuf(p))
-    }
+/// Create content from raw file path, usefule for testing.
+pub fn content_from_pathbuf(p: PathBuf) -> Content {
+    Content::File(Source::from_pathbuf(p))
+}
 
-    /// Discover the baselines for this Content.
-    #[tracing::instrument(level = "debug", skip(env))]
-    pub fn discover_baselines(&self, env: &Env) -> Result<Baselines> {
-        (match self {
-            Content::File(src) => match src {
-                Source::Local(_, pathbuf) => {
-                    Content::discover_baselines_from_path(env, pathbuf.as_path())
-                }
-                Source::Remote(_, _) => Err(anyhow::anyhow!(
-                    "Can't find remmote baselines, they need to be provided"
-                )),
-            },
-            Content::Directory(_) => Err(anyhow::anyhow!(
-                "Can't discover directory baselines, they need to be provided",
+/// Discover the baselines for this Content.
+#[tracing::instrument(level = "debug", skip(env))]
+pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Baselines> {
+    (match content {
+        Content::File(src) => match src {
+            Source::Local(_, pathbuf) => {
+                crate::files::discover_baselines_from_path(env, pathbuf.as_path())
+            }
+            Source::Remote(_, _) => Err(anyhow::anyhow!(
+                "Can't find remmote baselines, they need to be provided"
             )),
-            Content::Prow(build) => crate::prow::discover_baselines(build),
-            Content::Zuul(build) => crate::zuul::discover_baselines(build, env),
-            Content::LocalZuulBuild(_, build) => crate::zuul::discover_baselines(build, env),
-        })
-        .and_then(|baselines| match baselines.len() {
-            0 => Err(anyhow::anyhow!("Empty discovered baselines")),
-            _ => {
-                tracing::info!("Found the following baselines: {:?}", baselines);
-                Ok(baselines)
-            }
-        })
-    }
+        },
+        Content::Directory(_) => Err(anyhow::anyhow!(
+            "Can't discover directory baselines, they need to be provided",
+        )),
+        Content::Prow(build) => crate::prow::discover_baselines(build),
+        Content::Zuul(build) => crate::zuul::discover_baselines(build, env),
+        Content::LocalZuulBuild(_, build) => crate::zuul::discover_baselines(build, env),
+    })
+    .and_then(|baselines| match baselines.len() {
+        0 => Err(anyhow::anyhow!("Empty discovered baselines")),
+        _ => {
+            tracing::info!("Found the following baselines: {:?}", baselines);
+            Ok(baselines)
+        }
+    })
+}
 
-    /// Get the sources of log lines for this Content.
-    #[tracing::instrument(level = "debug", skip(env))]
-    pub fn get_sources(&self, env: &Env) -> Result<Vec<Source>> {
-        self.get_sources_iter(env)
-            .filter(|source| source.as_ref().map(is_source_valid).unwrap_or(true))
-            .collect::<Result<Vec<_>>>()
-            .and_then(|sources| match sources.len() {
-                0 => Err(anyhow::anyhow!(format!("Empty sources: {}", self))),
-                _ => Ok(sources),
-            })
-    }
+/// Get the sources of log lines for this Content.
+#[tracing::instrument(level = "debug", skip(env))]
+pub fn content_get_sources(content: &Content, env: &Env) -> Result<Vec<Source>> {
+    content_get_sources_iter(content, env)
+        .filter(|source| source.as_ref().map(is_source_valid).unwrap_or(true))
+        .collect::<Result<Vec<_>>>()
+        .and_then(|sources| match sources.len() {
+            0 => Err(anyhow::anyhow!(format!("Empty sources: {}", content))),
+            _ => Ok(sources),
+        })
+}
 
-    pub fn get_sources_iter(&self, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
-        match self {
-            Content::File(src) => Box::new(file_iter(src)),
-            Content::Directory(src) => match src {
-                Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
-                Source::Remote(_, url) => Box::new(httpdir_iter(url)),
-            },
-            Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build)),
-            Content::Prow(build) => Box::new(crate::prow::sources_iter(build, env)),
-            Content::LocalZuulBuild(src, _) => Box::new(dir_iter(src.as_path())),
+pub fn content_get_sources_iter(
+    content: &Content,
+    env: &Env,
+) -> Box<dyn Iterator<Item = Result<Source>>> {
+    match content {
+        Content::File(src) => Box::new(file_iter(src)),
+        Content::Directory(src) => match src {
+            Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
+            Source::Remote(_, url) => Box::new(httpdir_iter(url)),
+        },
+        Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build)),
+        Content::Prow(build) => Box::new(crate::prow::sources_iter(build, env)),
+        Content::LocalZuulBuild(src, _) => Box::new(dir_iter(src.as_path())),
+    }
+}
+
+pub fn group_sources(env: &Env, baselines: &[Content]) -> Result<HashMap<IndexName, Vec<Source>>> {
+    let mut groups = HashMap::new();
+    for baseline in baselines {
+        for source in content_get_sources(baseline, env)? {
+            groups
+                .entry(indexname_from_source(&source))
+                .or_insert_with(Vec::new)
+                .push(source);
         }
     }
-
-    pub fn group_sources(
-        env: &Env,
-        baselines: &[Content],
-    ) -> Result<HashMap<IndexName, Vec<Source>>> {
-        let mut groups = HashMap::new();
-        for baseline in baselines {
-            for source in baseline.get_sources(env)? {
-                groups
-                    .entry(indexname_from_source(&source))
-                    .or_insert_with(Vec::new)
-                    .push(source);
-            }
-        }
-        Ok(groups)
-    }
+    Ok(groups)
 }
 
 impl Model {
@@ -324,7 +298,7 @@ impl Model {
     pub fn train(env: &Env, baselines: Baselines, mk_index: fn() -> ChunkIndex) -> Result<Model> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
-        for (index_name, sources) in Content::group_sources(env, &baselines)?.drain() {
+        for (index_name, sources) in group_sources(env, &baselines)?.drain() {
             env.debug_or_progress(&format!(
                 "Loading index {} with {}",
                 index_name,
@@ -416,7 +390,7 @@ impl Model {
         let mut read_errors = Vec::new();
         let mut total_line_count = 0;
         let mut total_anomaly_count = 0;
-        for (index_name, sources) in Content::group_sources(env, &[target.clone()])?.drain() {
+        for (index_name, sources) in group_sources(env, &[target.clone()])?.drain() {
             let mut skip_lines = KnownLines::new();
             match self.get_index(&index_name) {
                 Some(index) => {
@@ -463,12 +437,8 @@ impl Model {
         Ok(Report {
             created_at,
             run_time: start_time.elapsed(),
-            target: format!("{}", target),
-            baselines: self
-                .baselines
-                .iter()
-                .map(|source| format!("{}", source))
-                .collect(),
+            target,
+            baselines: self.baselines.clone(),
             log_reports,
             index_reports,
             index_errors,
