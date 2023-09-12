@@ -9,12 +9,12 @@ use url::Url;
 
 use crate::env::Env;
 use crate::{Baselines, Content, Source};
-use prow_build::{ProwID, StoragePath, StorageType};
+use prow_build::{StoragePath, StorageType};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Build {
     pub url: Url,
-    pub uid: ProwID,
+    pub uid: String,
     pub job_name: String,
     pub project: String,
     pub pr: u64,
@@ -141,7 +141,7 @@ impl Build {
         let url = build.url.join(&br.path)?;
         Ok(Build {
             url: url.clone(),
-            uid: br.uid,
+            uid: br.uid.into(),
             job_name: build.job_name.clone(),
             project: "tbd".into(),
             pr: 0,
