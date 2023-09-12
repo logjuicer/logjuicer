@@ -88,6 +88,14 @@ impl From<&str> for ProwID {
     }
 }
 
+impl From<ProwID> for String {
+    /// Converts to this type from the input type.
+    #[inline]
+    fn from(pid: ProwID) -> String {
+        pid.0
+    }
+}
+
 impl From<&str> for StorageType {
     /// Converts to this type from the input type.
     #[inline]
