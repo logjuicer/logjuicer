@@ -67,6 +67,23 @@ impl std::fmt::Display for ZuulBuild {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProwBuild {
+    pub url: Url,
+    pub uid: String,
+    pub job_name: String,
+    pub project: String,
+    pub pr: u64,
+    pub storage_type: String,
+    pub storage_path: String,
+}
+
+impl std::fmt::Display for ProwBuild {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.url.as_str())
+    }
+}
+
 /// The location of the log lines, and the relative prefix length.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Source {
