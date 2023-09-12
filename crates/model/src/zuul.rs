@@ -3,35 +3,13 @@
 
 #[allow(unused_imports)]
 use anyhow::{Context, Result};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{NaiveDate, Utc};
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::env::Env;
 use crate::{Baselines, Content, Source};
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Build {
-    api: Url,
-    per_project: bool,
-    pub uuid: String,
-    pub job_name: String,
-    pub project: String,
-    pub branch: String,
-    pub result: String,
-    pub pipeline: String,
-    pub log_url: Url,
-    pub ref_url: Url,
-    pub end_time: DateTime<Utc>,
-    pub change: u64,
-}
-
-impl std::fmt::Display for Build {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}build/{}", self.api.as_str(), self.uuid)
-    }
-}
+use logreduce_report::ZuulBuild;
 
 fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
     let days = now.signed_duration_since(since).num_days();
@@ -42,127 +20,128 @@ fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
     }
 }
 
-impl Build {
-    pub fn from_inventory(
-        api_base: Url,
-        inventory: zuul_build::zuul_inventory::InventoryRoot,
-        per_project: bool,
-    ) -> Result<Build> {
-        let vars = inventory.all.vars.zuul;
-        let api = api_base
-            .join(&format!("api/tenant/{}/", vars.tenant))
-            .context("Adding tenant apis")?;
-        let log_url = api
-            .join(&format!("api/tenant/{}/build/{}", vars.tenant, vars.build))
-            .context("Adding build url suffix")?;
-        Ok(Build {
-            api,
-            per_project,
-            uuid: vars.build,
-            job_name: vars.job,
-            project: vars.project.name,
-            branch: vars.branch,
-            result: "FAILED".to_string(),
-            pipeline: vars.pipeline,
-            log_url,
-            ref_url: vars.change_url,
-            end_time: Utc::now(),
-            change: 0,
-        })
-    }
+pub fn from_inventory(
+    api_base: Url,
+    inventory: zuul_build::zuul_inventory::InventoryRoot,
+    per_project: bool,
+) -> Result<ZuulBuild> {
+    let vars = inventory.all.vars.zuul;
+    let api = api_base
+        .join(&format!("api/tenant/{}/", vars.tenant))
+        .context("Adding tenant apis")?;
+    let log_url = api
+        .join(&format!("api/tenant/{}/build/{}", vars.tenant, vars.build))
+        .context("Adding build url suffix")?;
+    Ok(ZuulBuild {
+        api,
+        per_project,
+        uuid: vars.build,
+        job_name: vars.job,
+        project: vars.project.name,
+        branch: vars.branch,
+        result: "FAILED".to_string(),
+        pipeline: vars.pipeline,
+        log_url,
+        ref_url: vars.change_url,
+        end_time: Utc::now(),
+        change: 0,
+    })
+}
 
-    fn get_success_samples(&self, env: &Env) -> Result<Vec<zuul_build::Build>> {
-        let base = self.api.join("builds").context("Can't create builds url")?;
-        let mut args = vec![
-            ("job_name", self.job_name.as_str()),
-            ("complete", "true"),
-            ("limit", "500"),
-            ("result", "SUCCESS"),
-        ];
-        if self.per_project {
-            args.push(("project", self.project.as_str()))
-        };
-        let url =
-            Url::parse_with_params(base.as_str(), args.iter()).context("Can't create query url")?;
-        tracing::info!(url = url.as_str(), "Discovering baselines for {}", self);
-        get_builds(env, &url)
-    }
+fn zuul_build_success_samples(build: &ZuulBuild, env: &Env) -> Result<Vec<zuul_build::Build>> {
+    let base = build
+        .api
+        .join("builds")
+        .context("Can't create builds url")?;
+    let mut args = vec![
+        ("job_name", build.job_name.as_str()),
+        ("complete", "true"),
+        ("limit", "500"),
+        ("result", "SUCCESS"),
+    ];
+    if build.per_project {
+        args.push(("project", build.project.as_str()))
+    };
+    let url =
+        Url::parse_with_params(base.as_str(), args.iter()).context("Can't create query url")?;
+    tracing::info!(url = url.as_str(), "Discovering baselines for {}", build);
+    get_builds(env, &url)
+}
 
-    fn baseline_score(&self, target: &zuul_build::Build, now: &NaiveDate) -> Option<i32> {
-        let mut score = 0;
-        // Rules
-        if self.project == target.project {
-            if self.change == target.change? {
-                // We don't want to compare with the same change
-                score -= 500;
-            } else {
-                score += 50;
-            }
-        }
-        if self.branch == target.branch {
+fn baseline_score(build: &ZuulBuild, target: &zuul_build::Build, now: &NaiveDate) -> Option<i32> {
+    let mut score = 0;
+    // Rules
+    if build.project == target.project {
+        if build.change == target.change? {
+            // We don't want to compare with the same change
+            score -= 500;
+        } else {
             score += 50;
         }
-        if target.pipeline.contains("gate") || target.pipeline.contains("periodic") {
-            score += 50;
-        }
-        if target.voting {
-            score += 10;
-        }
-        // Older builds are less valuable
-        score -= elapsed_days(now, target.end_time.date_naive());
-        // Check the build has URLs
-        match target.log_url.is_some() && target.ref_url.is_some() {
-            true => Some(score),
-            false => None,
-        }
     }
-
-    fn logs_available(env: &Env, target: &zuul_build::Build) -> bool {
-        match target.log_url {
-            None => false,
-            Some(ref url) => match crate::reader::head_url(env, 0, url) {
-                Err(e) => {
-                    tracing::info!(
-                        url = url.as_str(),
-                        "Skipping build because logs are not available {}",
-                        e
-                    );
-                    false
-                }
-                Ok(n) => n,
-            },
-        }
+    if build.branch == target.branch {
+        score += 50;
     }
-
-    pub fn discover_baselines(&self, env: &Env) -> Result<Baselines> {
-        let samples = self.get_success_samples(env)?;
-        let max_builds = 1;
-        let now = Utc::now().date_naive();
-        Ok(samples
-            .into_iter()
-            // Compute a score value
-            .map(|build| (self.baseline_score(&build, &now), build))
-            // Remove unwanted build
-            .filter(|(score, build)| score.is_some() && self.uuid != build.uuid)
-            // Order by descending score
-            .sorted_by(|(score1, _), (score2, _)| score2.cmp(score1))
-            // Filter stalled url
-            .filter(|(_, build)| Self::logs_available(env, build))
-            // .map(|b| dbg!(b))
-            // Keep the best
-            .take(max_builds)
-            // Create the content data type
-            .map(|(_score, build)| new_content(self.api.clone(), build))
-            .collect())
+    if target.pipeline.contains("gate") || target.pipeline.contains("periodic") {
+        score += 50;
     }
-
-    pub fn sources_iter(&self) -> Box<dyn Iterator<Item = Result<Source>>> {
-        crate::httpdir_iter(&self.log_url)
+    if target.voting {
+        score += 10;
+    }
+    // Older builds are less valuable
+    score -= elapsed_days(now, target.end_time.date_naive());
+    // Check the build has URLs
+    match target.log_url.is_some() && target.ref_url.is_some() {
+        true => Some(score),
+        false => None,
     }
 }
 
+fn logs_available(env: &Env, target: &zuul_build::Build) -> bool {
+    match target.log_url {
+        None => false,
+        Some(ref url) => match crate::reader::head_url(env, 0, url) {
+            Err(e) => {
+                tracing::info!(
+                    url = url.as_str(),
+                    "Skipping build because logs are not available {}",
+                    e
+                );
+                false
+            }
+            Ok(n) => n,
+        },
+    }
+}
+
+pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Baselines> {
+    let samples = zuul_build_success_samples(build, env)?;
+    let max_builds = 1;
+    let now = Utc::now().date_naive();
+    Ok(samples
+        .into_iter()
+        // Compute a score value
+        .map(|target| (baseline_score(build, &target, &now), target))
+        // Remove unwanted build
+        .filter(|(score, target)| score.is_some() && build.uuid != target.uuid)
+        // Order by descending score
+        .sorted_by(|(score1, _), (score2, _)| score2.cmp(score1))
+        // Filter stalled url
+        .filter(|(_, target)| logs_available(env, target))
+        // .map(|b| dbg!(b))
+        // Keep the best
+        .take(max_builds)
+        // Create the content data type
+        .map(|(_score, target)| new_content(build.api.clone(), target))
+        .collect())
+}
+
+pub fn sources_iter(build: &ZuulBuild) -> Box<dyn Iterator<Item = Result<Source>>> {
+    crate::httpdir_iter(&build.log_url)
+}
+
 fn new_content(api: Url, build: zuul_build::Build) -> Content {
-    Content::Zuul(Box::new(Build {
+    Content::Zuul(Box::new(ZuulBuild {
         api,
         // TODO: make this configurable
         per_project: false,
@@ -320,7 +299,7 @@ fn test_zuul_api() -> Result<()> {
 
     crate::reader::drop_url(&env, 0, &url.join(api_path)?)?;
     let content = Content::from_zuul_url(&env, &build_url).unwrap()?;
-    let expected = Content::Zuul(Box::new(Build {
+    let expected = Content::Zuul(Box::new(ZuulBuild {
         per_project: false,
         api: url.join("/zuul/api/")?,
         uuid: "a498f74ab32b49ffa9c9e7463fbf8885".to_string(),
