@@ -16,7 +16,7 @@ use url::Url;
 
 pub use logreduce_tokenizer::index_name::IndexName;
 
-pub use logreduce_report::{AnomalyContext, IndexReport, LogReport, Report, Source};
+pub use logreduce_report::{AnomalyContext, IndexReport, LogReport, Report, Source, ZuulBuild};
 
 use crate::env::Env;
 use crate::files::{dir_iter, file_iter, file_open};
@@ -61,9 +61,9 @@ impl Input {
 pub enum Content {
     File(Source),
     Directory(Source),
-    Zuul(Box<zuul::Build>),
+    Zuul(Box<ZuulBuild>),
     Prow(Box<prow::Build>),
-    LocalZuulBuild(PathBuf, Box<zuul::Build>),
+    LocalZuulBuild(PathBuf, Box<ZuulBuild>),
 }
 
 impl std::fmt::Display for Content {
@@ -231,7 +231,7 @@ impl Content {
                     serde_yaml::from_reader(manifest).context("Decoding inventory.yaml")?;
                 Ok(Content::LocalZuulBuild(
                     path_buf,
-                    Box::new(crate::zuul::Build::from_inventory(
+                    Box::new(crate::zuul::from_inventory(
                         url,
                         inventory_obj,
                         per_project,
@@ -262,8 +262,8 @@ impl Content {
                 "Can't discover directory baselines, they need to be provided",
             )),
             Content::Prow(build) => build.discover_prow_baselines(),
-            Content::Zuul(build) => build.discover_baselines(env),
-            Content::LocalZuulBuild(_, build) => build.discover_baselines(env),
+            Content::Zuul(build) => crate::zuul::discover_baselines(build, env),
+            Content::LocalZuulBuild(_, build) => crate::zuul::discover_baselines(build, env),
         })
         .and_then(|baselines| match baselines.len() {
             0 => Err(anyhow::anyhow!("Empty discovered baselines")),
@@ -293,7 +293,7 @@ impl Content {
                 Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
                 Source::Remote(_, url) => Box::new(httpdir_iter(url)),
             },
-            Content::Zuul(build) => Box::new(build.sources_iter()),
+            Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build)),
             Content::Prow(build) => Box::new(build.sources_prow_iter(env)),
             Content::LocalZuulBuild(src, _) => Box::new(dir_iter(src.as_path())),
         }

@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 pub use logreduce_tokenizer::index_name::IndexName;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+use url::Url;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Report {
@@ -43,11 +45,33 @@ impl Report {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ZuulBuild {
+    pub api: Url,
+    pub per_project: bool,
+    pub uuid: String,
+    pub job_name: String,
+    pub project: String,
+    pub branch: String,
+    pub result: String,
+    pub pipeline: String,
+    pub log_url: Url,
+    pub ref_url: Url,
+    pub end_time: DateTime<Utc>,
+    pub change: u64,
+}
+
+impl std::fmt::Display for ZuulBuild {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}build/{}", self.api.as_str(), self.uuid)
+    }
+}
+
 /// The location of the log lines, and the relative prefix length.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Source {
     Local(usize, PathBuf),
-    Remote(usize, url::Url),
+    Remote(usize, Url),
 }
 
 impl Source {
