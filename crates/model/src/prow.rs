@@ -3,40 +3,22 @@
 
 use anyhow::{Context, Result};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::io::Read;
 use url::Url;
 
 use crate::env::Env;
 use crate::{Baselines, Content, Source};
-use prow_build::{StoragePath, StorageType};
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Build {
-    pub url: Url,
-    pub uid: String,
-    pub job_name: String,
-    pub project: String,
-    pub pr: u64,
-    pub storage_type: StorageType,
-    pub storage_path: StoragePath,
-}
-
-impl std::fmt::Display for Build {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.url.as_str())
-    }
-}
+use logreduce_report::ProwBuild;
 
 fn is_prow_uid(uid: &str) -> bool {
     !uid.contains(|c: char| !c.is_ascii_digit())
 }
 
-fn parse_prow_url(url: &Url) -> Option<Result<Build>> {
+fn parse_prow_url(url: &Url) -> Option<Result<ProwBuild>> {
     match url.path_segments()?.collect::<Vec<_>>()[..] {
         ["view", storage_type, storage_path, "pr-logs", "pull", project, pr, job, uid] => {
             match (is_prow_uid(uid), pr.parse()) {
-                (true, Ok(pr)) => Some(Ok(Build {
+                (true, Ok(pr)) => Some(Ok(ProwBuild {
                     url: url.clone(),
                     uid: uid.into(),
                     job_name: job.to_string(),
@@ -62,7 +44,7 @@ fn test_parse_prow_url() {
     let res = parse_prow_url(&url).unwrap().unwrap();
     assert_eq!(
         res,
-        Build {
+        ProwBuild {
             url: url,
             uid: "1689624623181729792".into(),
             job_name: "pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test".to_string(),
@@ -136,46 +118,45 @@ fn test_get_prow_artifact_url() -> Result<()> {
     Ok(())
 }
 
-impl Build {
-    fn from_build_result(build: &Build, br: prow_build::BuildResult) -> Result<Build> {
-        let url = build.url.join(&br.path)?;
-        Ok(Build {
-            url: url.clone(),
-            uid: br.uid.into(),
-            job_name: build.job_name.clone(),
-            project: "tbd".into(),
-            pr: 0,
-            storage_type: build.storage_type.clone(),
-            storage_path: build.storage_path.clone(),
-        })
-    }
+fn from_build_result(build: &ProwBuild, br: prow_build::BuildResult) -> Result<ProwBuild> {
+    let url = build.url.join(&br.path)?;
+    Ok(ProwBuild {
+        url: url.clone(),
+        uid: br.uid.into(),
+        job_name: build.job_name.clone(),
+        project: "tbd".into(),
+        pr: 0,
+        storage_type: build.storage_type.clone(),
+        storage_path: build.storage_path.clone(),
+    })
+}
 
-    pub fn discover_prow_baselines(&self) -> Result<Baselines> {
-        let client = prow_build::Client {
-            client: reqwest::blocking::Client::new(),
-            api_url: self.url.clone(),
-            storage_type: self.storage_type.clone(),
-            storage_path: self.storage_path.clone(),
-        };
-        tracing::info!("Discovering baselines for {}", self);
-        for baseline in prow_build::BuildIterator::new(&client, &self.job_name).take(200) {
-            match baseline {
-                Err(e) => return Err(anyhow::anyhow!("Failed to discover baseline: {}", e)),
-                Ok(build) if build.result == "SUCCESS" => {
-                    return Ok(vec![Content::Prow(Box::new(Build::from_build_result(
-                        self, build,
-                    )?))])
-                }
-                Ok(_) => {}
+pub fn discover_baselines(build: &ProwBuild) -> Result<Baselines> {
+    let client = prow_build::Client {
+        client: reqwest::blocking::Client::new(),
+        api_url: build.url.clone(),
+        storage_type: build.storage_type.as_str().into(),
+        storage_path: build.storage_path.as_str().into(),
+    };
+    tracing::info!("Discovering baselines for {}", build);
+    for baseline in prow_build::BuildIterator::new(&client, &build.job_name).take(200) {
+        match baseline {
+            Err(e) => return Err(anyhow::anyhow!("Failed to discover baseline: {}", e)),
+            Ok(build_result) if build_result.result == "SUCCESS" => {
+                return Ok(vec![Content::Prow(Box::new(from_build_result(
+                    build,
+                    build_result,
+                )?))])
             }
+            Ok(_) => {}
         }
-        Ok(vec![])
     }
+    Ok(vec![])
+}
 
-    pub fn sources_prow_iter(&self, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
-        match get_prow_artifact_url(env, &self.url) {
-            Err(e) => Box::new(std::iter::once(Err(e))),
-            Ok(url) => crate::httpdir_iter(&url),
-        }
+pub fn sources_iter(build: &ProwBuild, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
+    match get_prow_artifact_url(env, &build.url) {
+        Err(e) => Box::new(std::iter::once(Err(e))),
+        Ok(url) => crate::httpdir_iter(&url),
     }
 }

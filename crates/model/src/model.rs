@@ -16,7 +16,9 @@ use url::Url;
 
 pub use logreduce_tokenizer::index_name::IndexName;
 
-pub use logreduce_report::{AnomalyContext, IndexReport, LogReport, Report, Source, ZuulBuild};
+pub use logreduce_report::{
+    AnomalyContext, IndexReport, LogReport, ProwBuild, Report, Source, ZuulBuild,
+};
 
 use crate::env::Env;
 use crate::files::{dir_iter, file_iter, file_open};
@@ -62,7 +64,7 @@ pub enum Content {
     File(Source),
     Directory(Source),
     Zuul(Box<ZuulBuild>),
-    Prow(Box<prow::Build>),
+    Prow(Box<ProwBuild>),
     LocalZuulBuild(PathBuf, Box<ZuulBuild>),
 }
 
@@ -261,7 +263,7 @@ impl Content {
             Content::Directory(_) => Err(anyhow::anyhow!(
                 "Can't discover directory baselines, they need to be provided",
             )),
-            Content::Prow(build) => build.discover_prow_baselines(),
+            Content::Prow(build) => crate::prow::discover_baselines(build),
             Content::Zuul(build) => crate::zuul::discover_baselines(build, env),
             Content::LocalZuulBuild(_, build) => crate::zuul::discover_baselines(build, env),
         })
@@ -294,7 +296,7 @@ impl Content {
                 Source::Remote(_, url) => Box::new(httpdir_iter(url)),
             },
             Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build)),
-            Content::Prow(build) => Box::new(build.sources_prow_iter(env)),
+            Content::Prow(build) => Box::new(crate::prow::sources_iter(build, env)),
             Content::LocalZuulBuild(src, _) => Box::new(dir_iter(src.as_path())),
         }
     }
