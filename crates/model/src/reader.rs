@@ -14,18 +14,28 @@ use crate::env::Env;
 use flate2::read::GzDecoder;
 
 /// Handle remote object.
-use reqwest::blocking::Response;
+use ureq::{Agent, Response};
 mod remote {
     use super::*;
 
-    pub fn get_url(client: &reqwest::blocking::Client, url: &Url) -> Result<Response> {
-        client.get(url.clone()).send().context("Can't get url")
+    pub fn get_url(client: &Agent, url: &Url) -> Result<Response> {
+        client
+            .request_url("GET", url)
+            .call()
+            .context("Can't get url")
     }
 
-    pub fn head(client: &reqwest::blocking::Client, url: &Url) -> Result<bool> {
-        let resp = client.head(url.clone()).send().context("Can't head url")?;
-        Ok(resp.status().is_success())
+    pub fn head(client: &Agent, url: &Url) -> Result<bool> {
+        let resp = client
+            .request_url("HEAD", url)
+            .call()
+            .context("Can't head url")?;
+        Ok(is_success(resp.status()))
     }
+}
+
+fn is_success(code: u16) -> bool {
+    (200..300).contains(&code)
 }
 
 // allow large enum for gzdecoder, which are the most used
@@ -34,10 +44,12 @@ pub enum DecompressReader {
     Flat(File),
     Gz(GzDecoder<File>),
     // TODO: support BZIP2 compression
-    Remote(Response),
-    Cached(logreduce_cache::CacheReader<Response>),
+    Remote(UreqReader),
+    Cached(logreduce_cache::CacheReader<UreqReader>),
 }
 use DecompressReader::*;
+
+type UreqReader = Box<dyn Read + Send + Sync + 'static>;
 
 pub fn from_path(path: &Path) -> Result<DecompressReader> {
     let fp = File::open(path)?;
@@ -78,12 +90,12 @@ pub fn from_url(env: &Env, prefix: usize, url: &Url) -> Result<DecompressReader>
             None => {
                 tracing::debug!("Cache miss for {}", url);
                 let resp = remote::get_url(&env.client, url)?;
-                let cache = env.cache.remote_add(prefix, url, resp)?;
+                let cache = env.cache.remote_add(prefix, url, resp.into_reader())?;
                 Ok(Cached(cache))
             }
         }
     } else {
-        Ok(Remote(remote::get_url(&env.client, url)?))
+        Ok(Remote(remote::get_url(&env.client, url)?.into_reader()))
     }
 }
 

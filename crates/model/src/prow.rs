@@ -129,9 +129,9 @@ fn from_build_result(build: &ProwBuild, br: prow_build::BuildResult) -> Result<P
     })
 }
 
-pub fn discover_baselines(build: &ProwBuild) -> Result<Baselines> {
+pub fn discover_baselines(build: &ProwBuild, env: &Env) -> Result<Baselines> {
     let client = prow_build::Client {
-        client: reqwest::blocking::Client::new(),
+        client: env.client.clone(),
         api_url: build.url.clone(),
         storage_type: build.storage_type.as_str().into(),
         storage_path: build.storage_path.as_str().into(),

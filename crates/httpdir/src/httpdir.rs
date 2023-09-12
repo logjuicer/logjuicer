@@ -29,11 +29,11 @@
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use reqwest::blocking::Client;
 use std::io::Result;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
 use threadpool::ThreadPool;
+use ureq::Agent;
 use url::Url;
 
 /// Helper function to walk a single url and list all the available files.
@@ -41,8 +41,8 @@ pub fn list(url: Url) -> Result<Vec<Url>> {
     Crawler::new().list(url)
 }
 
-/// The list function, but using the provided reqwest::blocking::Client.
-pub fn list_with_client(client: Client, url: Url) -> Result<Vec<Url>> {
+/// The list function, but using the provided ureq client.
+pub fn list_with_client(client: Agent, url: Url) -> Result<Vec<Url>> {
     Crawler::new_with_client(client).list(url)
 }
 
@@ -76,7 +76,7 @@ type Message = Option<Result<Url>>;
 
 /// The state of the crawler, created calling `Crawler::new()`.
 pub struct Crawler {
-    client: Client,
+    client: Agent,
     // A worker pool.
     workers: ThreadPool,
     // The mpsc channel.
@@ -92,11 +92,11 @@ fn mk_error(msg: &str) -> std::io::Error {
 impl Crawler {
     /// Initialize the Crawler state.
     pub fn new() -> Crawler {
-        Crawler::new_with_client(Client::new())
+        Crawler::new_with_client(Agent::new())
     }
 
-    /// Initialize the Crawler state with the reqwest::blocking::Client.
-    pub fn new_with_client(client: Client) -> Crawler {
+    /// Initialize the Crawler state with the ureq client.
+    pub fn new_with_client(client: Agent) -> Crawler {
         let workers = ThreadPool::new(4);
         let (tx, rx) = channel();
         Crawler {
@@ -141,7 +141,7 @@ impl Crawler {
     // Helper function to handle a single url.
     fn process(
         visitor: &Visitor,
-        client: &Client,
+        client: &Agent,
         pool: &ThreadPool,
         tx: &Sender<Message>,
         url: Url,
@@ -154,7 +154,7 @@ impl Crawler {
             let client = client.clone();
 
             // Submit the work.
-            pool.execute(move || match http_list(&client, url) {
+            pool.execute(move || match http_list(&client, &url) {
                 // We decoded some urls.
                 Ok(urls) => {
                     for url in urls {
@@ -249,17 +249,16 @@ fn path_dir(url: &Url) -> Option<Url> {
 }
 
 /// List the files and directories of a single url.
-pub fn http_list(client: &Client, url: Url) -> Result<Vec<Url>> {
+pub fn http_list(client: &Agent, url: &Url) -> Result<Vec<Url>> {
     // dbg!(&url);
-    match client.get(url).send() {
+    match client.request_url("GET", url).call() {
         Ok(resp) => {
-            let url = resp.url().clone();
-            match resp.text() {
-                Ok(text) => parse_index_of(url, &text),
-                Err(e) => Err(mk_error(&format!("Response failed {}", e))),
-            }
+            let url = Url::parse(resp.get_url().clone())
+                .map_err(|e| mk_error(&format!("Bad url {}", e)))?;
+            let body = resp.into_string()?;
+            parse_index_of(url, &body)
         }
-        Err(e) => Err(mk_error(&format!("Reqwest failed {}", e))),
+        Err(e) => Err(mk_error(&format!("Request failed {}", e))),
     }
 }
 
