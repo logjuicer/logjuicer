@@ -1111,12 +1111,12 @@ dependencies = [
 name = "logreduce-report"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "bincode",
  "chrono",
  "flate2",
  "logreduce-tokenizer",
  "serde",
+ "thiserror",
  "url",
 ]
 

@@ -1,7 +1,6 @@
 // Copyright (C) 2023 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 pub use logreduce_tokenizer::index_name::IndexName;
 use serde::{Deserialize, Serialize};
@@ -9,6 +8,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+use thiserror::Error;
 use url::Url;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,23 +25,33 @@ pub struct Report {
     pub total_anomaly_count: usize,
 }
 
+/// The report codec error.
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("file error: {0}")]
+    IOError(#[from] std::io::Error),
+
+    #[error("decode error: {0}")]
+    DecodeError(#[from] bincode::Error),
+}
+
 impl Report {
-    pub fn save(&self, path: &Path) -> Result<()> {
+    pub fn save(&self, path: &Path) -> Result<(), Error> {
         bincode::serialize_into(
             flate2::write::GzEncoder::new(
-                std::fs::File::create(path).context("Can't create report file")?,
+                std::fs::File::create(path).map_err(Error::IOError)?,
                 flate2::Compression::fast(),
             ),
             self,
         )
-        .context("Can't save report")
+        .map_err(Error::DecodeError)
     }
 
-    pub fn load(path: &Path) -> Result<Report> {
+    pub fn load(path: &Path) -> Result<Report, Error> {
         bincode::deserialize_from(flate2::read::GzDecoder::new(
-            std::fs::File::open(path).context("Can't open report file")?,
+            std::fs::File::open(path).map_err(Error::IOError)?,
         ))
-        .context("Can't load report")
+        .map_err(Error::DecodeError)
     }
 }
 
