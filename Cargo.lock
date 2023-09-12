@@ -830,6 +830,7 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 name = "httpdir"
 version = "0.1.1"
 dependencies = [
+ "itertools 0.11.0",
  "lazy_static",
  "mockito",
  "regex",

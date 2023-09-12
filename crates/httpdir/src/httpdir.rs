@@ -281,6 +281,7 @@ fn parse_index_of(base_url: Url, page: &str) -> Result<Vec<Url>> {
 
 #[test]
 fn test_httpdir() {
+    use itertools::Itertools;
     let mut server = mockito::Server::new();
 
     let root = "/logs/98/24398/5/check/dhall-diff/23b9eed/";
@@ -320,15 +321,20 @@ fn test_httpdir() {
         .expect(0)
         .create();
 
-    let res = list(url.clone().unwrap()).unwrap();
+    let res = list(url.clone().unwrap())
+        .unwrap()
+        .into_iter()
+        .sorted()
+        .collect::<Vec<_>>();
 
     dbg!(&res);
     assert!(res.len() == 4);
 
     let iter_res = Crawler::new()
         .walk(url.unwrap())
-        .collect::<Result<Vec<_>>>()
-        .unwrap();
+        .map(|r| r.unwrap())
+        .sorted()
+        .collect::<Vec<_>>();
     assert_eq!(res, iter_res);
 
     catch_all.assert();
