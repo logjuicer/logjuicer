@@ -34,7 +34,8 @@ sprs = { version = "0.11", features = ["serde"] }
 
 # network
 url = "2"
-reqwest = { version = "0.11", default-features = false, features = ["blocking", "rustls-tls", "gzip", "deflate"] }
+ureq = { version = "2", default-features = false, features = ["tls", "json", "gzip", "brotli"] }
+rustls = { version = "0.21" }
 
 # serde
 serde_yaml = "*"

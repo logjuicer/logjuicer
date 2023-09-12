@@ -238,7 +238,7 @@ pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Baseli
         Content::Directory(_) => Err(anyhow::anyhow!(
             "Can't discover directory baselines, they need to be provided",
         )),
-        Content::Prow(build) => crate::prow::discover_baselines(build),
+        Content::Prow(build) => crate::prow::discover_baselines(build, env),
         Content::Zuul(build) => crate::zuul::discover_baselines(build, env),
         Content::LocalZuulBuild(_, build) => crate::zuul::discover_baselines(build, env),
     })

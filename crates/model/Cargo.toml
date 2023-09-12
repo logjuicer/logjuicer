@@ -27,7 +27,9 @@ logreduce-cache = { path = "../cache" }
 zuul-build = { path = "../zuul" }
 prow-build = { path = "../prow" }
 url = { workspace = true }
-reqwest = { workspace = true }
+ureq = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = "1"
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 tracing = { workspace = true }

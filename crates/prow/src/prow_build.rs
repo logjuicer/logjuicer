@@ -10,7 +10,7 @@
 //! ```no_run
 //! # fn main() {
 //! let client = prow_build::Client {
-//!   client: reqwest::blocking::Client::new(),
+//!   client: ureq::Agent::new(),
 //!   api_url: url::Url::parse("https://prow.ci.openshift.org/").unwrap(),
 //!   storage_type: "gs".into(),
 //!   storage_path: "origin-ci-test".into(),
@@ -32,7 +32,7 @@ use url::Url;
 /// The prow client.
 pub struct Client {
     /// The HTTP client.
-    pub client: reqwest::blocking::Client,
+    pub client: ureq::Agent,
     /// The prow api url.
     pub api_url: Url,
     /// The build storage type.
@@ -54,7 +54,7 @@ pub enum Error {
 
     /// The api query failed.
     #[error("bad api query: {0}")]
-    BadQuery(#[from] reqwest::Error),
+    BadQuery(#[from] Box<ureq::Error>),
 
     /// The api response was not usable.
     #[error("Api response didn't contain builds")]
@@ -207,7 +207,12 @@ pub fn get_prow_job_history(
         api_url.set_query(Some(&format!("buildId={}", after.0)))
     }
     tracing::debug!(url = api_url.as_str(), "Querying prow job history");
-    let reader = client.client.get(api_url).send().map_err(Error::BadQuery)?;
+    let reader = client
+        .client
+        .request_url("GET", &api_url)
+        .call()
+        .map_err(|e| Error::BadQuery(Box::new(e)))?
+        .into_reader();
     let js_objs = std::io::BufReader::new(reader).lines().find(|le| {
         le.as_ref()
             .is_ok_and(|l| l.trim().starts_with("var allBuilds = "))
@@ -265,7 +270,7 @@ fn test_get_prow_job_history() {
         .create();
 
     let client = Client {
-        client: reqwest::blocking::Client::new(),
+        client: ureq::Agent::new(),
         api_url: Url::parse(&server.url()).unwrap(),
         storage_type: "gs".into(),
         storage_path: "origin-ci-test".into(),

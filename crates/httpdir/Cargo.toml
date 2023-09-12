@@ -17,7 +17,7 @@ path = "src/httpdir.rs"
 [dependencies]
 threadpool = { workspace = true }
 url = { workspace = true }
-reqwest = { workspace = true }
+ureq = { workspace = true }
 regex = { workspace = true }
 lazy_static = { workspace = true }
 
