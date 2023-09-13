@@ -7,6 +7,8 @@ edition = "2021"
 yew = { version = "0.*", features = ["csr"] }
 serde = { workspace = true }
 anyhow = { workspace = true }
+itertools = { workspace = true }
+chrono = { workspace = true }
 gloo-net = "0.2"
 gloo-console = "*"
 wasm-bindgen-futures = "0.4"
