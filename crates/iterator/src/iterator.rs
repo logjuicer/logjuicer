@@ -186,7 +186,6 @@ impl<R: Read> BytesLines<R> {
             // Step J: The current line is over the limit, and we don't know where it ends.
             None if self.buf.len() > self.max_line_length => {
                 self.prev_pos = 0;
-                self.buf.clear();
                 self.buf.reserve(self.chunk_size);
                 self.drop_until_next_line()
             }
@@ -269,28 +268,28 @@ impl<R: Read> BytesLines<R> {
 
     // Drop until we find the next line
     fn drop_until_next_line(&mut self) -> Option<Result<LogLine>> {
-        self.buf.resize(self.chunk_size, 0);
         match self.reader.read(&mut self.buf) {
             // We read some data.
-            Ok(n) if n > 0 => match self.find_next_line() {
-                // the long line terminated at the end of the buffer.
-                Some(_) if n == self.chunk_size => {
-                    self.buf.clear();
-                    self.read_slice()
-                }
+            Ok(n) if n > 0 => {
+                self.buf.truncate(n);
+                match self.find_next_line() {
+                    // the next line is already in the buffer
+                    Some((pos, sep)) => {
+                        let next_line_pos = pos + sep.len();
+                        if next_line_pos == self.chunk_size {
+                            // the long line terminated at the end of the buffer.
+                            self.buf.clear();
+                            self.read_slice()
+                        } else {
+                            self.buf.advance(next_line_pos);
+                            self.get_slice()
+                        }
+                    }
 
-                // the next line is already in the buffer
-                Some((pos, sep)) => {
-                    self.buf.advance(pos + sep.len());
-                    self.get_slice()
+                    // No line terminator found, keep on draining.
+                    None => self.drop_until_next_line(),
                 }
-
-                // No line terminator found, keep on draining.
-                None => {
-                    self.buf.clear();
-                    self.drop_until_next_line()
-                }
-            },
+            }
 
             // We reached the end of the reader, this is the end.
             Ok(_) => None,
@@ -339,6 +338,35 @@ fn test_iterator() {
 
     let lines = get_lines("first\\n");
     assert_eq!(lines, vec![("first".into(), 1)]);
+}
+
+#[test]
+fn test_long_line() {
+    let mut input = String::with_capacity(8192 * 4);
+    // Add a single line long enough to fill two chunk buffers.
+    for _ in 0..8192 * 2 {
+        input.push('a');
+    }
+    input.push_str("first\n");
+    // Add real log lines.
+    input.push_str("second\nthird\n");
+    let lines: Vec<LogLine> = BytesLines::new(std::io::Cursor::new(input), false)
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(lines, vec![("second".into(), 2), ("third".into(), 3)])
+}
+
+#[test]
+fn test_last_line() {
+    let mut input = String::with_capacity(8192 * 3);
+    for _ in 0..8192 * 2 {
+        input.push('a');
+    }
+    input.push_str("\ntest");
+    let lines: Vec<LogLine> = BytesLines::new(std::io::Cursor::new(input), false)
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(lines.len(), 1)
 }
 
 #[test]
