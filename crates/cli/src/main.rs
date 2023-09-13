@@ -11,6 +11,7 @@ use logreduce_model::{
     content_discover_baselines, content_from_input, content_get_sources, group_sources, Content,
     Input, Model, Source,
 };
+use logreduce_report::Report;
 use std::path::PathBuf;
 use std::time::Instant;
 use time_humanize::{Accuracy, HumanTime, Tense};
@@ -77,6 +78,9 @@ enum Commands {
         #[clap(long, help = "Validate model age", value_name = "DAYS")]
         max_age: Option<usize>,
     },
+
+    #[clap(about = "Read a report")]
+    ReadReport,
 
     // Secret options to debug specific part of the process
 
@@ -170,6 +174,17 @@ impl Cli {
                     None => Ok(()),
                 }?;
                 println!("Good model: created_at {:#?}", timestamp);
+                Ok(())
+            }
+
+            Commands::ReadReport => {
+                let report_path = self.report.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "read-report requires a report, please add a `--report FILE` argument"
+                    )
+                })?;
+                let report = Report::load(&report_path)?;
+                print_report(report);
                 Ok(())
             }
 
@@ -473,11 +488,15 @@ fn bytes_to_mb(bytes: usize) -> f64 {
     (bytes as f64) / (1024.0 * 1024.0)
 }
 
-fn debug_model(model: Model) -> Result<()> {
+fn print_created(time: std::time::SystemTime) {
     println!(
         "created: {}",
-        HumanTime::from(model.created_at).to_text_en(Accuracy::Rough, Tense::Past)
-    );
+        HumanTime::from(time).to_text_en(Accuracy::Rough, Tense::Past)
+    )
+}
+
+fn debug_model(model: Model) -> Result<()> {
+    print_created(model.created_at);
     println!("baselines:");
     model.baselines.iter().for_each(|content| {
         println!("  {}", content);
@@ -500,6 +519,31 @@ fn debug_model(model: Model) -> Result<()> {
             })
         });
     Ok(())
+}
+
+fn print_report(report: Report) {
+    print_created(report.created_at);
+    println!("target: {}", report.target);
+    println!("baselines:");
+    report.baselines.iter().for_each(|content| {
+        println!("  {}", content);
+    });
+    println!("logs:");
+    report.log_reports.iter().for_each(|log_report| {
+        println!("- {}", log_report.source);
+        println!(
+            "  info: {}/{} lines, {:.2} MB",
+            log_report.anomalies.len(),
+            log_report.line_count,
+            bytes_to_mb(log_report.byte_count)
+        );
+        log_report.anomalies.iter().for_each(|anomaly_context| {
+            println!(
+                "  {}: {}",
+                anomaly_context.anomaly.pos, anomaly_context.anomaly.line
+            );
+        })
+    })
 }
 
 fn clear_progress(output_mode: OutputMode) {
