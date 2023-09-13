@@ -2,6 +2,7 @@
 =====
 
 - Prow build url can now be used to extract anomalies from prow build artifacts.
+- Log files ending with `.log.1.gz` and `.log.txt.gz` are now handled correctly.
 
 0.7.1
 =====

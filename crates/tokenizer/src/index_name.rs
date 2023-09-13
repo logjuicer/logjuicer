@@ -120,8 +120,9 @@ fn clean_name(base: &str) -> String {
                 |c: char| !c.is_ascii_alphabetic() && !matches!(c, '.' | '-'),
                 "",
             )
-            .trim_matches(|c| matches!(c, '.' | '_' | '-'))
             .trim_end_matches(".gz")
+            .trim_end_matches(".txt")
+            .trim_matches(|c| matches!(c, '.' | '_' | '-'))
             .to_string()
     }
 }
@@ -165,11 +166,15 @@ fn log_model_name() {
             ["zuul/merger.log", "zuul/merger.log.2017-11-12"],
         ),
         (
-            "pod/UID.txt",
+            "pod/UID",
             [
                 "pod/6339eec3ca2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59bvwstc.txt",
                 "pod/6339eec3cA2d6a0e36787b10daa5c6513b6ec79933804bd9dcb4c3b59bvwstc.txt",
             ],
+        ),
+        (
+            "ironic/app.log",
+            ["ironic/app.log.txt.gz", "ironic/app.log.1.gz"],
         ),
     ])
     .for_each(|(expected_model, paths)| {
