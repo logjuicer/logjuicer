@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 pub use logreduce_tokenizer::index_name::IndexName;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
@@ -81,6 +83,19 @@ impl std::fmt::Display for ZuulBuild {
     }
 }
 
+impl ZuulBuild {
+    pub fn build_url(&self) -> String {
+        let mut url = self
+            .api
+            .as_str()
+            .replace("/tenant/", "/t/")
+            .replace("/api", "");
+        url.push_str("build/");
+        url.push_str(&self.uuid);
+        url
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProwBuild {
     pub url: Url,
@@ -123,7 +138,7 @@ impl std::fmt::Display for Content {
 }
 
 /// The location of the log lines, and the relative prefix length.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 pub enum Source {
     Local(usize, PathBuf),
     Remote(usize, Url),
@@ -174,6 +189,15 @@ pub struct AnomalyContext {
     pub after: Vec<String>,
 }
 
+impl AnomalyContext {
+    pub fn mean(anomalies: &[AnomalyContext]) -> f32 {
+        match anomalies.len() {
+            0 => 0.0,
+            n => anomalies.iter().map(|a| a.anomaly.distance).sum::<f32>() / (n as f32),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogReport {
     pub test_time: Duration,
@@ -184,8 +208,68 @@ pub struct LogReport {
     pub index_name: IndexName,
 }
 
+impl LogReport {
+    pub fn sorted(log_reports: &[LogReport]) -> Vec<&LogReport> {
+        log_reports
+            .iter()
+            .sorted_by(|a, b| {
+                // Push job-output to the top
+                if a.source.get_relative().starts_with("job-output") {
+                    Ordering::Less
+                } else if b.source.get_relative().starts_with("job-output") {
+                    Ordering::Greater
+                } else {
+                    // Otherwise order by the mean anomaly distance
+                    AnomalyContext::mean(&b.anomalies)
+                        .total_cmp(&AnomalyContext::mean(&a.anomalies))
+                }
+            })
+            .collect()
+    }
+}
+
+#[test]
+fn test_report_sort() {
+    let mk_src = |name: &str| Source::Local(0, name.into());
+    let mk_lr = |name: &str| LogReport {
+        test_time: Duration::from_secs(0),
+        line_count: 10,
+        byte_count: 10,
+        anomalies: vec![AnomalyContext {
+            anomaly: Anomaly {
+                distance: if name == "failure.log" { 0.5 } else { 0.2 },
+                pos: 0,
+                line: "line".into(),
+            },
+            before: Vec::new(),
+            after: Vec::new(),
+        }],
+        source: mk_src(name),
+        index_name: IndexName("a".into()),
+    };
+    let reports = [
+        mk_lr("service.log"),
+        mk_lr("job-output.txt.gz"),
+        mk_lr("failure.log"),
+    ];
+    let expected = [
+        mk_src("job-output.txt.gz"),
+        mk_src("failure.log"),
+        mk_src("service.log"),
+    ];
+    let sources: Vec<&Source> = LogReport::sorted(&reports)
+        .into_iter()
+        .map(|lr| &lr.source)
+        .collect();
+    assert_eq!(sources, expected.iter().collect::<Vec<_>>());
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IndexReport {
     pub train_time: Duration,
     pub sources: Vec<Source>,
+}
+
+pub fn bytes_to_mb(bytes: usize) -> f64 {
+    (bytes as f64) / (1024.0 * 1024.0)
 }

@@ -1344,6 +1344,7 @@ dependencies = [
  "bincode",
  "chrono",
  "flate2",
+ "itertools 0.11.0",
  "logreduce-tokenizer",
  "serde",
  "thiserror",
@@ -1377,8 +1378,10 @@ name = "logreduce-web"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "gloo-console 0.3.0",
  "gloo-net 0.2.6",
+ "itertools 0.11.0",
  "logreduce-report",
  "serde",
  "wasm-bindgen-futures",

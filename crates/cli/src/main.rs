@@ -11,7 +11,7 @@ use logreduce_model::{
     content_discover_baselines, content_from_input, content_get_sources, group_sources, Content,
     Input, Model, Source,
 };
-use logreduce_report::Report;
+use logreduce_report::{bytes_to_mb, Report};
 use std::path::PathBuf;
 use std::time::Instant;
 use time_humanize::{Accuracy, HumanTime, Tense};
@@ -482,10 +482,6 @@ fn debug_groups(env: &Env, input: Input) -> Result<()> {
         });
     }
     Ok(())
-}
-
-fn bytes_to_mb(bytes: usize) -> f64 {
-    (bytes as f64) / (1024.0 * 1024.0)
 }
 
 fn print_created(time: std::time::SystemTime) {
