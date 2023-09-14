@@ -168,7 +168,7 @@ impl<R: Read> Read for CacheReader<R> {
 }
 
 #[test]
-fn test_httpdir() {
+fn test_cache_httpdir() {
     let cache = Cache::new().unwrap();
     let url = Url::parse("http://localhost/builds").unwrap();
     let paths: Vec<Url> = vec!["job-output.txt", "zuul-info/inventory.yaml"]

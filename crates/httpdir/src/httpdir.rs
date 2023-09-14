@@ -280,12 +280,14 @@ fn parse_index_of(base_url: Url, page: &str) -> Result<Vec<Url>> {
 }
 
 #[test]
-fn test_httpdir() {
+fn test_main_httpdir() {
     use itertools::Itertools;
+    println!("Starting test_httpdir");
     let mut server = mockito::Server::new();
 
     let root = "/logs/98/24398/5/check/dhall-diff/23b9eed/";
     let url = Url::parse(&server.url()).unwrap().join(root);
+    println!("Adding base mock");
     let base_mock = server.mock("GET", root)
         .with_body(
             r#"
@@ -309,18 +311,21 @@ fn test_httpdir() {
 </body></html>
 "#).expect(2).create(); // we expect 2 because we run the crawler twice
 
+    println!("Adding info mock");
     let info_mock = server.mock("GET", &*format!("{}zuul-info/", root)).with_body(
         r#"
 <tr><td valign="top"><img src="/icons/back.gif" alt="[PARENTDIR]"></td><td><a href="/logs/98/24398/5/check/dhall-diff/23b9eed/">Parent Directory</a></td><td>&nbsp;</td><td align="right">  - </td></tr>
 <tr><td valign="top"><img src="/icons/text.gif" alt="[TXT]"></td><td><a href="inventory.yaml">inventory.yaml</a></td><td align="right">2022-03-23 17:31  </td><td align="right">817 </td></tr>
 "#).expect(2).create();
 
+    println!("Adding catch_all mock");
     let catch_all = server
         .mock("GET", mockito::Matcher::Any)
         .with_body("oops")
         .expect(0)
         .create();
 
+    println!("Calling httpdir::list");
     let res = list(url.clone().unwrap())
         .unwrap()
         .into_iter()
