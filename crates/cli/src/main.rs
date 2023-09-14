@@ -356,19 +356,28 @@ fn process(
         Some(file) => {
             let report = model.report(env, content)?;
 
-            // Save raw report for debug purpose
-            if std::env::var("LOGREDUCE_CACHE").is_ok() {
-                let mut report_json = file.clone();
-                report_json.set_extension("bin");
-                report.save(&report_json)?;
-            }
+            match file.extension().and_then(std::ffi::OsStr::to_str) {
+                Some("bin") => report
+                    .save(&file)
+                    .context("Failed to write the binary report"),
+                Some("html") => std::fs::write(
+                    &file,
+                    logreduce_static_html::render(&report).context("Error rendering the report")?,
+                )
+                .context("Failed to write the report"),
+                _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
+            }?;
+            tracing::info!("Wrote report {:?}", file);
 
-            println!("{:?}: Writing report...", file);
-            std::fs::write(
-                file,
-                logreduce_static_html::render(&report).context("Error rendering the report")?,
-            )
-            .context("Failed to write the report")
+            // Make an extra copy in devel mode.
+            if file.extension() != Some(std::ffi::OsStr::new("bin"))
+                && std::env::var("LOGREDUCE_CACHE").is_ok()
+            {
+                let mut report_bin = file.clone();
+                report_bin.set_extension("bin");
+                report.save(&report_bin)?;
+            }
+            Ok(())
         }
     }
 }

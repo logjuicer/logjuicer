@@ -1,7 +1,9 @@
 # logreduce-web
 
-Develop the web by first generating a `report.bin` file, and then running:
+Develop the web interface by first generating a report with:
+`cargo run -p logreduce-cli -- --report report.bin ...`. Then
+run the
 
 ```ShellSession
-trunk serve ./dev.html
+trunk serve ./dev.html --address 0.0.0.0
 ```
