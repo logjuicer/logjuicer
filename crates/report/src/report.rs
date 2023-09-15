@@ -19,7 +19,7 @@ pub struct Report {
     pub baselines: Vec<Content>,
     pub log_reports: Vec<LogReport>,
     pub index_reports: HashMap<IndexName, IndexReport>,
-    pub index_errors: Vec<Vec<Source>>,
+    pub unknown_files: HashMap<IndexName, Vec<Source>>,
     pub read_errors: Vec<(Source, String)>,
     pub total_line_count: usize,
     pub total_anomaly_count: usize,

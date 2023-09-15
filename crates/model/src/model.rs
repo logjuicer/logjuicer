@@ -386,7 +386,7 @@ impl Model {
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
         let mut log_reports = Vec::new();
-        let mut index_errors = Vec::new();
+        let mut unknown_files = HashMap::new();
         let mut read_errors = Vec::new();
         let mut total_line_count = 0;
         let mut total_anomaly_count = 0;
@@ -431,7 +431,9 @@ impl Model {
                         }
                     }
                 }
-                None => index_errors.push(sources.clone()),
+                None => {
+                    let _ = unknown_files.insert(index_name, sources);
+                }
             }
         }
         Ok(Report {
@@ -441,7 +443,7 @@ impl Model {
             baselines: self.baselines.clone(),
             log_reports,
             index_reports,
-            index_errors,
+            unknown_files,
             read_errors,
             total_line_count,
             total_anomaly_count,
