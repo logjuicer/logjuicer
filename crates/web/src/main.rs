@@ -1,21 +1,31 @@
-use gloo_console::log;
-use gloo_net::http::Request;
-use std::ops::Deref;
-use yew::prelude::*;
+// Copyright (C) 2023 Red Hat
+// SPDX-License-Identifier: Apache-2.0
 
+//! This module is the entrypoint of the logreduce web interface.
+
+use dominator::{clone, html, text, Dom};
+use futures_signals::signal::Mutable;
 use logreduce_report::{bytes_to_mb, Content, IndexName, LogReport, Report, Source};
+use std::sync::Arc;
+use wasm_bindgen_futures::spawn_local;
 
-fn data_attr_html(name: &str, value: Html) -> Html {
-    html! {
-        <div class={classes!("sm:grid", "sm:grid-cols-6", "sm:gap-4", "sm:px-0")}>
-            <dt class={classes!("text-sm", "font-medium", "text-gray-900")}>{name}</dt>
-            <dd class={classes!("flex", "items-center", "text-sm", "text-gray-700", "sm:col-span-5", "sm:mt-0")}>{value}</dd>
-        </div>
-    }
+fn data_attr_html(name: &str, value: &mut [Dom]) -> Dom {
+    html!("div", {.class(["sm:grid", "sm:grid-cols-6", "sm:gap-4", "sm:px-0"]).children(&mut [
+        html!("dt", {.class(["text-sm", "font-medium", "text-gray-900"]).text(name)}),
+        html!("dd", {.class(["flex", "items-center", "text-sm", "text-gray-700", "sm:col-span-5", "sm:mt-0"]).children(value)})
+    ])})
 }
 
-fn data_attr(name: &str, value: &str) -> Html {
-    data_attr_html(name, value.into())
+fn data_attr(name: &str, value: &str) -> Dom {
+    data_attr_html(name, &mut [dominator::text(value)])
+}
+
+fn render_link(href: &str, text: &str) -> Dom {
+    html!("a", {.class("cursor-pointer").attr("href", href).attr("target", "_black").text(text)})
+}
+
+fn render_source_link(source: &Source) -> Dom {
+    render_link(source.as_str(), log_name(source.get_relative()))
 }
 
 fn render_time(system_time: &std::time::SystemTime) -> String {
@@ -23,26 +33,25 @@ fn render_time(system_time: &std::time::SystemTime) -> String {
     datetime.format("%Y-%m-%d %T").to_string()
 }
 
-static COLORS: &[&str] = &["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"];
-
-fn render_content(content: &Content) -> Html {
+fn render_content(content: &Content) -> Dom {
     match content {
-        Content::Zuul(zuul_build) => html! {
-            <div><a href={zuul_build.build_url()} class="cursor-pointer">{&format!("zuul<job={}, project={}, branch={}, result={}>", zuul_build.job_name, zuul_build.project, zuul_build.branch, zuul_build.result)}</a></div>
-        },
-        _ => html! {<div>{content.to_string()}</div>},
+        Content::Zuul(zuul_build) => html!("div", {.children(&mut [
+            render_link(&zuul_build.build_url(),
+                        &format!("zuul<job={}, project={}, branch={}, result={}>", zuul_build.job_name, zuul_build.project, zuul_build.branch, zuul_build.result))
+        ])}),
+        _ => html!("div", {.text(&content.to_string())}),
     }
 }
 
-fn render_line(pos: usize, distance: f32, line: &str) -> Html {
+static COLORS: &[&str] = &["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"];
+
+fn render_line(pos: usize, distance: f32, line: &str) -> Dom {
     let sev = (distance * 10.0).round() as usize;
     let color: &str = COLORS.get(sev).unwrap_or(&"c0");
-    html! {
-        <tr>
-            <td class={classes!("pos")}>{pos}</td>
-            <td class={classes!("pl-2", "break-all", color)}>{line}</td>
-        </tr>
-    }
+    html!("tr", {.children(&mut [
+        html!("td", {.class("pos").text(&format!("{}", pos))}),
+        html!("td", {.class(["pl-2", "break-all", color]).text(line)})
+    ])})
 }
 
 fn log_name(path: &str) -> &str {
@@ -52,44 +61,53 @@ fn log_name(path: &str) -> &str {
     }
 }
 
-fn render_log_report(report: &Report, log_report: &LogReport) -> Html {
+fn render_log_report(report: &Report, log_report: &LogReport) -> Dom {
     let index_name = &format!("{}", log_report.index_name);
-    let info_index = match report.index_reports.get(&log_report.index_name) {
+    let mut infos = Vec::new();
+    match report.index_reports.get(&log_report.index_name) {
         Some(index_report) => {
-            let sources: Html = index_report
+            let mut sources: Vec<Dom> = index_report
                 .sources
                 .iter()
-                .map(|source| html! {<div><a href={source.as_str().to_string()}>{log_name(source.get_relative())}</a></div>})
+                .map(|source| html!("div", {.children(&mut [render_source_link(source)])}))
                 .collect();
-            html! {
-                <>
-                {data_attr_html("Baselines", html!{<div>{sources}</div>})}
-                {data_attr("Index", index_name)}
-                {data_attr("Training time", &format!("{} ms", index_report.train_time.as_millis()))}
-                </>
-            }
+            infos.push(data_attr_html("Baselines", &mut sources));
+            infos.push(data_attr("Index", index_name));
+            infos.push(data_attr(
+                "Training time",
+                &format!("{} ms", index_report.train_time.as_millis()),
+            ));
         }
-        None => html! {data_attr("Unknown Index", index_name)},
+        None => infos.push(data_attr("Unknown Index", index_name)),
     };
-    let info_btn = html! {
-      <div class={classes!("has-tooltip", "px-2")}>
-        <div class={classes!("tooltip")}>
-            {info_index}
-            {data_attr("Test time", &format!("{} ms", log_report.test_time.as_millis()))}
-            {data_attr("Anomaly count", &format!("{}", log_report.anomalies.len()))}
-            {data_attr("Log size", &format!("{} lines, {:.3} MB", log_report.line_count, bytes_to_mb(log_report.byte_count)))}
-        </div>
-        <div class={classes!("font-bold", "text-slate-500")}>{"?"}</div>
-      </div>
-    };
-    let header = html! {
-        <div class={classes!("bg-slate-100", "flex", "divide-x", "mr-2")}>
-          <div class={classes!("grow", "flex")}>
-            <a href={log_report.source.as_str().to_string()} target_="_black">{ log_report.source.get_relative() }</a>
-          </div>
-          {info_btn}
-        </div>
-    };
+    infos.push(data_attr(
+        "Test time",
+        &format!("{} ms", log_report.test_time.as_millis()),
+    ));
+    infos.push(data_attr(
+        "Anomaly count",
+        &format!("{}", log_report.anomalies.len()),
+    ));
+    infos.push(data_attr(
+        "Log size",
+        &format!(
+            "{} lines, {:.3} MB",
+            log_report.line_count,
+            bytes_to_mb(log_report.byte_count)
+        ),
+    ));
+
+    let info_btn = html!("div", {.class(["has-tooltip", "px-2"]).children(&mut [
+        html!("div", {.class("tooltip").children(&mut infos)}),
+        html!("div", {.class(["font-bold", "text-slate-500"]).text("?")})
+    ])});
+    let header = html!("div", {.class(["bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
+        html!("div", {.class(["grow", "flex"]).children(&mut [
+            render_link(log_report.source.as_str(), log_report.source.get_relative())
+        ])}),
+        info_btn
+    ])});
+
     let mut lines = Vec::with_capacity(log_report.anomalies.len() * 2);
     for anomaly in &log_report.anomalies {
         for (pos, line) in anomaly.before.iter().enumerate() {
@@ -108,147 +126,115 @@ fn render_log_report(report: &Report, log_report: &LogReport) -> Html {
             lines.push(render_line(anomaly.anomaly.pos + 1 + pos, 0.0, line));
         }
     }
-    html! {
-        <div class={classes!("pl-1", "pt-2", "relative", "max-w-full")}>
-            {header}
-            <table class={classes!("font-mono")}>
-              <thead><tr><th class={classes!("w-12", "min-w-[3rem]")}></th><th></th></tr></thead>
-              <tbody>
-                {lines}
-              </tbody>
-            </table>
-        </div>
-    }
+
+    html!("div", {.class(["pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
+        header,
+        html!("table", {.class("font-mono").children(&mut [
+            html!("thead", {.children(&mut [
+                html!("tr", {.children(&mut [html!("th", {.class(["w-12", "min-w-[3rem]"])}), html!("th")])})
+            ])}),
+            html!("tbody", {.children(&mut lines)})
+        ])})
+    ])})
 }
 
-fn render_error(source: &Source, body: Html) -> Html {
-    html! {
-        <div class={classes!("pl-1", "pt-2", "relative", "max-w-full")}>
-            <div class={classes!("bg-red-100")}>
-                {source.as_str()}
-            </div>
-            <div>
-                {body}
-            </div>
-        </div>
-    }
+fn render_error(source: &Source, body: &mut [Dom]) -> Dom {
+    html!("div", {.class(["pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
+        html!("div", {.class("bg-red-100").children(&mut [render_source_link(source)])}),
+        html!("div", {.children(body)})
+    ])})
 }
 
-fn render_log_error(source: &Source, error: &str) -> Html {
-    render_error(source, html! {<>{"Read failure: "}{error}</>})
+fn render_log_error(source: &Source, error: &str) -> Dom {
+    render_error(source, &mut [text("Read failure: "), text(error)])
 }
 
-fn render_unknown(index: &IndexName, sources: &[Source]) -> Html {
-    sources
-        .iter()
-        .map(|source| {
-            render_error(
-                source,
-                html! {<>{"Unknown file, looked for index: "}{index}</>},
-            )
-        })
-        .collect()
+fn render_unknown(source: &Source, index: &IndexName) -> Dom {
+    render_error(source, &mut [text("Unknown index: "), text(&index.0)])
 }
 
-fn render_report(report: &Report) -> Html {
+fn render_report(report: &Report) -> Dom {
     let result = format!(
         "{:02.2}% reduction (from {} to {})",
         (100.0 - (report.total_anomaly_count as f32 / report.total_line_count as f32) * 100.0),
         report.total_line_count,
         report.total_anomaly_count
     );
-    let card = html! {
-        <dl class={classes!("divide-y", "divide-gray-100", "pl-4")}>
-            {data_attr_html("Target",    render_content(&report.target))}
-            {data_attr_html("Baselines", report.baselines.iter().map(render_content).collect::<Html>())}
-            {data_attr("Created at", &render_time(&report.created_at))}
-            {data_attr("Run time",   &format!("{:.2} sec", report.run_time.as_secs_f32()),)}
-            {data_attr("Result",     &result)}
-        </dl>
-    };
 
-    let reports = LogReport::sorted(&report.log_reports)
-        .iter()
-        .map(|lr| render_log_report(report, lr))
-        .collect::<Vec<_>>();
+    let card = html!("dl", {.class(["divide-y", "divide-gray-100", "pl-4"]).children(&mut [
+        data_attr_html("Target", &mut [render_content(&report.target)]),
+        data_attr_html("Baselines", &mut report.baselines.iter().map(render_content).collect::<Vec<Dom>>()),
+        data_attr("Created at", &render_time(&report.created_at)),
+        data_attr("Run time",   &format!("{:.2} sec", report.run_time.as_secs_f32())),
+        data_attr("Result",     &result),
+    ])});
 
-    let errors = report
-        .read_errors
-        .iter()
-        .map(|(source, err)| render_log_error(source, err))
-        .collect::<Vec<_>>();
+    let mut childs = vec![card];
 
-    let unknowns = report
-        .unknown_files
-        .iter()
-        .map(|(index, sources)| render_unknown(index, sources))
-        .collect::<Vec<_>>();
+    for lr in LogReport::sorted(&report.log_reports) {
+        childs.push(render_log_report(report, lr))
+    }
+    for (source, err) in &report.read_errors {
+        childs.push(render_log_error(source, err));
+    }
+    for (index, sources) in &report.unknown_files {
+        for source in sources {
+            childs.push(render_unknown(source, index));
+        }
+    }
 
-    html! {
-      <>
-        {card}
-        {reports}
-        {errors}
-        {unknowns}
-      </>
+    html!("div", {.children(&mut childs)})
+}
+
+fn render_app(state: &Arc<App>) -> Dom {
+    // Create the DOM nodes
+    html!("div", {.children(&mut [
+        html!("nav", {.class(["sticky", "top-0", "bg-slate-300", "z-50", "flex", "px-1", "divide-x"]).children(&mut [
+            html!("div", {.class("grow").text("logreduce")}),
+            html!("div", {.class(["px-2", "hover:bg-slate-400"]).children(&mut [
+                render_link("https://github.com/logreduce/logreduce#readme", "documentation")
+            ])}),
+            html!("div", {.class(["px-2", "rounder"]).children(&mut [
+                html!("span", {.class("font-bold").text("version ")}),
+                html!("span", {.text(env!("CARGO_PKG_VERSION"))})
+            ])})
+        ])}),
+    ]).child_signal(state.report.signal_ref(|data| Some(match data {
+        Some(Ok(report)) => render_report(report),
+        Some(Err(err)) => html!("div", {.children(&mut [text("Error: "), text(err)])}),
+        None => html!("div", {.text("loading...")}),
+    })))})
+}
+
+struct App {
+    report: Mutable<Option<Result<Report, String>>>,
+}
+
+impl App {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            report: Mutable::new(None),
+        })
     }
 }
 
 async fn get_report(path: &str) -> Result<Report, String> {
-    let resp = Request::get(path)
+    let resp = gloo_net::http::Request::get(path)
         .send()
         .await
         .map_err(|e| format!("{}", e))?;
     let data: Vec<u8> = resp.binary().await.map_err(|e| format!("{}", e))?;
-    log!(format!("Loaded report: {:?}", &data[..24]));
+    // log!(format!("Loaded report: {:?}", &data[..24]));
     logreduce_report::Report::load_bytes(&data).map_err(|e| format!("{}", e))
 }
 
-#[function_component(App)]
-fn app() -> Html {
-    let report: UseStateHandle<Option<Result<Report, String>>> = use_state(|| None);
-    {
-        let report = report.clone();
-        use_effect_with_deps(
-            move |_| {
-                let report = report.clone();
-                wasm_bindgen_futures::spawn_local(async move {
-                    let result = get_report("report.bin").await;
-                    report.set(Some(result));
-                });
-                || ()
-            },
-            (),
-        );
-    }
-
-    let report_html = match report.deref() {
-        Some(Ok(report)) => render_report(report),
-        Some(Err(err)) => html!(<p>{err}</p>),
-        None => html!(<p>{"loading..."}</p>),
-    };
-
-    let header = html! {
-        <nav class={classes!("sticky", "top-0", "bg-slate-300", "z-50", "flex", "px-1", "divide-x")}>
-          <div class={classes!("grow")}>{"logreduce"}</div>
-          <div class={classes!("px-2", "cursor-pointer", "hover:bg-slate-400")}>
-            <a href="https://github.com/logreduce/logreduce#readme" target="_black">{"documentation"}</a>
-          </div>
-          <div class={classes!("px-2", "rounded")}>
-            <span class={classes!("font-bold")}>{"version "}</span>
-            <span>{env!("CARGO_PKG_VERSION")}</span>
-          </div>
-        </nav>
-    };
-
-    html! {
-        <>
-            { header }
-            { report_html }
-        </>
-    }
-}
-
-fn main() {
-    yew::Renderer::<App>::new().render();
+pub fn main() {
+    console_error_panic_hook::set_once();
+    let app = App::new();
+    spawn_local(clone!(app => async move {
+        // gloo_timers::future::TimeoutFuture::new(3_000).await;
+        let result = get_report("report.bin").await;
+        app.report.replace(Some(result));
+    }));
+    dominator::append_dom(&dominator::body(), render_app(&app));
 }
