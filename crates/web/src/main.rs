@@ -54,17 +54,31 @@ fn render_content(content: &Content) -> Dom {
 
 static COLORS: &[&str] = &["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"];
 
-fn render_line(search: &Mutable<String>, pos: usize, distance: f32, line: &str) -> Dom {
+fn render_line(
+    found: &Mutable<bool>,
+    search: &Mutable<String>,
+    pos: usize,
+    distance: f32,
+    line: &str,
+) -> Dom {
     let sev = (distance * 10.0).round() as usize;
     let color: &str = COLORS.get(sev).unwrap_or(&"c0");
+
     let lower_case_line = line.to_lowercase();
-    let hidden = search.signal_ref(move |value| {
-        if value.is_empty() {
-            false
+    let hidden = search.signal_ref(clone!(found => move |value| {
+        if !value.is_empty() && !lower_case_line.contains(value) {
+            // the line doesn't match the search: hide it
+            true
         } else {
-            !lower_case_line.contains(value)
+            // the line matched the search (or no search is active)
+            let mut found = found.lock_mut();
+            // ensure the log report div is visible
+            *found = true;
+            // do not hide the line
+            false
         }
-    });
+    }));
+
     html!("tr", {.class_signal("hidden", hidden).children(&mut [
         html!("td", {.class("pos").text(&format!("{}", pos))}),
         html!("td", {.class(["pl-2", "break-all", color]).text(line)})
@@ -78,7 +92,12 @@ fn log_name(path: &str) -> &str {
     }
 }
 
-fn render_log_report(search: &Mutable<String>, report: &Report, log_report: &LogReport) -> Dom {
+fn render_log_report(
+    found: Mutable<bool>,
+    search: &Mutable<String>,
+    report: &Report,
+    log_report: &LogReport,
+) -> Dom {
     let index_name = &format!("{}", log_report.index_name);
     let mut infos = Vec::new();
     match report.index_reports.get(&log_report.index_name) {
@@ -132,9 +151,10 @@ fn render_log_report(search: &Mutable<String>, report: &Report, log_report: &Log
                 .anomaly
                 .pos
                 .saturating_sub(anomaly.before.len() - pos);
-            lines.push(render_line(search, prev_pos, 0.0, line));
+            lines.push(render_line(&found, search, prev_pos, 0.0, line));
         }
         lines.push(render_line(
+            &found,
             search,
             anomaly.anomaly.pos,
             anomaly.anomaly.distance,
@@ -142,6 +162,7 @@ fn render_log_report(search: &Mutable<String>, report: &Report, log_report: &Log
         ));
         for (pos, line) in anomaly.after.iter().enumerate() {
             lines.push(render_line(
+                &found,
                 search,
                 anomaly.anomaly.pos + 1 + pos,
                 0.0,
@@ -150,7 +171,8 @@ fn render_log_report(search: &Mutable<String>, report: &Report, log_report: &Log
         }
     }
 
-    html!("div", {.class(["pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
+    let hidden = found.signal_ref(|v| !*v);
+    html!("div", {.class(["pl-1", "pt-2", "relative", "max-w-full"]).class_signal("hidden", hidden).children(&mut [
         header,
         html!("table", {.class("font-mono").children(&mut [
             html!("thead", {.children(&mut [
@@ -184,18 +206,28 @@ fn render_report(state: &Arc<App>, report: &Report) -> Dom {
         report.total_anomaly_count
     );
 
+    // Initialise a list of toggle for report visibility
+    let found: Vec<Mutable<bool>> = report
+        .log_reports
+        .iter()
+        .map(|_| Mutable::new(false))
+        .collect();
+
     // delay search change by 500ms
     let search = Mutable::new("".to_string());
     let search_debouncer = state
         .search
         .signal_cloned()
         .throttle(|| gloo_timers::future::TimeoutFuture::new(500))
-        .for_each(clone!(search => move |value| {
+        .for_each(clone!(search => clone!(found => move |value| {
+            // reset visibility state
+            found.iter().for_each(|v| v.set(false));
+
             let mut search_str = search.lock_mut();
             log!("New search value", &value);
-            *search_str = value;
+            *search_str = value.to_lowercase();
             async {}
-        }));
+        })));
     spawn_local(search_debouncer);
 
     let card = html!("dl", {.class(["divide-y", "divide-gray-100", "pl-4"]).children(&mut [
@@ -209,8 +241,8 @@ fn render_report(state: &Arc<App>, report: &Report) -> Dom {
 
     let mut childs = vec![card];
 
-    for lr in LogReport::sorted(&report.log_reports) {
-        childs.push(render_log_report(&search, report, lr))
+    for (lr, found) in LogReport::sorted(&report.log_reports).iter().zip(found) {
+        childs.push(render_log_report(found, &search, report, lr))
     }
     for (source, err) in &report.read_errors {
         childs.push(render_log_error(source, err));
