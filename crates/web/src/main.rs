@@ -10,8 +10,8 @@ use std::sync::Arc;
 use wasm_bindgen_futures::spawn_local;
 
 fn data_attr_html(name: &str, value: &mut [Dom]) -> Dom {
-    html!("div", {.class(["sm:grid", "sm:grid-cols-6", "sm:gap-4", "sm:px-0"]).children(&mut [
-        html!("dt", {.class(["text-sm", "font-medium", "text-gray-900"]).text(name)}),
+    html!("div", {.class("flex").children(&mut [
+        html!("dt", {.class(["w-32", "font-medium", "text-gray-900"]).text(name)}),
         html!("dd", {.class(["flex", "items-center", "text-sm", "text-gray-700", "sm:col-span-5", "sm:mt-0"]).children(value)})
     ])})
 }
@@ -187,16 +187,19 @@ fn render_report(report: &Report) -> Dom {
 }
 
 fn render_app(state: &Arc<App>) -> Dom {
-    // Create the DOM nodes
+    let about = html!("div", {.class(["tooltip", "top-1"]).children(&mut [
+            html!("div", {.class(["hover:bg-slate-400"]).children(&mut [
+                render_link("https://github.com/logreduce/logreduce#readme", "documentation")
+            ])}),
+        data_attr("Viewer", env!("CARGO_PKG_VERSION")),
+        data_attr("License", env!("CARGO_PKG_LICENSE")),
+    ])});
     html!("div", {.children(&mut [
         html!("nav", {.class(["sticky", "top-0", "bg-slate-300", "z-50", "flex", "px-1", "divide-x"]).children(&mut [
             html!("div", {.class("grow").text("logreduce")}),
-            html!("div", {.class(["px-2", "hover:bg-slate-400"]).children(&mut [
-                render_link("https://github.com/logreduce/logreduce#readme", "documentation")
-            ])}),
-            html!("div", {.class(["px-2", "rounder"]).children(&mut [
-                html!("span", {.class("font-bold").text("version ")}),
-                html!("span", {.text(env!("CARGO_PKG_VERSION"))})
+            html!("div", {.class(["has-tooltip", "px-2", "flex", "items-center"]).children(&mut [
+                about,
+                html!("div", {.class("text-sm").text("about")}),
             ])})
         ])}),
     ]).child_signal(state.report.signal_ref(|data| Some(match data {
