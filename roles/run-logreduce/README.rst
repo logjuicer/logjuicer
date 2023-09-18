@@ -21,10 +21,6 @@ Run logreduce for your job by adding the following vars:
 
 **Role Variables**
 
-.. zuul:rolevar:: logreduce_version
-
-   Update from https://github.com/logreduce/logreduce/releases
-
 .. zuul:rolevar:: logreduce_optin
    :default: false
 

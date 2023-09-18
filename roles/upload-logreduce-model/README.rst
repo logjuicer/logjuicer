@@ -12,6 +12,5 @@ Add this to your post playbook, before the `upload-logs`, like so:
 **Role Variables**
 
 .. zuul:rolevar:: logreduce_model_root
-   :default: /var/www/logs/classifiers
 
    The location of the logreduce_model_store_url.

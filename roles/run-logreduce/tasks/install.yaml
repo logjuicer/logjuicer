@@ -1,13 +1,21 @@
 ---
 - name: Install logreduce if needed
+  vars:
+    curl_cmd: "curl -L https://github.com/logreduce/logreduce/releases/download/{{ logreduce_version }}/logreduce-x86_64-linux.tar.bz2 | tar xjvf -"
+    local_cache: "/var/lib/log-classify/{{ logreduce_version }}"
   shell: |
     mkdir -p ~/.local/bin
     cd ~/.local
-    # Small hack to enable using a local build
-    if test -f /bin/logreduce; then
-      ln -s /bin/logreduce bin
+    if test -d /var/lib/log-classify; then
+      # Keep a local copy
+      if ! test -f {{ local_cache }}/logreduce; then
+        mkdir -p {{ local_cache }}
+        {{ curl_cmd }}
+        mv bin/logreduce {{ local_cache }}/logreduce
+      fi
+      ln -sf {{ local_cache }}/logreduce ~/.local/bin
     else
-      curl -L https://github.com/logreduce/logreduce/releases/download/{{ logreduce_version }}/logreduce-x86_64-linux.tar.bz2 | tar xjvf -
+      {{ curl_cmd }}
     fi
 
 - name: Set logreduce_cmd fact
