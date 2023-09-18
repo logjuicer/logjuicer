@@ -11,7 +11,7 @@ use wasm_bindgen_futures::spawn_local;
 
 // for input event
 use dominator::{events, with_node};
-use web_sys::HtmlInputElement;
+use web_sys::{Element, HtmlInputElement};
 
 // for throttle
 use futures_signals::signal::SignalExt;
@@ -54,32 +54,11 @@ fn render_content(content: &Content) -> Dom {
 
 static COLORS: &[&str] = &["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"];
 
-fn render_line(
-    found: &Mutable<bool>,
-    search: &Mutable<String>,
-    pos: usize,
-    distance: f32,
-    line: &str,
-) -> Dom {
+fn render_line(pos: usize, distance: f32, line: &str) -> Dom {
     let sev = (distance * 10.0).round() as usize;
     let color: &str = COLORS.get(sev).unwrap_or(&"c0");
 
-    let lower_case_line = line.to_lowercase();
-    let hidden = search.signal_ref(clone!(found => move |value| {
-        if !value.is_empty() && !lower_case_line.contains(value) {
-            // the line doesn't match the search: hide it
-            true
-        } else {
-            // the line matched the search (or no search is active)
-            let mut found = found.lock_mut();
-            // ensure the log report div is visible
-            *found = true;
-            // do not hide the line
-            false
-        }
-    }));
-
-    html!("tr", {.class_signal("hidden", hidden).children(&mut [
+    html!("tr", {.children(&mut [
         html!("td", {.class("pos").text(&format!("{}", pos))}),
         html!("td", {.class(["pl-2", "break-all", color]).text(line)})
     ])})
@@ -92,12 +71,7 @@ fn log_name(path: &str) -> &str {
     }
 }
 
-fn render_log_report(
-    found: Mutable<bool>,
-    search: &Mutable<String>,
-    report: &Report,
-    log_report: &LogReport,
-) -> Dom {
+fn render_log_report(report: &Report, log_report: &LogReport) -> Dom {
     let index_name = &format!("{}", log_report.index_name);
     let mut infos = Vec::new();
     match report.index_reports.get(&log_report.index_name) {
@@ -151,28 +125,19 @@ fn render_log_report(
                 .anomaly
                 .pos
                 .saturating_sub(anomaly.before.len() - pos);
-            lines.push(render_line(&found, search, prev_pos, 0.0, line));
+            lines.push(render_line(prev_pos, 0.0, line));
         }
         lines.push(render_line(
-            &found,
-            search,
             anomaly.anomaly.pos,
             anomaly.anomaly.distance,
             &anomaly.anomaly.line,
         ));
         for (pos, line) in anomaly.after.iter().enumerate() {
-            lines.push(render_line(
-                &found,
-                search,
-                anomaly.anomaly.pos + 1 + pos,
-                0.0,
-                line,
-            ));
+            lines.push(render_line(anomaly.anomaly.pos + 1 + pos, 0.0, line));
         }
     }
 
-    let hidden = found.signal_ref(|v| !*v);
-    html!("div", {.class(["pl-1", "pt-2", "relative", "max-w-full"]).class_signal("hidden", hidden).children(&mut [
+    html!("div", {.class(["pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
         header,
         html!("table", {.class("font-mono").children(&mut [
             html!("thead", {.children(&mut [
@@ -206,28 +171,21 @@ fn render_report(state: &Arc<App>, report: &Report) -> Dom {
         report.total_anomaly_count
     );
 
-    // Initialise a list of toggle for report visibility
-    let found: Vec<Mutable<bool>> = report
-        .log_reports
-        .iter()
-        .map(|_| Mutable::new(false))
-        .collect();
-
     // delay search change by 500ms
-    let search = Mutable::new("".to_string());
     let search_debouncer = state
         .search
         .signal_cloned()
         .throttle(|| gloo_timers::future::TimeoutFuture::new(500))
-        .for_each(clone!(search => clone!(found => move |value| {
+        .for_each(move |value| {
+            let reports = dominator::get_id("reports");
             // reset visibility state
-            found.iter().for_each(|v| v.set(false));
-
-            let mut search_str = search.lock_mut();
-            log!("New search value", &value);
-            *search_str = value.to_lowercase();
+            clear_search(&reports);
+            let search_lower = value.to_lowercase();
+            if !search_lower.is_empty() {
+                toggle_search(&reports, &search_lower);
+            }
             async {}
-        })));
+        });
     spawn_local(search_debouncer);
 
     let card = html!("dl", {.class(["divide-y", "divide-gray-100", "pl-4"]).children(&mut [
@@ -236,14 +194,15 @@ fn render_report(state: &Arc<App>, report: &Report) -> Dom {
         data_attr("Created at", &render_time(&report.created_at)),
         data_attr("Run time",   &format!("{:.2} sec", report.run_time.as_secs_f32())),
         data_attr("Result",     &result),
-        data_attr_html("Search", &mut [html!("div", {.text_signal(search.signal_cloned())})]),
     ])});
 
     let mut childs = vec![card];
 
-    for (lr, found) in LogReport::sorted(&report.log_reports).iter().zip(found) {
-        childs.push(render_log_report(found, &search, report, lr))
+    let mut reports = Vec::with_capacity(report.log_reports.len());
+    for lr in LogReport::sorted(&report.log_reports) {
+        reports.push(render_log_report(report, lr))
     }
+    childs.push(html!("div", {.attr("id", "reports").children(&mut reports)}));
     for (source, err) in &report.read_errors {
         childs.push(render_log_error(source, err));
     }
@@ -254,6 +213,45 @@ fn render_report(state: &Arc<App>, report: &Report) -> Dom {
     }
 
     html!("div", {.children(&mut childs)})
+}
+
+fn clear_search(reports: &Element) {
+    let hidden = reports.get_elements_by_class_name("hidden");
+    for pos in 0..hidden.length() {
+        if let Some(elem) = hidden.item(pos) {
+            let classes = elem.class_list();
+            let _ = classes.remove_1("hidden");
+        }
+    }
+}
+
+fn toggle_search(reports: &Element, search: &str) {
+    let reports = reports.children();
+    for pos in 0..reports.length() {
+        if let Some(report) = reports.item(pos) {
+            toggle_search_report(&report, search)
+        }
+    }
+}
+
+fn toggle_search_report(report: &Element, search: &str) {
+    let mut found = false;
+    let rows = report.get_elements_by_tag_name("tr");
+    // skip first row from thead
+    for nr in 1..rows.length() {
+        if let Some(row) = rows.item(nr) {
+            if let Some(content) = row.children().item(1).and_then(|cell| cell.text_content()) {
+                if content.to_lowercase().contains(search) {
+                    found = true;
+                } else {
+                    let _ = row.class_list().add_1("hidden");
+                }
+            }
+        }
+    }
+    if !found {
+        let _ = report.class_list().add_1("hidden");
+    }
 }
 
 fn render_app(state: Arc<App>) -> Dom {
@@ -311,7 +309,7 @@ async fn get_report(path: &str) -> Result<Report, String> {
         .await
         .map_err(|e| format!("{}", e))?;
     let data: Vec<u8> = resp.binary().await.map_err(|e| format!("{}", e))?;
-    // log!(format!("Loaded report: {:?}", &data[..24]));
+    log!(format!("Loaded report: {} byte", data.len()));
     logreduce_report::Report::load_bytes(&data).map_err(|e| format!("{}", e))
 }
 
