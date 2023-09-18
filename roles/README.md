@@ -8,7 +8,6 @@ like this:
 - name: collect logs
   hosts: localhost
   roles:
-    - role: fetch-output
     - role: generate-zuul-manifest
     - role: run-logreduce
       logreduce_zuul_web: https://zuul.sftests.com/

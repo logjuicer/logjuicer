@@ -1,8 +1,11 @@
 # Update from https://github.com/logreduce/logreduce/releases
-logreduce_version: 0.7.0
+logreduce_version: 0.8.0
 
 # Update from https://www.npmjs.com/package/logreduce-web?activeTab=versions
 logreduce_web_version: 0.1.1
+
+# Change this to a local location with a folder per web's version.
+logreduce_web_url: "https://unpkg.com/logreduce-web@"
 
 # Set this to true to run logreduce
 logreduce_optin: false
@@ -26,13 +29,15 @@ logreduce_model_store_url: https://softwarefactory-project.io/logs/classifiers
 # Local path
 logreduce_tmp_dir: "{{ ansible_env.HOME }}/.logreduce"
 
+# The location of the logreduce-web artifact.
+_assets_url: "{{ logreduce_web_url }}{{ logreduce_web_version }}/logreduce-web"
 logreduce_web_report: |
   <!DOCTYPE html><html><head>
     <meta charset="utf-8">
     <title>Logreduce {{ zuul.build | default('') }}</title>
-    <link rel="stylesheet" href="https://unpkg.com/logreduce-web@{{ logreduce_web_version }}/logreduce-web.css">
-    <link rel="preload" href="https://unpkg.com/logreduce-web@{{ logreduce_web_version }}/logreduce-web.wasm" as="fetch" type="application/wasm" crossorigin="">
-    <link rel="modulepreload" href="https://unpkg.com/logreduce-web@{{ logreduce_web_version }}/logreduce-web.js">
+    <link rel="stylesheet" href="{{ _assets_url }}.css">
+    <link rel="preload" href={{ _assets_url }}.wasm" as="fetch" type="application/wasm" crossorigin="">
+    <link rel="modulepreload" href="{{ _assets_url }}.js">
   </head><body>
-    <script type="module">import init from 'https://unpkg.com/logreduce-web@{{ logreduce_web_version }}/logreduce-web.js';init('https://unpkg.com/logreduce-web@{{ logreduce_web_version }}/logreduce-web.wasm');</script>
+    <script type="module">import init from '{{ _assets_url }}.js';init('{{ _assets_url }}.wasm');</script>
   </body></html>
