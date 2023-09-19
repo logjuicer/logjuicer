@@ -10,6 +10,16 @@ pub struct InventoryRoot {
     pub all: InventoryAll,
 }
 
+impl From<InventoryVarsZuul> for InventoryRoot {
+    fn from(zuul: InventoryVarsZuul) -> InventoryRoot {
+        InventoryRoot {
+            all: InventoryAll {
+                vars: InventoryVars { zuul },
+            },
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct InventoryAll {
     pub vars: InventoryVars,

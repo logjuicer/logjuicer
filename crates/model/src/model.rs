@@ -17,7 +17,7 @@ use url::Url;
 pub use logreduce_tokenizer::index_name::IndexName;
 
 pub use logreduce_report::{
-    AnomalyContext, Content, IndexReport, LogReport, ProwBuild, Report, Source, ZuulBuild,
+    AnomalyContext, ApiUrl, Content, IndexReport, LogReport, ProwBuild, Report, Source, ZuulBuild,
 };
 
 use crate::env::Env;
@@ -200,7 +200,7 @@ pub fn content_from_input(env: &Env, input: Input) -> Result<Content> {
         }
 
         Input::ZuulBuild(path_buf, url_str, per_project) => {
-            let url = Url::parse(&url_str).expect("Failed to parse url");
+            let url = ApiUrl::parse(&url_str).expect("Failed to parse url");
             let manifest =
                 std::fs::File::open(path_buf.as_path().join("zuul-info").join("inventory.yaml"))
                     .context("Loading inventory.yaml")?;
