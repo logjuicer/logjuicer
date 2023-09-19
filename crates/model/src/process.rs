@@ -151,7 +151,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
             self.coord += 1;
 
             // Special check to break when we are processing ourself
-            if raw_str.contains("TASK [log-classify") {
+            if raw_str.contains("TASK [run-logreduce") {
                 break;
             }
 
