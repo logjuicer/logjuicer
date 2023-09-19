@@ -63,7 +63,7 @@ impl Report {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ZuulBuild {
-    pub api: Url,
+    pub api: ApiUrl,
     pub per_project: bool,
     pub uuid: String,
     pub job_name: String,
@@ -272,4 +272,46 @@ pub struct IndexReport {
 
 pub fn bytes_to_mb(bytes: usize) -> f64 {
     (bytes as f64) / (1024.0 * 1024.0)
+}
+
+/// An url that is guaranteed to be terminated with a slash
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ApiUrl(Url);
+
+impl From<ApiUrl> for Url {
+    fn from(api_url: ApiUrl) -> Url {
+        api_url.0
+    }
+}
+
+impl ApiUrl {
+    pub fn into_url(self) -> Url {
+        self.0
+    }
+
+    pub fn as_url(&self) -> &Url {
+        &self.0
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn join(&self, input: &str) -> Result<ApiUrl, url::ParseError> {
+        if input.ends_with('/') {
+            Ok(ApiUrl(self.0.join(input)?))
+        } else {
+            Err(url::ParseError::Overflow)
+        }
+    }
+
+    pub fn parse(input: &str) -> Result<ApiUrl, url::ParseError> {
+        let url = if input.ends_with('/') {
+            Url::parse(input)
+        } else {
+            Url::parse(&format!("{}/", input))
+        };
+        Ok(ApiUrl(url?))
+    }
 }

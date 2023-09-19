@@ -9,7 +9,7 @@ use url::Url;
 
 use crate::env::Env;
 use crate::{Baselines, Content, Source};
-use logreduce_report::ZuulBuild;
+use logreduce_report::{ApiUrl, ZuulBuild};
 
 fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
     let days = now.signed_duration_since(since).num_days();
@@ -21,7 +21,7 @@ fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
 }
 
 pub fn from_inventory(
-    api_base: Url,
+    api_base: ApiUrl,
     inventory: zuul_build::zuul_inventory::InventoryRoot,
     per_project: bool,
 ) -> Result<ZuulBuild> {
@@ -30,7 +30,8 @@ pub fn from_inventory(
         .join(&format!("api/tenant/{}/", vars.tenant))
         .context("Adding tenant apis")?;
     let log_url = api
-        .join(&format!("api/tenant/{}/build/{}", vars.tenant, vars.build))
+        .as_url()
+        .join(&format!("build/{}", vars.build))
         .context("Adding build url suffix")?;
     Ok(ZuulBuild {
         api,
@@ -48,9 +49,40 @@ pub fn from_inventory(
     })
 }
 
+#[test]
+fn test_zuul_inventory() -> Result<()> {
+    use zuul_build::zuul_inventory::*;
+    let vars = InventoryVarsZuul {
+        build: "test".to_string(),
+        branch: "test".to_string(),
+        job: "test".to_string(),
+        pipeline: "pipeline".to_string(),
+        change_url: Url::parse("https://example.com/gerrit")?,
+        project: InventoryProject {
+            name: "test".to_string(),
+        },
+        tenant: "local".to_string(),
+    };
+    let build = from_inventory(
+        ApiUrl::parse("https://example.com/zuul/")?,
+        vars.into(),
+        false,
+    )?;
+    assert_eq!(
+        build.api.as_str(),
+        "https://example.com/zuul/api/tenant/local/"
+    );
+    assert_eq!(
+        build.log_url.as_str(),
+        "https://example.com/zuul/api/tenant/local/build/test"
+    );
+    Ok(())
+}
+
 fn zuul_build_success_samples(build: &ZuulBuild, env: &Env) -> Result<Vec<zuul_build::Build>> {
     let base = build
         .api
+        .as_url()
         .join("builds")
         .context("Can't create builds url")?;
     let mut args = vec![
@@ -140,7 +172,7 @@ pub fn sources_iter(build: &ZuulBuild) -> Box<dyn Iterator<Item = Result<Source>
     crate::httpdir_iter(&build.log_url)
 }
 
-fn new_content(api: Url, build: zuul_build::Build) -> Content {
+fn new_content(api: ApiUrl, build: zuul_build::Build) -> Content {
     Content::Zuul(Box::new(ZuulBuild {
         api,
         // TODO: make this configurable
@@ -158,9 +190,8 @@ fn new_content(api: Url, build: zuul_build::Build) -> Content {
     }))
 }
 
-fn get_build(env: &Env, api: &Url, uid: &str) -> Result<zuul_build::Build> {
-    let url = api.join("build/")?.join(uid)?;
-    // Use the first few char of the url for the prefix, so that queries get grouped per api.
+fn get_build(env: &Env, api: &ApiUrl, uuid: &str) -> Result<zuul_build::Build> {
+    let url = api.as_url().join(&format!("build/{}", uuid))?;
     let reader = crate::reader::from_url(env, 0, &url)?;
     match zuul_build::decode_build(reader).context("Can't decode zuul api") {
         Ok(x) => Ok(x),
@@ -169,7 +200,6 @@ fn get_build(env: &Env, api: &Url, uid: &str) -> Result<zuul_build::Build> {
 }
 
 fn get_builds(env: &Env, url: &Url) -> Result<Vec<zuul_build::Build>> {
-    // Use the first few char of the url for the prefix, so that queries get grouped per api.
     let reader = crate::reader::from_url(env, 0, url)?;
     match zuul_build::decode_builds(reader).context("Can't decode zuul api") {
         Ok(xs) => Ok(xs),
@@ -184,26 +214,26 @@ fn is_uid(s: &str) -> bool {
         })
 }
 
-fn api_from_webui(url: &Url, tenant: &str) -> Result<Url> {
+fn api_from_webui(url: &Url, tenant: &str) -> Result<ApiUrl> {
     url.as_str()
         .split_once("/t/")
         .ok_or_else(|| anyhow::anyhow!("Invalid zuul url"))
         .and_then(|(base, _)| {
-            Url::parse(&format!("{}/api/tenant/{}/", base, tenant))
+            ApiUrl::parse(&format!("{}/api/tenant/{}/", base, tenant))
                 .context("Can't recreate zuul api url")
         })
 }
 
-fn api_from_whitelabel_webui(url: &Url) -> Result<Url> {
+fn api_from_whitelabel_webui(url: &Url) -> Result<ApiUrl> {
     url.as_str()
         .rsplit_once("/build/")
         .ok_or_else(|| anyhow::anyhow!("Invalid zuul url"))
         .and_then(|(base, _)| {
-            Url::parse(&format!("{}/api/", base)).context("Can't recreate zuul api url")
+            ApiUrl::parse(&format!("{}/api/", base)).context("Can't recreate zuul api url")
         })
 }
 
-fn get_zuul_api_url(url: &'_ Url) -> Option<Result<(Url, &'_ str)>> {
+fn get_zuul_api_url(url: &'_ Url) -> Option<Result<(ApiUrl, &'_ str)>> {
     url.path_segments().and_then(|mut iter| {
         // Check if the last segment is a uuid
         iter.next_back().and_then(|uid| match is_uid(uid) {
@@ -238,7 +268,7 @@ fn test_zuul_url() {
     let assert_url = |full, base, uid: &str| {
         let url = Url::parse(full).unwrap();
         let content = get_zuul_api_url(&url).unwrap().unwrap();
-        let expected = (Url::parse(base).unwrap(), uid);
+        let expected = (ApiUrl::parse(base).unwrap(), uid);
         assert_eq!(content, expected);
     };
 
@@ -259,8 +289,10 @@ fn test_zuul_url() {
 fn test_zuul_api() -> Result<()> {
     let env = Env::new();
     let mut server = mockito::Server::new();
-    let url = Url::parse(&server.url())?;
-    let build_url = url.join("/zuul/build/2498d287ec4b442a95184b7a4bec9b2d")?;
+    let url = ApiUrl::parse(&server.url())?;
+    let build_url = url
+        .as_url()
+        .join("/zuul/build/2498d287ec4b442a95184b7a4bec9b2d")?;
     let api_path = "/zuul/api/build/2498d287ec4b442a95184b7a4bec9b2d";
     let base_mock = server
         .mock("GET", api_path)
@@ -293,7 +325,7 @@ fn test_zuul_api() -> Result<()> {
         .expect(0)
         .create();
 
-    crate::reader::drop_url(&env, 0, &url.join(api_path)?)?;
+    crate::reader::drop_url(&env, 0, &url.as_url().join(api_path)?)?;
     let content = content_from_zuul_url(&env, &build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(ZuulBuild {
         per_project: false,

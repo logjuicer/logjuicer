@@ -1,3 +1,8 @@
+0.8.1
+=====
+
+- Handle api url without a trailing slash.
+
 0.8.0
 =====
 
