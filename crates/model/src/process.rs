@@ -100,6 +100,8 @@ pub struct ChunkProcessor<'a, R: Read> {
     pub line_count: usize,
     /// Total bytes count
     pub byte_count: usize,
+    /// Indicate if run-logreduce needs to be checked
+    is_job_output: bool,
 }
 
 impl<'a, R: Read> Iterator for ChunkProcessor<'a, R> {
@@ -123,11 +125,13 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
         read: R,
         index: &'a ChunkIndex,
         is_json: bool,
+        is_job_output: bool,
         skip_lines: &'a mut KnownLines,
     ) -> ChunkProcessor<'a, R> {
         ChunkProcessor {
             reader: logreduce_iterator::BytesLines::new(read, is_json),
             index,
+            is_job_output,
             buffer: Vec::new(),
             left_overs: Vec::new(),
             targets: Vec::with_capacity(CHUNK_SIZE),
@@ -151,7 +155,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
             self.coord += 1;
 
             // Special check to break when we are processing ourself
-            if raw_str.contains("TASK [run-logreduce") {
+            if self.is_job_output && raw_str.contains("TASK [run-logreduce") {
                 break;
             }
 
@@ -346,7 +350,8 @@ fn collect_before(
 fn test_leftovers() {
     let index = crate::hashing_index::new();
     let mut skip_lines = KnownLines::new();
-    let mut cp = ChunkProcessor::new(std::io::Cursor::new(""), &index, false, &mut skip_lines);
+    let reader = std::io::Cursor::new("");
+    let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines);
 
     cp.buffer.push((("001 log line".into(), 0), 0));
     cp.buffer.push((("002 log line".into(), 1), 1));
@@ -421,7 +426,7 @@ fn test_chunk_processor() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = KnownLines::new();
-    let processor = ChunkProcessor::new(data, &index, false, &mut skip_lines);
+    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         anomalies.push(anomaly);
