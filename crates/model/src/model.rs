@@ -167,10 +167,16 @@ impl Index {
             Source::Local(_, path_buf) => file_open(path_buf.as_path()),
             Source::Remote(prefix, url) => url_open(env, *prefix, url),
         }?;
+        let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
+            file_name.starts_with("job-output")
+        } else {
+            false
+        };
         Ok(process::ChunkProcessor::new(
             fp,
             &self.index,
             source.is_json(),
+            is_job_output,
             skip_lines,
         ))
     }
