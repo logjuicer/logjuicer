@@ -154,23 +154,7 @@ fn render_unknown(source: &Source, index: &IndexName) -> Dom {
 }
 
 fn render_report(report: &Report) -> Dom {
-    let result = format!(
-        "{:02.2}% reduction (from {} to {})",
-        (100.0 - (report.total_anomaly_count as f32 / report.total_line_count as f32) * 100.0),
-        report.total_line_count,
-        report.total_anomaly_count
-    );
-
-    let card = html!("dl", {.class(["divide-y", "divide-gray-100", "pl-4"]).children(&mut [
-        data_attr_html("Target", &mut [render_content(&report.target)]),
-        data_attr_html("Baselines", &mut report.baselines.iter().map(render_content).collect::<Vec<Dom>>()),
-        data_attr("Created at", &render_time(&report.created_at)),
-        data_attr("Version",    &report.version),
-        data_attr("Run time",   &format!("{:.2} sec", report.run_time.as_secs_f32())),
-        data_attr("Result",     &result),
-    ])});
-
-    let mut childs = vec![card];
+    let mut childs = Vec::new();
 
     for lr in LogReport::sorted(&report.log_reports) {
         childs.push(render_log_report(report, lr))
@@ -187,17 +171,44 @@ fn render_report(report: &Report) -> Dom {
     html!("div", {.children(&mut childs)})
 }
 
+fn render_report_card(report: &Report) -> Dom {
+    let result = format!(
+        "{:02.2}% reduction (from {} to {})",
+        (100.0 - (report.total_anomaly_count as f32 / report.total_line_count as f32) * 100.0),
+        report.total_line_count,
+        report.total_anomaly_count
+    );
+
+    html!("dl", {.class(["tooltip", "top-1", "divide-y", "divide-gray-100", "pl-4"]).children(&mut [
+        data_attr_html("Target", &mut [render_content(&report.target)]),
+        data_attr_html("Baselines", &mut report.baselines.iter().map(render_content).collect::<Vec<Dom>>()),
+        data_attr("Created at", &render_time(&report.created_at)),
+        data_attr("Version",    &report.version),
+        data_attr("Run time",   &format!("{:.2} sec", report.run_time.as_secs_f32())),
+        data_attr("Result",     &result),
+    ])})
+}
+
 fn render_app(state: &Arc<App>) -> Dom {
     let about = html!("div", {.class(["tooltip", "top-1"]).children(&mut [
-            html!("div", {.class(["hover:bg-slate-400"]).children(&mut [
-                render_link("https://github.com/logreduce/logreduce#readme", "documentation")
-            ])}),
+        html!("p", {.class("text-gray-700").text("This is logreduce report viewer.")}),
+        html!("div", {.class(["hover:bg-slate-400"]).children(&mut [
+            render_link("https://github.com/logreduce/logreduce#readme", "documentation")
+        ])}),
         data_attr("Viewer", env!("CARGO_PKG_VERSION")),
         data_attr("License", env!("CARGO_PKG_LICENSE")),
     ])});
     html!("div", {.children(&mut [
         html!("nav", {.class(["sticky", "top-0", "bg-slate-300", "z-50", "flex", "px-1", "divide-x"]).children(&mut [
             html!("div", {.class("grow").text("logreduce")}),
+            html!("div", {.class(["has-tooltip", "px-2", "flex", "items-center"])
+                          .child_signal(state.report.signal_ref(|data| match data {
+                              Some(Ok(report)) => Some(html!("div", {.children(&mut [
+                                  render_report_card(report),
+                                  html!("div", {.class("text-sm").text("info")}),
+                              ])})),
+                              _ => None
+                          }))}),
             html!("div", {.class(["has-tooltip", "px-2", "flex", "items-center"]).children(&mut [
                 about,
                 html!("div", {.class("text-sm").text("about")}),
