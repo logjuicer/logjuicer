@@ -50,7 +50,7 @@ fn render_line(pos: usize, distance: f32, line: &str) -> Dom {
     let color: &str = COLORS.get(sev).unwrap_or(&"c0");
     html!("tr", {.children(&mut [
         html!("td", {.class("pos").text(&format!("{}", pos))}),
-        html!("td", {.class(["pl-2", "break-all", color]).text(line)})
+        html!("td", {.class(["pl-2", "break-all", "whitespace-pre-wrap", color]).text(line)})
     ])})
 }
 
