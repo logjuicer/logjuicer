@@ -427,15 +427,12 @@ fn push_error(word: &str, result: &mut String) {
     // Make the error takes more space
     result.push_str(word);
     result.push(' ');
-    result.push_str(word);
-    result.push_str("%A ");
-    result.push_str(word);
-    result.push_str("%B ");
-    result.push_str(word);
-    result.push_str("%C ");
-    result.push_str(word);
-    result.push_str("%D");
+    for id in ["%A ", "%B ", "%C ", "%D"] {
+        result.push_str(word);
+        result.push_str(id);
+    }
 }
+
 #[test]
 fn test_push_error() {
     assert_eq!(
@@ -538,7 +535,8 @@ pub fn process(line: &str) -> String {
         }
     }
     // TODO: check if result contains at least 2 word
-    result.trim().to_string()
+    result.truncate(result.trim_end().len());
+    result
 }
 
 /// Helper macro to write short tests. `tokens_eq!("a", "b")` is `assert_eq!(process("a"), process("b"))`
