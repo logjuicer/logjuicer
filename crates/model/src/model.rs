@@ -251,7 +251,10 @@ pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Baseli
     .and_then(|baselines| match baselines.len() {
         0 => Err(anyhow::anyhow!("Empty discovered baselines")),
         _ => {
-            tracing::info!("Found the following baselines: {:?}", baselines);
+            tracing::info!(
+                "Found the following baselines: {}",
+                baselines.iter().format(", ")
+            );
             Ok(baselines)
         }
     })
