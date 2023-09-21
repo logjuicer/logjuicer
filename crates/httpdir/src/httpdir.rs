@@ -253,8 +253,8 @@ pub fn http_list(client: &Agent, url: &Url) -> Result<Vec<Url>> {
     // dbg!(&url);
     match client.request_url("GET", url).call() {
         Ok(resp) => {
-            let url = Url::parse(resp.get_url().clone())
-                .map_err(|e| mk_error(&format!("Bad url {}", e)))?;
+            let url =
+                Url::parse(resp.get_url()).map_err(|e| mk_error(&format!("Bad url {}", e)))?;
             let body = resp.into_string()?;
             parse_index_of(url, &body)
         }
