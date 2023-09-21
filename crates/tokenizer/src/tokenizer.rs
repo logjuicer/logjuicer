@@ -231,6 +231,7 @@ fn is_base64(word: &str) -> bool {
     }
     word.ends_with("==") || (word.len() > 24 && RE.is_match(word))
 }
+
 #[test]
 fn test_is_base64() {
     tokens_eq!(
@@ -444,8 +445,8 @@ fn test_push_error() {
 }
 
 /// The tokenizer main (recursive) function
-fn do_process(mut word: &str, result: &mut String) -> bool {
-    word = trim_quote_and_punctuation(word);
+fn do_process(base_word: &str, iter: &mut Split, result: &mut String) -> bool {
+    let word = trim_quote_and_punctuation(base_word);
     let mut added = true;
     // We try to process from the most specifics to the most general case
     if let Some(token) = parse_literal(word) {
@@ -461,47 +462,51 @@ fn do_process(mut word: &str, result: &mut String) -> bool {
         added = false;
     } else if let Some(strip) = trim_pid(word) {
         // e.g. `"systemd[42]"`
-        do_process(strip, result);
+        do_process(strip, iter, result);
         result.push_str("%PID");
     } else if contains_odd_char(word) {
         result.push_str("%ODD")
     } else if let Some((key, value)) = is_key_value(word) {
         // e.g. TOKEN=42
-        do_process(key, result);
+        do_process(key, iter, result);
         if is_key_for_id(key) {
+            if value.is_empty() {
+                // Consume the next word
+                let _ = iter.next();
+            }
             result.push_str("%EQ %VALUE_ID")
         } else {
             result.push_str("%EQ ");
-            added = do_process(value, result)
+            added = do_process(value, iter, result)
         }
     } else if let Some((w1, w2)) = word.split_once('/') {
-        if do_process(w1, result) {
+        if do_process(w1, iter, result) {
             result.push_str("/ ");
         }
-        added = do_process(w2, result);
+        added = do_process(w2, iter, result);
     } else if let Some((w1, w2)) = word.split_once('-') {
         if has_many_dash(w2) {
             // when word contains more than 4 dash, then consider it noise.
             // e.g. heat uid looks like: undercloud-UndercloudServiceChain-dt26w6s63vd6-ServiceChain-dxxxgncfjqeg-0-yhtbooauehxj
             result.push_str("%DASH")
         } else {
-            if do_process(w1, result) {
+            if do_process(w1, iter, result) {
                 result.push_str("- ");
             }
-            added = do_process(w2, result)
+            added = do_process(w2, iter, result)
         }
     } else if let Some((w1, w2)) = word.split_once('|') {
-        if do_process(w1, result) {
+        if do_process(w1, iter, result) {
             result.push_str("| ");
         }
-        added = do_process(w2, result)
+        added = do_process(w2, iter, result)
     } else if word.len() >= 32 {
         result.push_str("%BIG")
     } else if let Some((w1, w2)) = is_two_words(word) {
-        if do_process(w1, result) {
+        if do_process(w1, iter, result) {
             result.push(' ');
         }
-        added = do_process(w2, result);
+        added = do_process(w2, iter, result);
     } else {
         // here finally the word is added
         let x = remove_numbers(word);
@@ -526,8 +531,9 @@ pub fn process(line: &str) -> String {
 
     // split the line into space separated words.
     let mut result = String::with_capacity(line.len());
-    for word in words(line) {
-        if do_process(word, &mut result) {
+    let mut iter = words(line);
+    while let Some(word) = iter.next() {
+        if do_process(word, &mut iter, &mut result) {
             result.push(' ')
         }
     }
@@ -731,5 +737,13 @@ mod tests {
             words(" a b ").collect::<Vec<&str>>(),
             vec!["", "a", "b", ""]
         );
+    }
+
+    #[test]
+    fn test_space_separated_kv() {
+        assert_eq!(
+            process("Token: roAkIx7BqBtdjHW42TdRcwpN6fdCI4Weym7-PibmF7o"),
+            "Token%EQ %VALUE_ID"
+        )
     }
 }

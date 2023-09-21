@@ -2,6 +2,7 @@
 =====
 
 - Handle api url without a trailing slash.
+- Improve tokenizer for key value separated by space.
 
 0.8.0
 =====
