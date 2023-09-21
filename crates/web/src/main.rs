@@ -69,7 +69,7 @@ fn render_log_report(report: &Report, log_report: &LogReport) -> Dom {
             let mut sources: Vec<Dom> = index_report
                 .sources
                 .iter()
-                .map(|source| html!("div", {.children(&mut [render_source_link(source)])}))
+                .map(|source| html!("div", {.class("pr-2").children(&mut [render_source_link(source)])}))
                 .collect();
             infos.push(data_attr_html("Baselines", &mut sources));
             infos.push(data_attr("Index", index_name));
