@@ -103,7 +103,7 @@ fn render_log_report(report: &Report, log_report: &LogReport) -> Dom {
     ])});
     let header = html!("div", {.class(["bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
         html!("div", {.class(["grow", "flex"]).children(&mut [
-            render_link(log_report.source.as_str(), log_report.source.get_relative())
+            render_link(log_report.source.get_href(&report.target), log_report.source.get_relative())
         ])}),
         info_btn
     ])});

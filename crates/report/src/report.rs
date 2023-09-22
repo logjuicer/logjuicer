@@ -163,6 +163,13 @@ impl Source {
             Source::Remote(_, url) => url.as_str(),
         }
     }
+
+    pub fn get_href(&'_ self, content: &Content) -> &'_ str {
+        match content {
+            Content::LocalZuulBuild(_, _) => self.get_relative(),
+            _ => self.as_str(),
+        }
+    }
 }
 
 impl std::fmt::Display for Source {
