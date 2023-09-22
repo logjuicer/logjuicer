@@ -3,6 +3,7 @@
 
 - Handle zuul per-project lookup automatically.
 - Improve tokenizer by removing words without vowels.
+- Hidden files are now ignored.
 
 0.8.1
 =====
