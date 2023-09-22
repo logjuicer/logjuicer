@@ -313,7 +313,7 @@ fn is_key_for_id(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
             "(?i:",
-            "(id|key|ref|region|token|secret|password)",
+            "(id|key|ref|region|token|secret|password|pipeline)",
             ")"
         ))
         .unwrap();
@@ -742,6 +742,14 @@ mod tests {
         assert_eq!(
             process("Token: roAkIx7BqBtdjHW42TdRcwpN6fdCI4Weym7-PibmF7o"),
             "Token%EQ %VALUE_ID"
+        )
+    }
+
+    #[test]
+    fn test_pipeline_name() {
+        assert_eq!(
+            process("2023-09-22 18:15:00.229959 | Pipeline: check"),
+            "%ID %ID Pipeline%EQ %VALUE_ID"
         )
     }
 }
