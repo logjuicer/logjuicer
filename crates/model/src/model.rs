@@ -451,7 +451,7 @@ impl Model {
             run_time: start_time.elapsed(),
             target,
             baselines: self.baselines.clone(),
-            log_reports,
+            log_reports: LogReport::sorted(log_reports),
             index_reports,
             unknown_files,
             read_errors,
