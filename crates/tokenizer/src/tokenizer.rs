@@ -261,8 +261,9 @@ fn is_hash(word: &str) -> bool {
         ))
         .unwrap();
     }
-    RE.is_match(word)
+    !word.starts_with('/') && RE.is_match(word)
 }
+
 #[test]
 fn test_is_hash() {
     tokens_eq!(
@@ -760,5 +761,13 @@ mod tests {
     #[test]
     fn test_consonant() {
         assert_eq!(process("Name: install-pb96q"), "Name%EQ install- %CON")
+    }
+
+    #[test]
+    fn test_consonant2() {
+        assert_eq!(
+            process("ZooKeeper /nodepool/components/launcher/nodepool-launcher-fbb79bd59-f8dvh"),
+            process("ZooKeeper /nodepool/components/launcher/nodepool-launcher-8644d87556-kdlfj"),
+        )
     }
 }
