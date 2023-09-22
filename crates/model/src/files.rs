@@ -43,11 +43,23 @@ pub fn file_iter(source: &Source) -> impl Iterator<Item = Result<Source>> {
 
 fn keep_path(result: &walkdir::Result<walkdir::DirEntry>) -> bool {
     match result {
-        Ok(entry) if !entry.path_is_symlink() && entry.file_type().is_file() => true,
+        Ok(entry)
+            if !entry.path_is_symlink() && entry.file_type().is_file() && !is_hidden(entry) =>
+        {
+            true
+        }
         Ok(_) => false,
         // Keep errors for book keeping
         Err(_) => true,
     }
+}
+
+fn is_hidden(entry: &walkdir::DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| s.starts_with('.'))
+        .unwrap_or(false)
 }
 
 pub fn dir_iter(path: &Path) -> impl Iterator<Item = Result<Source>> {

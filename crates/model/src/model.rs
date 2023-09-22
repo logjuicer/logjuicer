@@ -58,6 +58,7 @@ impl Input {
     }
 }
 
+// ignore irrelevant files
 fn is_source_valid(source: &Source) -> bool {
     lazy_static::lazy_static! {
         static ref EXTS: Vec<String> = {
@@ -87,7 +88,15 @@ fn is_source_valid(source: &Source) -> bool {
         };
     }
     let s = source.as_str();
-    EXTS.iter().all(|ext| !s.ends_with(ext)) && !s.contains("/etc/")
+    EXTS.iter().all(|ext| !s.ends_with(ext)) && !s.contains("/etc/") && !s.contains("/.")
+}
+
+#[test]
+fn test_is_source_valid() {
+    assert_eq!(
+        is_source_valid(&Source::from_pathbuf("/config/.git/HEAD".into())),
+        false
+    )
 }
 
 /// A list of nominal content, e.g. a successful build.
