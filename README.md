@@ -69,6 +69,7 @@ To read more about the project:
 - How the nearest neighbor works: [Implementing logreduce nearest neighbors](https://www.softwarefactory-project.io/implementing-logreduce-nearest-neighbors-model-in-rust.html)
 - How the log file iterator works: [Introducing the BytesLines iterator](https://www.softwarefactory-project.io/introducing-the-byteslines-iterator.html)
 - [Completing the first release of logreduce-rust](https://www.softwarefactory-project.io/completing-the-first-release-of-logreduce-rust.html)
+- How the web interface works: [WASM based web interface](https://www.softwarefactory-project.io/logreduce-wasm-based-web-interface.html)
 
 
 ## Contribute
