@@ -23,7 +23,6 @@ fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
 pub fn from_inventory(
     api_base: ApiUrl,
     inventory: zuul_build::zuul_inventory::InventoryRoot,
-    per_project: bool,
 ) -> Result<ZuulBuild> {
     let vars = inventory.all.vars.zuul;
     let api = api_base
@@ -35,7 +34,6 @@ pub fn from_inventory(
         .context("Adding build url suffix")?;
     Ok(ZuulBuild {
         api,
-        per_project,
         uuid: vars.build,
         job_name: vars.job,
         project: vars.project.name,
@@ -63,11 +61,7 @@ fn test_zuul_inventory() -> Result<()> {
         },
         tenant: "local".to_string(),
     };
-    let build = from_inventory(
-        ApiUrl::parse("https://example.com/zuul/")?,
-        vars.into(),
-        false,
-    )?;
+    let build = from_inventory(ApiUrl::parse("https://example.com/zuul/")?, vars.into())?;
     assert_eq!(
         build.api.as_str(),
         "https://example.com/zuul/api/tenant/local/"
@@ -79,25 +73,37 @@ fn test_zuul_inventory() -> Result<()> {
     Ok(())
 }
 
+fn zuul_build_success_samples_get(
+    build: &ZuulBuild,
+    url: &str,
+    args: &[(&str, &str)],
+    env: &Env,
+) -> Result<Vec<zuul_build::Build>> {
+    let url = Url::parse_with_params(url, args.iter()).context("Can't create query url")?;
+    tracing::info!(url = url.as_str(), "Discovering baselines for {}", build);
+    get_builds(env, &url)
+}
+
 fn zuul_build_success_samples(build: &ZuulBuild, env: &Env) -> Result<Vec<zuul_build::Build>> {
-    let base = build
+    let url = build
         .api
         .as_url()
         .join("builds")
         .context("Can't create builds url")?;
-    let mut args = vec![
+    let args = vec![
+        ("project", build.project.as_str()),
         ("job_name", build.job_name.as_str()),
         ("complete", "true"),
         ("limit", "500"),
         ("result", "SUCCESS"),
     ];
-    if build.per_project {
-        args.push(("project", build.project.as_str()))
-    };
-    let url =
-        Url::parse_with_params(base.as_str(), args.iter()).context("Can't create query url")?;
-    tracing::info!(url = url.as_str(), "Discovering baselines for {}", build);
-    get_builds(env, &url)
+    let builds = zuul_build_success_samples_get(build, url.as_str(), &args, env)?;
+    if builds.is_empty() {
+        // Try again without the project filter
+        zuul_build_success_samples_get(build, url.as_str(), &args[1..], env)
+    } else {
+        Ok(builds)
+    }
 }
 
 fn baseline_score(build: &ZuulBuild, target: &zuul_build::Build, now: &NaiveDate) -> Option<i32> {
@@ -175,8 +181,6 @@ pub fn sources_iter(build: &ZuulBuild) -> Box<dyn Iterator<Item = Result<Source>
 fn new_content(api: ApiUrl, build: zuul_build::Build) -> Content {
     Content::Zuul(Box::new(ZuulBuild {
         api,
-        // TODO: make this configurable
-        per_project: false,
         uuid: build.uuid,
         job_name: build.job_name,
         project: build.project,
@@ -328,7 +332,6 @@ fn test_zuul_api() -> Result<()> {
     crate::reader::drop_url(&env, 0, &url.as_url().join(api_path)?)?;
     let content = content_from_zuul_url(&env, &build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(ZuulBuild {
-        per_project: false,
         api: url.join("/zuul/api/")?,
         uuid: "a498f74ab32b49ffa9c9e7463fbf8885".to_string(),
         job_name: "zuul-tox-py38-multi-scheduler".to_string(),

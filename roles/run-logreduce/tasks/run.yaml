@@ -1,7 +1,7 @@
 ---
 - name: Set model name
   set_fact:
-    _model_name: "{% if logreduce_model_per_project|bool %}{{ zuul.project.name }}/{% endif %}{{ zuul.job }}/{{ zuul.branch }}.bin"
+    _model_name: "{{ zuul.project.name }}/{{ zuul.job }}/{{ zuul.branch }}.bin"
     _model_path: "{{ logreduce_tmp_dir }}/model.bin"
 
 - name: Create directories
@@ -30,7 +30,6 @@
       --report {{ zuul.executor.log_root }}/report.bin
       zuul-build
       --api-url {{ logreduce_zuul_web }}
-      {% if logreduce_model_per_project|bool %}--model-per-project{% endif %}
       {{ zuul.executor.log_root }}/
   register: _logreduce_run
 

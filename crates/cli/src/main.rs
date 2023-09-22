@@ -54,9 +54,6 @@ enum Commands {
         #[clap(long, help = "Zuul API url to fetch baselines", value_name = "URL")]
         api_url: String,
 
-        #[clap(long, help = "Look for baseline from the current project")]
-        model_per_project: bool,
-
         #[clap(help = "The zuul.executor.log_root value", value_name = "PATH")]
         log_root: PathBuf,
     },
@@ -114,16 +111,12 @@ impl Cli {
                 process(&env, self.report, self.model, None, Input::Path(path))
             }
             Commands::Url { url } => process(&env, self.report, self.model, None, Input::Url(url)),
-            Commands::ZuulBuild {
-                log_root,
-                api_url,
-                model_per_project,
-            } => process(
+            Commands::ZuulBuild { log_root, api_url } => process(
                 &env,
                 self.report,
                 self.model,
                 None,
-                Input::ZuulBuild(log_root, api_url, model_per_project),
+                Input::ZuulBuild(log_root, api_url),
             ),
             Commands::Journald { .. } => todo!(),
 

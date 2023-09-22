@@ -43,7 +43,7 @@ const MODEL_VERSION: usize = 4;
 pub enum Input {
     Path(String),
     Url(String),
-    ZuulBuild(PathBuf, String, bool),
+    ZuulBuild(PathBuf, String),
 }
 
 impl Input {
@@ -205,7 +205,7 @@ pub fn content_from_input(env: &Env, input: Input) -> Result<Content> {
             crate::urls::content_from_url(env, Url::parse(&url_str).expect("Failed to parse url"))
         }
 
-        Input::ZuulBuild(path_buf, url_str, per_project) => {
+        Input::ZuulBuild(path_buf, url_str) => {
             let url = ApiUrl::parse(&url_str).expect("Failed to parse url");
             let manifest =
                 std::fs::File::open(path_buf.as_path().join("zuul-info").join("inventory.yaml"))
@@ -214,11 +214,7 @@ pub fn content_from_input(env: &Env, input: Input) -> Result<Content> {
                 serde_yaml::from_reader(manifest).context("Decoding inventory.yaml")?;
             Ok(Content::LocalZuulBuild(
                 path_buf,
-                Box::new(crate::zuul::from_inventory(
-                    url,
-                    inventory_obj,
-                    per_project,
-                )?),
+                Box::new(crate::zuul::from_inventory(url, inventory_obj)?),
             ))
         }
     }

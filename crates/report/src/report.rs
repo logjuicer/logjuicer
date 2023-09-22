@@ -64,7 +64,6 @@ impl Report {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ZuulBuild {
     pub api: ApiUrl,
-    pub per_project: bool,
     pub uuid: String,
     pub job_name: String,
     pub project: String,

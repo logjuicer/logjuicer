@@ -1,3 +1,8 @@
+0.8.2
+=====
+
+- Handle zuul per-project lookup automatically.
+
 0.8.1
 =====
 
