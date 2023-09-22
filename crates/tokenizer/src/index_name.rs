@@ -31,7 +31,8 @@ fn test_is_small_hash() {
     )
 }
 
-fn contains_vowel(name: &str) -> bool {
+/// Helper function to check if a word contains vowels.
+pub fn contains_vowel(name: &str) -> bool {
     name.contains(|c: char| matches!(c.to_ascii_lowercase(), 'a' | 'e' | 'i' | 'o' | 'u' | 'y'))
 }
 

@@ -508,7 +508,11 @@ fn do_process(base_word: &str, iter: &mut Split, result: &mut String) -> bool {
         // here finally the word is added
         let x = remove_numbers(word);
         if x.len() > 3 {
-            result.push_str(&x)
+            if crate::index_name::contains_vowel(&x) {
+                result.push_str(&x)
+            } else {
+                result.push_str("%CON")
+            }
         } else {
             added = false;
         }
@@ -602,7 +606,7 @@ mod tests {
     fn test_process03() {
         assert_eq!(
             process("2022-01-25T14:09:24.422Z|00014|jsonrpc|WARN|tcp:[fd00:fd00:fd00:2000::21e]:50504: receive error: Connection reset by peer"),
-            "%ID- %ID- NTN:N:NZ| %ID| jsonrpc| WARN WARN%A WARN%B WARN%C WARN%D| %EQ %ID receive error error%A error%B error%C error%D%EQ Connection reset peer"
+            "%ID- %ID- %CON| %ID| jsonrpc| WARN WARN%A WARN%B WARN%C WARN%D| %EQ %ID receive error error%A error%B error%C error%D%EQ Connection reset peer"
         );
         assert_eq!(
             process("Event ID: 3e75e420-761f-11ec-8d18-a0957bd68c36"),
@@ -751,5 +755,10 @@ mod tests {
             process("2023-09-22 18:15:00.229959 | Pipeline: check"),
             "%ID %ID Pipeline%EQ %VALUE_ID"
         )
+    }
+
+    #[test]
+    fn test_consonant() {
+        assert_eq!(process("Name: install-pb96q"), "Name%EQ install- %CON")
     }
 }
