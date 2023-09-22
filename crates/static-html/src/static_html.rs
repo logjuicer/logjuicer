@@ -199,6 +199,7 @@ fn add_container(body: &mut Node, report: &logreduce_report::Report) -> Result<(
         for log_report in &report.log_reports {
             render_content_report(
                 &mut list_group,
+                &report.target,
                 log_report,
                 report.index_reports.get(&log_report.index_name),
                 expand,
@@ -217,6 +218,7 @@ fn add_container(body: &mut Node, report: &logreduce_report::Report) -> Result<(
 
 fn render_content_report(
     list_group: &mut Node,
+    target: &logreduce_report::Content,
     log_report: &logreduce_report::LogReport,
     index_report: Option<&logreduce_report::IndexReport>,
     expand: bool,
@@ -286,7 +288,7 @@ fn render_content_report(
                     additional_item.span().attr("class=\"fa fa-external-link\"");
                     additional_item
                         .a()
-                        .attr(&format!("href=\"{}\"", log_report.source.as_str()))
+                        .attr(&format!("href=\"{}\"", log_report.source.get_href(target)))
                         .write_str("file")?;
                 }
 
