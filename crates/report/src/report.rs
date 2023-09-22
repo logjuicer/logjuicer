@@ -5,7 +5,6 @@ use chrono::{DateTime, Utc};
 use itertools::Itertools;
 pub use logreduce_tokenizer::index_name::IndexName;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
@@ -210,21 +209,20 @@ pub struct LogReport {
 }
 
 impl LogReport {
-    pub fn sorted(log_reports: &[LogReport]) -> Vec<&LogReport> {
+    pub fn sorted(log_reports: Vec<LogReport>) -> Vec<LogReport> {
         log_reports
-            .iter()
-            .sorted_by(|a, b| {
-                // Push job-output to the top
-                if a.source.get_relative().starts_with("job-output") {
-                    Ordering::Less
-                } else if b.source.get_relative().starts_with("job-output") {
-                    Ordering::Greater
+            .into_iter()
+            .map(|lr| {
+                let mean = if lr.source.get_relative().starts_with("job-output") {
+                    // Push job-output to the top
+                    42.0
                 } else {
-                    // Otherwise order by the mean anomaly distance
-                    AnomalyContext::mean(&b.anomalies)
-                        .total_cmp(&AnomalyContext::mean(&a.anomalies))
-                }
+                    AnomalyContext::mean(&lr.anomalies)
+                };
+                (lr, mean)
             })
+            .sorted_by(|a, b| b.1.total_cmp(&a.1))
+            .map(|(lr, _mean)| lr)
             .collect()
     }
 }
@@ -248,21 +246,21 @@ fn test_report_sort() {
         source: mk_src(name),
         index_name: IndexName("a".into()),
     };
-    let reports = [
+    let reports = vec![
         mk_lr("service.log"),
         mk_lr("job-output.txt.gz"),
         mk_lr("failure.log"),
     ];
-    let expected = [
+    let expected = vec![
         mk_src("job-output.txt.gz"),
         mk_src("failure.log"),
         mk_src("service.log"),
     ];
-    let sources: Vec<&Source> = LogReport::sorted(&reports)
+    let sources: Vec<Source> = LogReport::sorted(reports)
         .into_iter()
-        .map(|lr| &lr.source)
+        .map(|lr| lr.source)
         .collect();
-    assert_eq!(sources, expected.iter().collect::<Vec<_>>());
+    assert_eq!(sources, expected);
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -156,7 +156,7 @@ fn render_unknown(source: &Source, index: &IndexName) -> Dom {
 fn render_report(report: &Report) -> Dom {
     let mut childs = Vec::new();
 
-    for lr in LogReport::sorted(&report.log_reports) {
+    for lr in &report.log_reports {
         childs.push(render_log_report(report, lr))
     }
     for (source, err) in &report.read_errors {
