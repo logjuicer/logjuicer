@@ -11,6 +11,7 @@ These notes documents the release process for logreduce.
 - Update the `CHANGELOG.md`.
 - Create and push a new signed tag.
 - Wait for CI to finish creating the release.
+- Copy the CHANGELOG to the release body.
 - Update the *logreduce_version* in `roles/run-logreduce/defaults/main.yaml`
 
 # logreduce-web
