@@ -2,6 +2,7 @@
 =====
 
 - Handle zuul per-project lookup automatically.
+- Improve tokenizer by removing words without vowels.
 
 0.8.1
 =====
