@@ -169,7 +169,7 @@ fn is_uid(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
             "^(:*",
-            r"[\[\]0-9a-fA-FxZ]+[:.-]*",
+            r"[\[\]0-9a-fA-FxZ,]+[:.-]*",
             r"|rabbitmq-cluster-id-.*",
             ")+$"
         ))
@@ -177,6 +177,7 @@ fn is_uid(word: &str) -> bool {
     }
     RE.is_match(word)
 }
+
 #[test]
 fn test_is_uid() {
     tokens_eq!("the_ip is 127.0.0.1", "the_ip is ::1");
@@ -768,6 +769,14 @@ mod tests {
         assert_eq!(
             process("ZooKeeper /nodepool/components/launcher/nodepool-launcher-fbb79bd59-f8dvh"),
             process("ZooKeeper /nodepool/components/launcher/nodepool-launcher-8644d87556-kdlfj"),
+        )
+    }
+
+    #[test]
+    fn test_comma() {
+        assert_eq!(
+            process("Endpoints: 10.42.0.51:7900,10.42.0.52:7900"),
+            process("Endpoints: 10.42.0.40:7900"),
         )
     }
 }
