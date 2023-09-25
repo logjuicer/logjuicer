@@ -1,8 +1,8 @@
 # Update from https://github.com/logreduce/logreduce/releases
-logreduce_version: 0.8.1
+logreduce_version: 0.8.2
 
 # Update from https://www.npmjs.com/package/logreduce-web?activeTab=versions
-logreduce_web_version: 0.2.0
+logreduce_web_version: 0.2.1
 
 # Change this to a local location with a folder per web's version.
 logreduce_web_url: "https://unpkg.com/logreduce-web@"
