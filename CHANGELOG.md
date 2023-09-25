@@ -1,3 +1,8 @@
+0.8.3
+=====
+
+- Better handle words without vowels to match hexadecimal without 'e' or 'a'.
+
 0.8.2
 =====
 

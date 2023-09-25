@@ -32,8 +32,12 @@ fn test_is_small_hash() {
 }
 
 /// Helper function to check if a word contains vowels.
-pub fn contains_vowel(name: &str) -> bool {
-    name.contains(|c: char| matches!(c.to_ascii_lowercase(), 'a' | 'e' | 'i' | 'o' | 'u' | 'y'))
+pub fn is_lowercase_vowel(c: char) -> bool {
+    matches!(c, 'a' | 'e' | 'i' | 'o' | 'u' | 'y')
+}
+
+fn contains_vowel(name: &str) -> bool {
+    name.contains(|c: char| is_lowercase_vowel(c.to_ascii_lowercase()))
 }
 
 fn is_dir_name_irrelevant(name: &str) -> bool {

@@ -164,7 +164,23 @@ fn test_contains_odd_char() {
     tokens_eq!("A{$@42", "$A%TE");
 }
 
-/// Check if a word only contains hexa and sep char.
+fn is_lowercase_consonant(c: char) -> bool {
+    matches!(c, 'b'..='d' | 'f'..='h' | 'j'..='n' | 'p'..='t' | 'v'..='x' | 'z')
+}
+
+fn contains_no_vowel(word: &str) -> bool {
+    let mut found = false;
+    for c in word.chars().map(|c| c.to_ascii_lowercase()) {
+        if crate::index_name::is_lowercase_vowel(c) {
+            return false;
+        } else if is_lowercase_consonant(c) {
+            found = true;
+        }
+    }
+    found
+}
+
+/// Check if a word only contains hexa and sep char, or if it only contains consonants.
 fn is_uid(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
@@ -175,7 +191,7 @@ fn is_uid(word: &str) -> bool {
         ))
         .unwrap();
     }
-    RE.is_match(word)
+    RE.is_match(word) || contains_no_vowel(word)
 }
 
 #[test]
@@ -287,7 +303,6 @@ fn is_refs(word: &str) -> bool {
     word.starts_with("refs/") || word.starts_with("repos/") || RE.is_match(word)
 }
 
-// TODO: check for word terminated by `:`, where the value is the next word
 fn is_key_value(word: &str) -> Option<(&str, &str)> {
     match word.split_once(|c| c == '=' || c == ':') {
         Some((k, v)) => {
@@ -448,7 +463,9 @@ fn do_process(base_word: &str, iter: &mut Split, result: &mut String) -> bool {
     let word = trim_quote_and_punctuation(base_word);
     let mut added = true;
     // We try to process from the most specifics to the most general case
-    if let Some(token) = parse_literal(word) {
+    if word.is_empty() {
+        added = false
+    } else if let Some(token) = parse_literal(word) {
         // e.g. `February` or `sha256:...`
         result.push_str(token)
     } else if is_error(word) {
@@ -510,11 +527,7 @@ fn do_process(base_word: &str, iter: &mut Split, result: &mut String) -> bool {
         // here finally the word is added
         let x = remove_numbers(word);
         if x.len() > 3 {
-            if crate::index_name::contains_vowel(&x) {
-                result.push_str(&x)
-            } else {
-                result.push_str("%CON")
-            }
+            result.push_str(&x)
         } else {
             added = false;
         }
@@ -576,7 +589,7 @@ mod tests {
         );
         assert_eq!(
             process("sha256://toto tata finished in 28ms by systemd[4248]"),
-            "%HASH tata finished systemd%PID"
+            "%HASH tata finished %ID systemd%PID"
         );
         assert_eq!(
             process("log_url=https://ansible AWS_ACCESS_KEY_ID=ASIA6CCDWXDODS7A4X53 "),
@@ -608,7 +621,7 @@ mod tests {
     fn test_process03() {
         assert_eq!(
             process("2022-01-25T14:09:24.422Z|00014|jsonrpc|WARN|tcp:[fd00:fd00:fd00:2000::21e]:50504: receive error: Connection reset by peer"),
-            "%ID- %ID- %CON| %ID| jsonrpc| WARN WARN%A WARN%B WARN%C WARN%D| %EQ %ID receive error error%A error%B error%C error%D%EQ Connection reset peer"
+            "%ID- %ID- %ID| %ID| jsonrpc| WARN WARN%A WARN%B WARN%C WARN%D| %ID%EQ %ID receive error error%A error%B error%C error%D%EQ Connection reset peer"
         );
         assert_eq!(
             process("Event ID: 3e75e420-761f-11ec-8d18-a0957bd68c36"),
@@ -620,7 +633,7 @@ mod tests {
         );
         assert_eq!(
             process("File \"nodepool/cmd/config_validator.py\", line 144, in validate"),
-            "File nodepool/ config_validator.py line %ID validate"
+            "File nodepool/ %ID/ config_validator.py line %ID validate"
         );
         assert_eq!(
             process("controller |             \"after\": \"3}QP5CJuNBP65S%c:y>o\"",),
@@ -654,7 +667,7 @@ mod tests {
             process(
                 "pkg: openstack-tripleo-heat-templates-13.5.1-0.20220121152841.1408598.el8.noarch"
             ),
-            "%EQ %DASH"
+            "%ID %DASH"
         );
         tokens_eq!(
             "id = \"HvXxSk-Foz9-XJE4-RZSD-KXxc-NxTt-AMi18O\"",
@@ -761,7 +774,7 @@ mod tests {
 
     #[test]
     fn test_consonant() {
-        assert_eq!(process("Name: install-pb96q"), "Name%EQ install- %CON")
+        assert_eq!(process("Name: install-pb96q"), "Name%EQ install- %ID")
     }
 
     #[test]
@@ -770,6 +783,17 @@ mod tests {
             process("ZooKeeper /nodepool/components/launcher/nodepool-launcher-fbb79bd59-f8dvh"),
             process("ZooKeeper /nodepool/components/launcher/nodepool-launcher-8644d87556-kdlfj"),
         )
+    }
+    #[test]
+    fn test_consonant3() {
+        assert_eq!(
+            process("Name: logserver-6cc7669744-bf2b2"),
+            process("Name: logserver-7d748d77c-9xgn2"),
+        );
+        assert_eq!(
+            process("Name: logserver-6cc7669744-bf2b2"),
+            "Name%EQ logserver- %ID",
+        );
     }
 
     #[test]
