@@ -325,7 +325,7 @@ fn process(
             None => match Model::load(path) {
                 Ok(model) => Ok(model),
                 Err(e) => {
-                    tracing::error!("Removing model becase: {}", e);
+                    tracing::error!("Removing model becase: {:?}", e);
                     std::fs::remove_file(path)?;
                     train_model(baselines)
                 }
