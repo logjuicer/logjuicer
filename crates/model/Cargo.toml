@@ -17,6 +17,7 @@ path = "src/model.rs"
 
 [dependencies]
 anyhow = { workspace = true }
+thiserror = { workspace = true }
 walkdir = { workspace = true }
 logreduce-index = { path = "../index" }
 logreduce-report = { path = "../report" }
@@ -31,6 +32,7 @@ ureq = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = "1"
 serde = { workspace = true }
+serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 tracing = { workspace = true }
 lazy_static = { workspace = true }
