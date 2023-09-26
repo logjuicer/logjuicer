@@ -22,6 +22,9 @@ mod dataset;
 #[clap(version, about, long_about = None)]
 #[clap(disable_help_subcommand = true)]
 struct Cli {
+    #[clap(long, help = "Logreduce configuration", value_name = "FILE")]
+    config: Option<PathBuf>,
+
     #[clap(long, help = "Create an html report")]
     report: Option<PathBuf>,
 
@@ -104,7 +107,7 @@ enum Commands {
 
 impl Cli {
     fn run(self, output: OutputMode) -> Result<()> {
-        let env = Env::new_with_output(output);
+        let env = Env::new_with_settings(self.config, output)?;
         match self.command {
             // Discovery commands
             Commands::Path { path } => {

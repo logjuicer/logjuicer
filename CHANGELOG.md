@@ -2,6 +2,7 @@
 =====
 
 - Better handle words without vowels to match hexadecimal without 'e' or 'a'.
+- Add `--config` command line argument to specify fileset.
 
 0.8.2
 =====

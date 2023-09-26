@@ -4,6 +4,7 @@
 //! This module provides a global environment.
 
 use crate::config::Config;
+use anyhow::Result;
 
 pub struct Env {
     pub cache: logreduce_cache::Cache,
@@ -15,17 +16,23 @@ pub struct Env {
 
 impl Env {
     pub fn new() -> Env {
-        Env::new_with_output(OutputMode::Debug)
+        Env::new_with_settings(None, OutputMode::Debug).unwrap()
     }
 
-    pub fn new_with_output(output: OutputMode) -> Env {
-        Env {
+    pub fn new_with_settings(
+        config: Option<std::path::PathBuf>,
+        output: OutputMode,
+    ) -> Result<Env> {
+        let config = config
+            .map(Config::from_path)
+            .unwrap_or_else(|| Ok(Config::default()))?;
+        Ok(Env {
             cache: logreduce_cache::Cache::new().expect("Cache"),
             client: new_agent(),
             use_cache: std::env::var("LOGREDUCE_CACHE").is_ok(),
             output,
-            config: Config::default(),
-        }
+            config,
+        })
     }
 
     /// Helper function to debug

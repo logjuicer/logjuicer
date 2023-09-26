@@ -36,6 +36,7 @@ cargo install --git https://github.com/logreduce/logreduce logreduce-cli
 
 Or grab the latest release assets `logreduce-x86_64-linux.tar.bz2` from https://github.com/logreduce/logreduce/releases
 
+
 ## Use
 
 Analyze a local file:
@@ -57,6 +58,16 @@ $ logreduce diff https://zuul/build/success-build https://zuul/build/failed-buil
 ```
 
 Save and re-use trained model using the `--model file-path` argument.
+
+
+## Configure
+
+Logreduce supports the [ant's fileset](https://ant.apache.org/manual/Types/fileset.html) configuration to
+filter the processed files:
+
+- *includes*: list of files regex that must be included. Defaults to all files.
+- *excludes*: list of files regex that must be excluded. Defaults to default excludes or none if `default_excludes` is false.
+- *default_excludes*: indicates whether [default excludes](./crates/model/src/config/default_excludes.rs) should be used or not.
 
 
 ## Learn

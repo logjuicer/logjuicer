@@ -6,14 +6,53 @@
 use logreduce_report::Source;
 use regex::RegexSet;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use thiserror::Error;
+
+mod default_excludes;
 
 pub struct Config {
     includes: Option<RegexSet>,
     excludes: RegexSet,
 }
 
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("bad regex: {0}")]
+    BadRegex(#[from] regex::Error),
+
+    #[error("invalid file: {0}")]
+    BadFile(#[from] std::io::Error),
+
+    #[error("invalid json: {0}")]
+    BadJSON(#[from] serde_json::Error),
+
+    #[error("invalid yaml: {0}")]
+    BadYAML(#[from] serde_yaml::Error),
+
+    #[error("unknown format: {0}")]
+    UnknownFormat(String),
+}
+
 impl Config {
-    fn from_config_file(cf: &ConfigFile) -> Result<Self, regex::Error> {
+    pub fn from_path(path: PathBuf) -> Result<Self, Error> {
+        let file = std::fs::File::open(&path)?;
+        Config::from_reader(path, file)
+    }
+
+    fn from_reader<R: std::io::Read>(path: PathBuf, file: R) -> Result<Self, Error> {
+        let reader = std::io::BufReader::new(file);
+        let cf = match path.as_path().extension().and_then(std::ffi::OsStr::to_str) {
+            Some("yaml") => Ok(serde_yaml::from_reader(reader)?),
+            Some("json") => Ok(serde_json::from_reader(reader)?),
+            m_ext => Err(Error::UnknownFormat(
+                m_ext.map(|s| s.to_string()).unwrap_or("".to_string()),
+            )),
+        }?;
+        Config::from_config_file(&cf)
+    }
+
+    fn from_config_file(cf: &ConfigFile) -> Result<Self, Error> {
         let includes = if cf.includes.is_empty() {
             None
         } else {
@@ -21,10 +60,11 @@ impl Config {
         };
         let excludes = if cf.default_excludes {
             RegexSet::new(
-                cf.excludes
-                    .iter()
-                    .map(|s| s as &str)
-                    .chain(DEFAULT_EXCLUDES.iter().map(|s| s as &str)),
+                cf.excludes.iter().map(|s| s as &str).chain(
+                    crate::config::default_excludes::DEFAULT_EXCLUDES
+                        .iter()
+                        .map(|s| s as &str),
+                ),
             )
         } else {
             RegexSet::new(&cf.excludes)
@@ -50,8 +90,11 @@ impl Default for Config {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ConfigFile {
+    #[serde(default)]
     includes: Vec<String>,
+    #[serde(default)]
     excludes: Vec<String>,
     #[serde(default = "default_default_excludes")]
     default_excludes: bool,
@@ -71,47 +114,6 @@ impl Default for ConfigFile {
     }
 }
 
-const DEFAULT_EXCLUDES: &[&str] = &[
-    // binary data with known extension
-    ".ico$",
-    ".png$",
-    ".clf$",
-    ".tar$",
-    ".tar.bzip2$",
-    ".subunit$",
-    ".sqlite$",
-    ".db$",
-    ".bin$",
-    ".pcap.log.txt$",
-    // font
-    ".eot$",
-    ".otf$",
-    ".woff$",
-    ".woff2$",
-    ".ttf$",
-    // config
-    ".yaml$",
-    ".ini$",
-    ".conf$",
-    // not relevant
-    "job-output.json$",
-    "zuul-manifest.json$",
-    ".html$",
-    // binary data with known location
-    "cacerts$",
-    "local/creds$",
-    "/authkey$",
-    "mysql/tc.log.txt$",
-    // swifts
-    "object.builder$",
-    "account.builder$",
-    "container.builder$",
-    // system config
-    "/etc/",
-    // hidden files
-    "/\\.",
-];
-
 #[test]
 fn test_config_default_exclude() {
     let config = Config::default();
@@ -128,9 +130,76 @@ fn test_config_default_exclude() {
 
 #[test]
 fn test_config_default() {
-    let config = Config::default();
+    let config = config_from_yaml("");
     for src in ["service/api.log", "job-output.txt"] {
         let source = Source::from_pathbuf(src.into());
         assert_eq!(config.is_source_valid(&source), true,)
     }
+}
+
+#[cfg(test)]
+fn config_from_yaml(yaml: &str) -> Config {
+    Config::from_reader("config.yaml".into(), std::io::Cursor::new(yaml)).unwrap()
+}
+
+#[cfg(test)]
+fn config_check(config: &Config, path: &str) -> bool {
+    config.is_source_valid(&Source::from_pathbuf(path.into()))
+}
+
+#[test]
+fn test_config_include() {
+    let config = config_from_yaml(
+        "
+includes:
+  - undercloud/deploy.log
+",
+    );
+    assert_eq!(config_check(&config, "service/api.log"), false);
+    assert_eq!(config_check(&config, "undercloud/deploy.log"), true);
+    assert_eq!(config_check(&config, "undercloud/deploy.log.log"), true);
+    assert_eq!(config_check(&config, "undercloud/deploy.log.png"), false);
+}
+
+#[test]
+fn test_config_exclude() {
+    let config = config_from_yaml(
+        "
+excludes:
+  - bzImage
+",
+    );
+    assert_eq!(config_check(&config, "deploy/bzImage.gz"), false);
+    assert_eq!(config_check(&config, "test.png"), false);
+    assert_eq!(config_check(&config, "undercloud/deploy.log"), true);
+}
+
+#[test]
+fn test_config_no_default() {
+    let config = config_from_yaml(
+        "
+default_excludes: false
+excludes:
+  - bzImage
+",
+    );
+    assert_eq!(config_check(&config, "test.png"), true);
+    assert_eq!(config_check(&config, "/.git/config"), true);
+    assert_eq!(config_check(&config, "boot/bzImage"), false);
+}
+
+#[test]
+fn test_config_bad() {
+    assert_eq!(
+        true,
+        Config::from_reader("config.yaml".into(), std::io::Cursor::new("unknown: true")).is_err()
+    );
+    assert_eq!(
+        true,
+        Config::from_reader(
+            "config.json".into(),
+            std::io::Cursor::new("{\"unknown\": true}")
+        )
+        .is_err()
+    );
 }
