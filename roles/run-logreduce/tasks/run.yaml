@@ -1,7 +1,8 @@
 ---
 - name: Set model name
   set_fact:
-    _model_name: "{{ zuul.project.name }}/{{ zuul.job }}/{{ zuul.branch }}.bin"
+    _model_hash: "{% if _has_config %}-{{ logeduce_config | hash('md5') }}{% endif %}"
+    _model_name: "{{ zuul.project.name }}/{{ zuul.job }}/{{ zuul.branch }}{{ _model_hash }}.bin"
     _model_path: "{{ logreduce_tmp_dir }}/model.bin"
 
 - name: Create directories
@@ -18,6 +19,12 @@
     dest: "{{ _model_path }}"
   failed_when: false
 
+- name: Copy config
+  copy:
+    content: "{{ logreduce_config | to_json }}"
+    dest: "{{ logreduce_tmp_dir }}/logreduce-config.json"
+  when: _has_config
+
 - name: Check pre-built model
   shell: |
     {{ logreduce_cmd }} --model {{ _model_path }} check-model --max-age {{ logreduce_model_age }} || rm -f {{ _model_path }}
@@ -28,6 +35,7 @@
     timeout {{ logreduce_max_run_time }}s {{ logreduce_cmd }}
       --model {{ _model_path }}
       --report {{ zuul.executor.log_root }}/report.bin
+      {% if _has_config %}--config {{ logreduce_tmp_dir }}/logreduce-config.json {% endif %}
       zuul-build
       --api-url {{ logreduce_zuul_web }}
       {{ zuul.executor.log_root }}/
