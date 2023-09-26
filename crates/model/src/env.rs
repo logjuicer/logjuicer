@@ -3,11 +3,14 @@
 
 //! This module provides a global environment.
 
+use crate::config::Config;
+
 pub struct Env {
     pub cache: logreduce_cache::Cache,
     pub client: ureq::Agent,
     pub use_cache: bool,
     pub output: OutputMode,
+    pub config: Config,
 }
 
 impl Env {
@@ -21,6 +24,7 @@ impl Env {
             client: new_agent(),
             use_cache: std::env::var("LOGREDUCE_CACHE").is_ok(),
             output,
+            config: Config::default(),
         }
     }
 

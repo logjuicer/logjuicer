@@ -24,6 +24,7 @@ use crate::env::Env;
 use crate::files::{dir_iter, file_iter, file_open};
 use crate::unordered::KnownLines;
 use crate::urls::{httpdir_iter, url_open};
+pub mod config;
 pub mod env;
 pub mod files;
 pub mod process;
@@ -56,47 +57,6 @@ impl Input {
     pub fn from_pathbuf(s: PathBuf) -> Input {
         Input::Path(s.into_os_string().into_string().unwrap())
     }
-}
-
-// ignore irrelevant files
-fn is_source_valid(source: &Source) -> bool {
-    lazy_static::lazy_static! {
-        static ref EXTS: Vec<String> = {
-            let mut v = Vec::new();
-            for ext in [
-                // binary data with known extension
-                ".ico", ".png", ".clf", ".tar", ".tar.bzip2",
-                ".subunit",
-                ".sqlite", ".db", ".bin", ".pcap.log.txt",
-                // font
-                ".eot", ".otf", ".woff", ".woff2", ".ttf",
-                // config
-                ".yaml", ".ini", ".conf",
-                // not relevant
-                "job-output.json", "zuul-manifest.json", ".html",
-                // binary data with known location
-                "cacerts",
-                "local/creds", "pacemaker/authkey",
-                "mysql/tc.log.txt", "corosync/authkey",
-                // swifts
-                "object.builder", "account.builder", "container.builder"
-            ] {
-                v.push(ext.to_string());
-                v.push(format!("{}.gz", ext))
-            }
-            v
-        };
-    }
-    let s = source.as_str();
-    EXTS.iter().all(|ext| !s.ends_with(ext)) && !s.contains("/etc/") && !s.contains("/.")
-}
-
-#[test]
-fn test_is_source_valid() {
-    assert_eq!(
-        is_source_valid(&Source::from_pathbuf("/config/.git/HEAD".into())),
-        false
-    )
 }
 
 /// A list of nominal content, e.g. a successful build.
@@ -269,7 +229,12 @@ pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Baseli
 #[tracing::instrument(level = "debug", skip(env))]
 pub fn content_get_sources(content: &Content, env: &Env) -> Result<Vec<Source>> {
     content_get_sources_iter(content, env)
-        .filter(|source| source.as_ref().map(is_source_valid).unwrap_or(true))
+        .filter(|source| {
+            source
+                .as_ref()
+                .map(|src| env.config.is_source_valid(src))
+                .unwrap_or(true)
+        })
         .collect::<Result<Vec<_>>>()
         .and_then(|sources| match sources.len() {
             0 => Err(anyhow::anyhow!(format!("Empty sources: {}", content))),
