@@ -4,6 +4,11 @@ logreduce_version: 0.8.2
 # Update from https://www.npmjs.com/package/logreduce-web?activeTab=versions
 logreduce_web_version: 0.2.1
 
+# Set include/exclude file list
+logreduce_config: null
+
+_has_config: "{{ logreduce_config | default(false) }}"
+
 # Change this to a local location with a folder per web's version.
 logreduce_web_url: "https://unpkg.com/logreduce-web@"
 
