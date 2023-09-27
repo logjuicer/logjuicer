@@ -99,12 +99,12 @@ impl ZuulBuild {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProwBuild {
     pub url: Url,
-    pub uid: String,
-    pub job_name: String,
-    pub project: String,
+    pub uid: Box<str>,
+    pub job_name: Box<str>,
+    pub project: Box<str>,
     pub pr: u64,
-    pub storage_type: String,
-    pub storage_path: String,
+    pub storage_type: Box<str>,
+    pub storage_path: Box<str>,
 }
 
 impl std::fmt::Display for ProwBuild {

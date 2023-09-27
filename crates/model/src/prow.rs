@@ -21,8 +21,8 @@ fn parse_prow_url(url: &Url) -> Option<Result<ProwBuild>> {
                 (true, Ok(pr)) => Some(Ok(ProwBuild {
                     url: url.clone(),
                     uid: uid.into(),
-                    job_name: job.to_string(),
-                    project: project.to_string(),
+                    job_name: job.into(),
+                    project: project.into(),
                     pr,
                     storage_type: storage_type.into(),
                     storage_path: storage_path.into(),
@@ -47,8 +47,8 @@ fn test_parse_prow_url() {
         ProwBuild {
             url: url,
             uid: "1689624623181729792".into(),
-            job_name: "pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test".to_string(),
-            project: "openstack-k8s-operators_ci-framework".to_string(),
+            job_name: "pull-ci-openstack-k8s-operators-ci-framework-main-ansible-test".into(),
+            project: "openstack-k8s-operators_ci-framework".into(),
             pr: 437,
             storage_type: "gs".into(),
             storage_path: "origin-ci-test".into(),
@@ -120,7 +120,7 @@ fn from_build_result(build: &ProwBuild, br: prow_build::BuildResult) -> Result<P
     let url = build.url.join(&br.path)?;
     Ok(ProwBuild {
         url: url.clone(),
-        uid: br.uid.into(),
+        uid: br.uid.0,
         job_name: build.job_name.clone(),
         project: "tbd".into(),
         pr: 0,
@@ -133,14 +133,14 @@ pub fn discover_baselines(build: &ProwBuild, env: &Env) -> Result<Baselines> {
     let client = prow_build::Client {
         client: env.client.clone(),
         api_url: build.url.clone(),
-        storage_type: build.storage_type.as_str().into(),
-        storage_path: build.storage_path.as_str().into(),
+        storage_type: build.storage_type.as_ref().into(),
+        storage_path: build.storage_path.as_ref().into(),
     };
     tracing::info!("Discovering baselines for {}", build);
     for baseline in prow_build::BuildIterator::new(&client, &build.job_name).take(200) {
         match baseline {
             Err(e) => return Err(anyhow::anyhow!("Failed to discover baseline: {}", e)),
-            Ok(build_result) if build_result.result == "SUCCESS" => {
+            Ok(build_result) if build_result.result.as_ref() == "SUCCESS" => {
                 return Ok(vec![Content::Prow(Box::new(from_build_result(
                     build,
                     build_result,
