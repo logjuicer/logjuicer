@@ -58,7 +58,7 @@ fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
                 [content_from_pathbuf(good.to_path_buf())].to_vec(),
                 logreduce_model::hashing_index::new,
             )?;
-            let index = model.get_index(&IndexName("".to_string())).unwrap();
+            let index = model.get_index(&IndexName::new()).unwrap();
             let anomalies = index
                 .inspect(
                     env,

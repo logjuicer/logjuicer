@@ -1240,7 +1240,7 @@ dependencies = [
 
 [[package]]
 name = "logreduce-web"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
