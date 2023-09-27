@@ -65,12 +65,12 @@ impl Report {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ZuulBuild {
     pub api: ApiUrl,
-    pub uuid: String,
-    pub job_name: String,
-    pub project: String,
-    pub branch: String,
-    pub result: String,
-    pub pipeline: String,
+    pub uuid: Box<str>,
+    pub job_name: Box<str>,
+    pub project: Box<str>,
+    pub branch: Box<str>,
+    pub result: Box<str>,
+    pub pipeline: Box<str>,
     pub log_url: Url,
     pub ref_url: Url,
     pub end_time: DateTime<Utc>,

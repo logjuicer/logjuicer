@@ -22,11 +22,11 @@ pub mod zuul_inventory;
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Build {
     /// The build unique id.
-    pub uuid: String,
+    pub uuid: Box<str>,
     /// The job name.
-    pub job_name: String,
+    pub job_name: Box<str>,
     /// The job result.
-    pub result: String,
+    pub result: Box<str>,
     /// The start time.
     #[serde(with = "python_utc_without_trailing_z")]
     pub start_time: DateTime<Utc>,
@@ -45,20 +45,20 @@ pub struct Build {
     /// The build artifacts.
     pub artifacts: Vec<Artifact>,
     /// The change's project name.
-    pub project: String,
+    pub project: Box<str>,
     /// The change's branch name.
-    pub branch: String,
+    pub branch: Box<str>,
     /// The build pipeline.
-    pub pipeline: String,
+    pub pipeline: Box<str>,
     /// The change (or PR) number.
     pub change: Option<u64>,
     /// The patchset number (or PR commit).
-    pub patchset: Option<String>,
+    pub patchset: Option<Box<str>>,
     /// The change ref.
     #[serde(rename = "ref")]
-    pub change_ref: String,
+    pub change_ref: Box<str>,
     /// The internal event id.
-    pub event_id: String,
+    pub event_id: Box<str>,
 }
 
 /// A Build artifact.
@@ -164,5 +164,5 @@ fn test_decodes_build() {
               "event_id": "40d9b63d749c48eabb3d7918cfab0d31"
             }"#;
     let build: Build = serde_json::from_str(data).unwrap();
-    assert_eq!(build.uuid, "5bae5607ae964331bb5878aec0777637");
+    assert_eq!(build.uuid.as_ref(), "5bae5607ae964331bb5878aec0777637");
 }
