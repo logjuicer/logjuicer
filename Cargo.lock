@@ -1193,6 +1193,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "smol_str",
  "tempfile",
  "thiserror",
  "tracing",
@@ -1212,6 +1213,7 @@ dependencies = [
  "itertools 0.11.0",
  "logreduce-tokenizer",
  "serde",
+ "smol_str",
  "thiserror",
  "url",
 ]
@@ -1889,6 +1891,15 @@ name = "smallvec"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb4feee49fdd9f707ef802e22365a35de4b7b299de4763d44bfea899442ff9"
+
+[[package]]
+name = "smol_str"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74212e6bbe9a4352329b2f68ba3130c15a3f26fe88ff22dbdc6cdd58fa85e99c"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "socket2"
