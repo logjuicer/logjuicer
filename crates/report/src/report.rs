@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 use thiserror::Error;
 use url::Url;
@@ -22,7 +23,7 @@ pub struct Report {
     pub log_reports: Vec<LogReport>,
     pub index_reports: HashMap<IndexName, IndexReport>,
     pub unknown_files: HashMap<IndexName, Vec<Source>>,
-    pub read_errors: Vec<(Source, String)>,
+    pub read_errors: Vec<(Source, Box<str>)>,
     pub total_line_count: usize,
     pub total_anomaly_count: usize,
 }
@@ -185,14 +186,14 @@ impl std::fmt::Display for Source {
 pub struct Anomaly {
     pub distance: f32,
     pub pos: usize,
-    pub line: String,
+    pub line: Rc<str>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AnomalyContext {
-    pub before: Vec<String>,
+    pub before: Vec<Rc<str>>,
     pub anomaly: Anomaly,
-    pub after: Vec<String>,
+    pub after: Vec<Rc<str>>,
 }
 
 impl AnomalyContext {

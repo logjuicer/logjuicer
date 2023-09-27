@@ -382,7 +382,8 @@ impl Model {
                                     match anomaly {
                                         Ok(anomaly) => anomalies.push(anomaly),
                                         Err(err) => {
-                                            read_errors.push((source.clone(), format!("{}", err)));
+                                            read_errors
+                                                .push((source.clone(), format!("{}", err).into()));
                                             break;
                                         }
                                     }
@@ -404,7 +405,7 @@ impl Model {
                                 }
                             }
                             Err(err) => {
-                                read_errors.push((source.clone(), format!("{}", err)));
+                                read_errors.push((source.clone(), format!("{}", err).into()));
                                 break;
                             }
                         }

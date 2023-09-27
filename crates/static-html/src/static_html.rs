@@ -5,6 +5,7 @@ use html_builder::*;
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::fmt::Write;
+use std::rc::Rc;
 
 type Result<A> = core::result::Result<A, std::fmt::Error>;
 
@@ -336,7 +337,7 @@ fn model_anchor(index_name: &logreduce_report::IndexName) -> String {
     format!("#model_{}", index_name)
 }
 
-fn render_context(loglines: &mut Node, pos: usize, xs: &[String]) -> Result<()> {
+fn render_context(loglines: &mut Node, pos: usize, xs: &[Rc<str>]) -> Result<()> {
     for (idx, line) in xs.iter().enumerate() {
         loglines
             .pre()
