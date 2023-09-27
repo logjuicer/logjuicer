@@ -6,6 +6,7 @@
 use anyhow::Result;
 use std::collections::VecDeque;
 use std::io::Read;
+use std::rc::Rc;
 
 use crate::unordered::KnownLines;
 use crate::ChunkIndex;
@@ -87,7 +88,7 @@ pub struct ChunkProcessor<'a, R: Read> {
     /// The target positions
     targets_coord: Vec<usize>,
     /// The very last lines of the current buffer that could be the prev context of the next chunk
-    left_overs: Vec<String>,
+    left_overs: Vec<Rc<str>>,
     /// The current anomaly being processed
     current_anomaly: Option<AnomalyContext>,
     /// The list of anomalies recently found.
@@ -316,8 +317,8 @@ fn collect_before(
     buffer_pos: usize,
     last_context_pos: usize,
     buffer: &[(LogLine, usize)],
-    left_overs: &[String],
-) -> Vec<String> {
+    left_overs: &[Rc<str>],
+) -> Vec<Rc<str>> {
     let min_pos = if buffer_pos < CTX_DISTANCE {
         0
     } else {
@@ -329,16 +330,13 @@ fn collect_before(
         .iter()
         // TODO: use direct bytes -> str conversion.
         .map(|((bytes, _), _)| logreduce_iterator::clone_bytes_to_string(bytes).unwrap())
-        .collect::<Vec<String>>();
+        .collect::<Vec<Rc<str>>>();
     if before_context_pos == 0 && before.len() < CTX_DISTANCE {
         // The anomaly happens at the begining of the buffer
         let need = CTX_DISTANCE - before.len();
         let available = left_overs.len();
         let want = need.min(available);
-        let mut before_extra: Vec<String> = left_overs[(available - want)..]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let mut before_extra: Vec<Rc<str>> = left_overs[(available - want)..].to_vec();
         before.append(&mut before_extra);
         // Rotate the buffer to keep the left overs before
         before.rotate_right(want);
@@ -367,7 +365,7 @@ fn test_leftovers() {
     );
     assert_eq!(
         collect_before(1, 0, &cp.buffer, &cp.left_overs),
-        vec!["001 log line".to_string()],
+        vec!["001 log line".into()],
         "We are at position 1, only 1 before is available"
     );
     assert_eq!(
@@ -379,9 +377,9 @@ fn test_leftovers() {
     assert_eq!(
         collect_before(4, 0, &cp.buffer, &cp.left_overs),
         vec![
-            "002 log line".to_string(),
-            "003 log line".to_string(),
-            "004 log line".to_string()
+            "002 log line".into(),
+            "003 log line".into(),
+            "004 log line".into()
         ]
     );
 
@@ -390,16 +388,16 @@ fn test_leftovers() {
     assert_eq!(cp.buffer.len(), 0, "After a reset, the buffer is empty");
     assert_eq!(
         cp.left_overs,
-        vec!["004 log line".to_string(), "005 log line".to_string()],
+        vec!["004 log line".into(), "005 log line".into()],
         "The left over should contain unprocessed lines"
     );
     cp.buffer.push((("006 log line".into(), 6), 6));
     assert_eq!(
         collect_before(1, 0, &cp.buffer, &cp.left_overs),
         vec![
-            "004 log line".to_string(),
-            "005 log line".to_string(),
-            "006 log line".to_string()
+            "004 log line".into(),
+            "005 log line".into(),
+            "006 log line".into()
         ]
     );
 }
@@ -435,23 +433,23 @@ fn test_chunk_processor() {
     let expected = vec![
         AnomalyContext {
             before: vec![
-                "001: regular log line".to_string(),
-                "002: regular log line".to_string(),
+                "001: regular log line".into(),
+                "002: regular log line".into(),
             ],
-            after: vec!["in-between line".to_string()],
+            after: vec!["in-between line".into()],
             anomaly: Anomaly {
                 distance: 1.0,
                 pos: 3,
-                line: "Traceback oops".to_string(),
+                line: "Traceback oops".into(),
             },
         },
         AnomalyContext {
             before: Vec::new(),
-            after: vec!["003: regular log line".to_string()],
+            after: vec!["003: regular log line".into()],
             anomaly: Anomaly {
                 distance: 1.0,
                 pos: 5,
-                line: "another Traceback".to_string(),
+                line: "another Traceback".into(),
             },
         },
     ];

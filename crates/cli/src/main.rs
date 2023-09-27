@@ -13,6 +13,7 @@ use logreduce_model::{
 };
 use logreduce_report::{bytes_to_mb, Report};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::Instant;
 use time_humanize::{Accuracy, HumanTime, Tense};
 
@@ -380,7 +381,7 @@ fn process(
 }
 
 fn process_live(env: &Env, content: &Content, model: &Model) -> Result<()> {
-    let print_context = |pos: usize, xs: &[String]| {
+    let print_context = |pos: usize, xs: &[Rc<str>]| {
         xs.iter()
             .enumerate()
             .for_each(|(idx, line)| println!("   {} | {}", pos + idx, line))
