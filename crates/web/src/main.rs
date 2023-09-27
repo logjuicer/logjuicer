@@ -6,7 +6,7 @@
 use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
 use logreduce_report::{bytes_to_mb, Content, IndexName, LogReport, Report, Source};
-use std::sync::Arc;
+use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
 fn data_attr_html(name: &str, value: &mut [Dom]) -> Dom {
@@ -150,7 +150,7 @@ fn render_log_error(source: &Source, error: &str) -> Dom {
 }
 
 fn render_unknown(source: &Source, index: &IndexName) -> Dom {
-    render_error(source, &mut [text("Unknown index: "), text(&index.0)])
+    render_error(source, &mut [text("Unknown index: "), text(index.as_str())])
 }
 
 fn render_report(report: &Report) -> Dom {
@@ -189,7 +189,7 @@ fn render_report_card(report: &Report) -> Dom {
     ])})
 }
 
-fn render_app(state: &Arc<App>) -> Dom {
+fn render_app(state: &Rc<App>) -> Dom {
     let about = html!("div", {.class(["tooltip", "top-1"]).children(&mut [
         html!("p", {.class("text-gray-700").text("This is logreduce report viewer.")}),
         html!("div", {.class(["hover:bg-slate-400"]).children(&mut [
@@ -226,8 +226,8 @@ struct App {
 }
 
 impl App {
-    fn new() -> Arc<Self> {
-        Arc::new(Self {
+    fn new() -> Rc<Self> {
+        Rc::new(Self {
             report: Mutable::new(None),
         })
     }

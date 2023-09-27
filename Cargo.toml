@@ -41,7 +41,7 @@ rustls = { version = "0.21" }
 # serde
 serde_yaml = "*"
 serde_json = "1"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 bincode = "1"
 
 # tracing

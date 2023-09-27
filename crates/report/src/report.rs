@@ -250,7 +250,7 @@ fn test_report_sort() {
             after: Vec::new(),
         }],
         source: mk_src(name),
-        index_name: IndexName("a".into()),
+        index_name: IndexName::new(),
     };
     let reports = vec![
         mk_lr("service.log"),

@@ -8,7 +8,7 @@ use std::path::Path;
 
 /// A IndexName is an identifier that is used to group similar source.
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct IndexName(pub String);
+pub struct IndexName(std::rc::Rc<str>);
 
 impl std::fmt::Display for IndexName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -27,7 +27,7 @@ fn test_is_small_hash() {
     assert!(!is_small_hash("abcda2z"));
     assert_eq!(
         IndexName::from_path("config-update/015da2b/job-output.json.gz"),
-        IndexName("config-update/job-output.json".to_string())
+        IndexName("config-update/job-output.json".into())
     )
 }
 
@@ -134,8 +134,13 @@ fn clean_name(base: &str) -> String {
 
 impl IndexName {
     /// Retrieves the underlying str.
-    pub fn as_str(&self) -> &'_ str {
-        self.0.as_str()
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Create an empty index
+    pub fn new() -> Self {
+        IndexName("".into())
     }
 
     /// Creates IndexName from a path.
@@ -150,7 +155,13 @@ impl IndexName {
             None => clean_name(filename),
             Some(name) => format!("{}/{}", clean_name(name), clean_name(filename)),
         };
-        IndexName(index_name)
+        IndexName(index_name.into())
+    }
+}
+
+impl Default for IndexName {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -185,7 +196,7 @@ fn log_model_name() {
     .for_each(|(expected_model, paths)| {
         IntoIterator::into_iter(paths).for_each(|path| {
             assert_eq!(
-                IndexName(expected_model.to_string()),
+                IndexName(expected_model.into()),
                 IndexName::from_path(path),
                 "for {}",
                 path
