@@ -68,31 +68,23 @@ pub enum Error {
 /// A build id.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct ProwID(String);
+pub struct ProwID(pub Box<str>);
 
 /// The storage type, e.g. "gs"
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct StorageType(String);
+pub struct StorageType(Box<str>);
 
 /// The storage path, e.g. "origin-ci-test"
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct StoragePath(String);
+pub struct StoragePath(Box<str>);
 
 impl From<&str> for ProwID {
     /// Converts to this type from the input type.
     #[inline]
     fn from(s: &str) -> ProwID {
-        ProwID(s.to_owned())
-    }
-}
-
-impl From<ProwID> for String {
-    /// Converts to this type from the input type.
-    #[inline]
-    fn from(pid: ProwID) -> String {
-        pid.0
+        ProwID(s.into())
     }
 }
 
@@ -100,7 +92,7 @@ impl From<&str> for StorageType {
     /// Converts to this type from the input type.
     #[inline]
     fn from(s: &str) -> StorageType {
-        StorageType(s.to_owned())
+        StorageType(s.into())
     }
 }
 
@@ -108,7 +100,7 @@ impl From<&str> for StoragePath {
     /// Converts to this type from the input type.
     #[inline]
     fn from(s: &str) -> StoragePath {
-        StoragePath(s.to_owned())
+        StoragePath(s.into())
     }
 }
 
@@ -120,10 +112,10 @@ pub struct BuildResult {
     pub uid: ProwID,
     /// The spyglass path.
     #[serde(rename = "SpyglassLink")]
-    pub path: String,
+    pub path: Box<str>,
     /// The build result.
     #[serde(rename = "Result")]
-    pub result: String,
+    pub result: Box<str>,
     /// The build started date.
     #[serde(rename = "Started")]
     pub started: DateTime<Utc>,
