@@ -38,7 +38,7 @@ pub fn from_inventory(
         job_name: vars.job,
         project: vars.project.name,
         branch: vars.branch,
-        result: "FAILED".to_string(),
+        result: "FAILED".into(),
         pipeline: vars.pipeline,
         log_url,
         ref_url: vars.change_url,
@@ -51,15 +51,15 @@ pub fn from_inventory(
 fn test_zuul_inventory() -> Result<()> {
     use zuul_build::zuul_inventory::*;
     let vars = InventoryVarsZuul {
-        build: "test".to_string(),
-        branch: "test".to_string(),
-        job: "test".to_string(),
-        pipeline: "pipeline".to_string(),
+        build: "test".into(),
+        branch: "test".into(),
+        job: "test".into(),
+        pipeline: "pipeline".into(),
         change_url: Url::parse("https://example.com/gerrit")?,
         project: InventoryProject {
-            name: "test".to_string(),
+            name: "test".into(),
         },
-        tenant: "local".to_string(),
+        tenant: "local".into(),
     };
     let build = from_inventory(ApiUrl::parse("https://example.com/zuul/")?, vars.into())?;
     assert_eq!(
@@ -90,9 +90,9 @@ fn zuul_build_success_samples(build: &ZuulBuild, env: &Env) -> Result<Vec<zuul_b
         .as_url()
         .join("builds")
         .context("Can't create builds url")?;
-    let args = vec![
-        ("project", build.project.as_str()),
-        ("job_name", build.job_name.as_str()),
+    let args: Vec<(&str, &str)> = vec![
+        ("project", &build.project),
+        ("job_name", &build.job_name),
         ("complete", "true"),
         ("limit", "500"),
         ("result", "SUCCESS"),
@@ -333,13 +333,13 @@ fn test_zuul_api() -> Result<()> {
     let content = content_from_zuul_url(&env, &build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(ZuulBuild {
         api: url.join("/zuul/api/")?,
-        uuid: "a498f74ab32b49ffa9c9e7463fbf8885".to_string(),
-        job_name: "zuul-tox-py38-multi-scheduler".to_string(),
-        result: "FAILURE".to_string(),
+        uuid: "a498f74ab32b49ffa9c9e7463fbf8885".into(),
+        job_name: "zuul-tox-py38-multi-scheduler".into(),
+        result: "FAILURE".into(),
         log_url: Url::parse("https://localhost/42")?,
-        project: "zuul/zuul".to_string(),
-        branch: "master".to_string(),
-        pipeline: "check".to_string(),
+        project: "zuul/zuul".into(),
+        branch: "master".into(),
+        pipeline: "check".into(),
         ref_url: Url::parse("https://review.opendev.org/835662")?,
         change: 1,
         end_time: "2014-07-08T09:10:11Z".parse().unwrap(),

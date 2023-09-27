@@ -32,18 +32,18 @@ pub struct InventoryVars {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct InventoryVarsZuul {
-    pub build: String,
-    pub branch: String,
-    pub job: String,
-    pub pipeline: String,
+    pub build: Box<str>,
+    pub branch: Box<str>,
+    pub job: Box<str>,
+    pub pipeline: Box<str>,
     pub change_url: Url,
     pub project: InventoryProject,
-    pub tenant: String,
+    pub tenant: Box<str>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct InventoryProject {
-    pub name: String,
+    pub name: Box<str>,
 }
 
 #[test]
@@ -70,7 +70,7 @@ all:
 "#;
     let inventory: InventoryRoot = serde_yaml::from_str(data).unwrap();
     assert_eq!(
-        inventory.all.vars.zuul.project.name,
+        inventory.all.vars.zuul.project.name.as_ref(),
         "software-factory/sf-operator"
     );
 }
