@@ -14,7 +14,7 @@ use url::Url;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Report {
-    pub version: String,
+    pub version: smol_str::SmolStr,
     pub created_at: SystemTime,
     pub run_time: Duration,
     pub target: Content,

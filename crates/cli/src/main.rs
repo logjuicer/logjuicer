@@ -350,7 +350,7 @@ fn process(
     match report {
         None => process_live(env, &content, &model),
         Some(file) => {
-            let version = env!("CARGO_PKG_VERSION").to_string();
+            let version = env!("CARGO_PKG_VERSION").into();
             let report = model.report(version, env, content)?;
 
             match file.extension().and_then(std::ffi::OsStr::to_str) {

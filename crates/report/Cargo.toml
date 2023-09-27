@@ -20,6 +20,7 @@ chrono = { workspace = true }
 bincode = { workspace = true }
 flate2 = { workspace = true }
 serde = { workspace = true }
+smol_str = { workspace = true }
 itertools = { workspace = true }
 url = { workspace = true, features = ["serde"] }
 # For IndexName...
