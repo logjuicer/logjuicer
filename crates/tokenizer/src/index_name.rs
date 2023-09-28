@@ -101,10 +101,10 @@ fn test_uid_remove() {
 }
 
 fn remove_non_vowel_component(name: &str) -> String {
-    name.split(&['-', '_'])
+    name.split_inclusive(&['-', '_', '.'])
         .filter(|component| contains_vowel(component))
         .collect::<Vec<&str>>()
-        .join("-")
+        .join("")
         .to_string()
 }
 
@@ -203,4 +203,30 @@ fn log_model_name() {
             )
         })
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(test)]
+    fn to_index(s: &str) -> String {
+        IndexName::from_path(s).as_str().to_string()
+    }
+
+    #[test]
+    fn test_index00() {
+        assert_eq!(
+            "swift-proxy-log",
+            &to_index("swift-proxy-5b4bcb6699-hk9lb.log"),
+        )
+    }
+
+    #[test]
+    fn test_index01() {
+        assert_eq!(
+            "rabbitmq-server/rabbitmq-server-log",
+            &to_index("rabbitmq-server-0/logs/rabbitmq-server-0.log"),
+        )
+    }
 }

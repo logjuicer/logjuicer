@@ -1,3 +1,8 @@
+0.8.4
+=====
+
+- Improve index name tokenizer by splitting '.'.
+
 0.8.3
 =====
 
