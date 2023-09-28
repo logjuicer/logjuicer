@@ -8,6 +8,8 @@ logreduce_web_version: 0.2.2
 logreduce_config: null
 
 _has_config: "{{ logreduce_config | default(false) }}"
+_model_hash: "{% if _has_config %}-{{ logreduce_config | hash('md5') }}{% endif %}"
+_model_path: "{{ logreduce_tmp_dir }}/model.bin"
 
 # Change this to a local location with a folder per web's version.
 logreduce_web_url: "https://unpkg.com/logreduce-web@"

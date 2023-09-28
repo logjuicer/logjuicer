@@ -1,9 +1,7 @@
 ---
 - name: Set model name
   set_fact:
-    _model_hash: "{% if _has_config %}-{{ logeduce_config | hash('md5') }}{% endif %}"
     _model_name: "{{ zuul.project.name }}/{{ zuul.job }}/{{ zuul.branch }}{{ _model_hash }}.bin"
-    _model_path: "{{ logreduce_tmp_dir }}/model.bin"
 
 - name: Create directories
   file:
