@@ -1,6 +1,6 @@
 job-output
-customresourcedefinition.apiextensions.ks.io/routes.route.openshift.io
-customresourcedefinition.apiextensions.ks.io/softwarefactories.sf.softwarefactory-project.io
+customresourcedefinition.apiextensions.io/routes.route.openshift.io
+customresourcedefinition.apiextensions.io/softwarefactories.softwarefactory-project.io
 persistentvolume/UID
 persistentvolume/UID
 cluster-resources/nodes

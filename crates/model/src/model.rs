@@ -37,7 +37,7 @@ pub mod zuul;
 const MODEL_MAGIC: &str = "LGRD";
 
 // Remember to bump this value when changing the tokenizer or the vectorizer to avoid using incompatible models.
-const MODEL_VERSION: usize = 5;
+const MODEL_VERSION: usize = 6;
 
 /// The user input.
 #[derive(Debug, Serialize, Deserialize)]
