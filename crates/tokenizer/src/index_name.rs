@@ -229,4 +229,22 @@ mod tests {
             &to_index("rabbitmq-server-0/logs/rabbitmq-server-0.log"),
         )
     }
+
+    #[test]
+    fn test_index02() {
+        assert_eq!(
+            "galera/log",
+            &to_index("pods/openstack_openstack-galera-0_a720a2da-7235-461d-95c2-19518e90cd33/galera/0.log")
+        )
+    }
+
+    #[test]
+    fn test_index03() {
+        assert_eq!(
+            "rabbitmq/log",
+            &to_index(
+                "openstack_rabbitmq-server-0_b4fbdf24-cd9a-4572-8321-6dbd90356745/rabbitmq/0.log"
+            )
+        )
+    }
 }
