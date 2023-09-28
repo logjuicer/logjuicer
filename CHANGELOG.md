@@ -2,6 +2,7 @@
 =====
 
 - Improve index name tokenizer by splitting '.'.
+- Update default excludes list.
 
 0.8.3
 =====

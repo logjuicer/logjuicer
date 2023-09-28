@@ -13,6 +13,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     ".db$",
     ".bin$",
     ".pcap.log.txt$",
+    ".pkl$",
     // font
     ".eot$",
     ".otf$",
@@ -32,6 +33,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "local/creds$",
     "/authkey$",
     "mysql/tc.log.txt$",
+    "log/.tmp$",
     // swifts
     "object.builder$",
     "account.builder$",
