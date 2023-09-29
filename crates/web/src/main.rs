@@ -45,11 +45,39 @@ fn render_content(content: &Content) -> Dom {
 
 static COLORS: &[&str] = &["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"];
 
-fn render_line(pos: usize, distance: f32, line: &str) -> Dom {
+use wasm_bindgen::JsCast;
+fn click_handler(ev: dominator::events::Click) {
+    // let has_shift = ev.shift_key();
+    if let Some(target) = ev.target() {
+        // Get the line number element.
+        let elem = target.dyn_ref::<web_sys::Element>().unwrap().clone();
+        // Get the global id.
+        let elem_id = format!("#{}", elem.id());
+
+        // Update the highlights.
+        clear_class("bg-amber-100");
+        highlight_row(&elem);
+
+        // Update the navigation bar
+        let history = web_sys::window().unwrap().history().unwrap();
+        let state = wasm_bindgen::JsValue::NULL;
+        history
+            .push_state_with_url(&state, "", Some(&elem_id))
+            .unwrap();
+    }
+}
+
+fn render_line(gl_pos: &mut usize, pos: usize, distance: f32, line: &str) -> Dom {
     let sev = (distance * 10.0).round() as usize;
     let color: &str = COLORS.get(sev).unwrap_or(&"c0");
+    let pos_str = format!("{}", pos);
+
+    // Create global id.
+    let gl_str = format!("n{}", gl_pos);
+    *gl_pos += 1;
+
     html!("tr", {.children(&mut [
-        html!("td", {.class("pos").text(&format!("{}", pos))}),
+        html!("td", {.class("pos").attr("id", &gl_str).text(&pos_str).event(click_handler)}),
         html!("td", {.class(["pl-2", "break-all", "whitespace-pre-wrap", color]).text(line)})
     ])})
 }
@@ -61,7 +89,7 @@ fn log_name(path: &str) -> &str {
     }
 }
 
-fn render_log_report(report: &Report, log_report: &LogReport) -> Dom {
+fn render_log_report(gl_pos: &mut usize, report: &Report, log_report: &LogReport) -> Dom {
     let index_name = &format!("{}", log_report.index_name);
     let mut infos = Vec::new();
     match report.index_reports.get(&log_report.index_name) {
@@ -115,15 +143,17 @@ fn render_log_report(report: &Report, log_report: &LogReport) -> Dom {
                 .anomaly
                 .pos
                 .saturating_sub(anomaly.before.len() - pos);
-            lines.push(render_line(prev_pos, 0.0, line));
+            lines.push(render_line(gl_pos, prev_pos, 0.0, line));
         }
         lines.push(render_line(
+            gl_pos,
             anomaly.anomaly.pos,
             anomaly.anomaly.distance,
             &anomaly.anomaly.line,
         ));
         for (pos, line) in anomaly.after.iter().enumerate() {
-            lines.push(render_line(anomaly.anomaly.pos + 1 + pos, 0.0, line));
+            let after_pos = anomaly.anomaly.pos + 1 + pos;
+            lines.push(render_line(gl_pos, after_pos, 0.0, line));
         }
     }
 
@@ -160,8 +190,9 @@ fn render_unknown(target: &Content, source: &Source, index: &IndexName) -> Dom {
 fn render_report(report: &Report) -> Dom {
     let mut childs = Vec::new();
 
+    let mut gl_pos = 0;
     for lr in &report.log_reports {
-        childs.push(render_log_report(report, lr))
+        childs.push(render_log_report(&mut gl_pos, report, lr))
     }
     for (source, err) in &report.read_errors {
         childs.push(render_log_error(&report.target, source, err));
@@ -247,8 +278,49 @@ async fn get_report(path: &str) -> Result<Report, String> {
     logreduce_report::Report::load_bytes(&data).map_err(|e| format!("{}", e))
 }
 
+fn clear_class(name: &str) {
+    let body = dominator::body();
+    let elems = body.get_elements_by_class_name(name);
+    for pos in 0..elems.length() {
+        if let Some(elem) = elems.item(pos) {
+            let _ = elem.class_list().remove_1(name);
+        }
+    }
+}
+
+fn highlight_row(elem: &web_sys::Element) {
+    if let Some(parent) = elem.parent_element() {
+        let _ = parent.class_list().add_1("bg-amber-100");
+    }
+}
+
+use gloo_timers::future::TimeoutFuture;
+// This function waits for the hash to be rendered
+async fn put_hash_into_view(hash: String) {
+    let body = web_sys::window().unwrap().document().unwrap();
+    for _retry in 0..10 {
+        if let Some(elem) = body.get_element_by_id(&hash[1..]) {
+            gloo_console::log!(&format!("Putting {} into view", hash));
+            elem.scroll_into_view_with_scroll_into_view_options(
+                web_sys::ScrollIntoViewOptions::new()
+                    .behavior(web_sys::ScrollBehavior::Smooth)
+                    .block(web_sys::ScrollLogicalPosition::Center)
+                    .inline(web_sys::ScrollLogicalPosition::Center),
+            );
+            highlight_row(&elem);
+            break;
+        }
+        gloo_console::log!(&format!("Waiting for {}", hash));
+        TimeoutFuture::new(200).await;
+    }
+}
+
 pub fn main() {
     console_error_panic_hook::set_once();
+    let hash = web_sys::window().unwrap().location().hash().unwrap();
+    if hash.len() > 1 {
+        spawn_local(put_hash_into_view(hash))
+    }
     let app = App::new();
     spawn_local(clone!(app => async move {
         // gloo_timers::future::TimeoutFuture::new(3_000).await;
