@@ -16,15 +16,16 @@ impl std::fmt::Display for IndexName {
     }
 }
 
-fn is_small_hash(filename: &str) -> bool {
-    filename.len() == 7
-        && !filename.contains(|c: char| !('a'..='f').contains(&c) && !c.is_ascii_digit())
+fn is_hexadecimal(name: &str) -> bool {
+    let base = name.trim_matches(|c| matches!(c, '-' | '_' | '.'));
+    base.chars()
+        .all(|c: char| ('a'..='f').contains(&c) || c.is_ascii_digit())
 }
 
 #[test]
-fn test_is_small_hash() {
-    assert!(is_small_hash("015da2b"));
-    assert!(!is_small_hash("abcda2z"));
+fn test_is_hexadecimal() {
+    assert!(is_hexadecimal("015da2b"));
+    assert!(!is_hexadecimal("abcda2z"));
     assert_eq!(
         IndexName::from_path("config-update/015da2b/job-output.json.gz"),
         IndexName("config-update/job-output.json".into())
@@ -41,7 +42,7 @@ fn contains_vowel(name: &str) -> bool {
 }
 
 fn is_dir_name_irrelevant(name: &str) -> bool {
-    is_small_hash(name)
+    is_hexadecimal(name)
         || !contains_vowel(name)
         || matches!(
             name,
@@ -102,7 +103,7 @@ fn test_uid_remove() {
 
 fn remove_non_vowel_component(name: &str) -> String {
     name.split_inclusive(&['-', '_', '.'])
-        .filter(|component| contains_vowel(component))
+        .filter(|component| !is_hexadecimal(component) && contains_vowel(component))
         .collect::<Vec<&str>>()
         .join("")
         .to_string()
@@ -245,6 +246,14 @@ mod tests {
             &to_index(
                 "openstack_rabbitmq-server-0_b4fbdf24-cd9a-4572-8321-6dbd90356745/rabbitmq/0.log"
             )
+        )
+    }
+
+    #[test]
+    fn test_index04() {
+        assert_eq!(
+            "dummy-image-log",
+            &to_index("dummy-42-image-722e550664244ca5959a61f6dd950b9a.log")
         )
     }
 }
