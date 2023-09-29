@@ -1,3 +1,9 @@
+web-0.2.3
+=========
+
+- Fix url of invalid report.
+- Add log line anchors.
+
 0.8.4
 =====
 
