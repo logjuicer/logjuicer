@@ -22,5 +22,5 @@
 }
 
 .pos {
-  @apply text-sm pt-1 text-gray-500 text-right select-none align-top
+  @apply text-sm pt-1 text-gray-500 text-right select-none align-top cursor-pointer hover:font-bold
 }
