@@ -1158,7 +1158,7 @@ dependencies = [
 
 [[package]]
 name = "logreduce-cli"
-version = "0.8.3"
+version = "0.8.4"
 dependencies = [
  "anyhow",
  "atty",
@@ -1280,7 +1280,7 @@ dependencies = [
 
 [[package]]
 name = "logreduce-web"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
