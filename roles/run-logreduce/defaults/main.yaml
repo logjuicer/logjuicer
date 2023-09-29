@@ -1,8 +1,8 @@
 # Update from https://github.com/logreduce/logreduce/releases
-logreduce_version: 0.8.3
+logreduce_version: 0.8.4
 
 # Update from https://www.npmjs.com/package/logreduce-web?activeTab=versions
-logreduce_web_version: 0.2.2
+logreduce_web_version: 0.2.3
 
 # Set include/exclude file list
 logreduce_config: null
