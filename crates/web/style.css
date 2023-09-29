@@ -24,3 +24,14 @@
 .pos {
   @apply text-sm pt-1 text-gray-500 text-right select-none align-top cursor-pointer hover:font-bold
 }
+
+.content {
+  width: 100%;
+  height: 100%;
+}
+
+.content .header {
+  width: 100%;
+  position: sticky;
+  top: 24px;
+}

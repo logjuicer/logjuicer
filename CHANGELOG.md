@@ -1,3 +1,8 @@
+web-0.2.4 (next)
+=========
+
+- Make the log report header sticky.
+
 web-0.2.3
 =========
 

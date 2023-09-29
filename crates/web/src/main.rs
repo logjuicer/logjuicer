@@ -126,7 +126,7 @@ fn render_log_report(gl_pos: &mut usize, report: &Report, log_report: &LogReport
         html!("div", {.class("tooltip").children(&mut infos)}),
         html!("div", {.class(["font-bold", "text-slate-500"]).text("?")})
     ])});
-    let header = html!("div", {.class(["bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
+    let header = html!("header", {.class(["header", "bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
         html!("div", {.class(["grow", "flex"]).children(&mut [
             render_link(log_report.source.get_href(&report.target), log_report.source.get_relative())
         ])}),
@@ -154,7 +154,7 @@ fn render_log_report(gl_pos: &mut usize, report: &Report, log_report: &LogReport
         }
     }
 
-    html!("div", {.class(["pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
+    html!("div", {.class(["content", "pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
         header,
         html!("table", {.class("font-mono").children(&mut [
             html!("thead", {.children(&mut [
