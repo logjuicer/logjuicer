@@ -9,6 +9,9 @@ use logreduce_report::{bytes_to_mb, Content, IndexName, LogReport, Report, Sourc
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
+mod selection;
+use crate::selection::Selection;
+
 fn data_attr_html(name: &str, value: &mut [Dom]) -> Dom {
     html!("div", {.class("flex").children(&mut [
         html!("dt", {.class(["w-32", "font-medium", "text-gray-900"]).text(name)}),
@@ -47,23 +50,17 @@ static COLORS: &[&str] = &["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8",
 
 use wasm_bindgen::JsCast;
 fn click_handler(ev: dominator::events::Click) {
-    // let has_shift = ev.shift_key();
     if let Some(target) = ev.target() {
         // Get the line number element.
-        let elem = target.dyn_ref::<web_sys::Element>().unwrap().clone();
+        let elem = target.dyn_ref::<web_sys::Element>().unwrap();
         // Get the global id.
-        let elem_id = format!("#{}", elem.id());
+        let elem_pos = Selection::parse_id(&elem.id()).unwrap();
 
-        // Update the highlights.
-        clear_class("bg-amber-100");
-        highlight_row(&elem);
-
-        // Update the navigation bar
-        let history = web_sys::window().unwrap().history().unwrap();
-        let state = wasm_bindgen::JsValue::NULL;
-        history
-            .push_state_with_url(&state, "", Some(&elem_id))
-            .unwrap();
+        if ev.shift_key() {
+            Selection::update(elem_pos)
+        } else {
+            Selection::set(elem_pos)
+        };
     }
 }
 
@@ -73,7 +70,7 @@ fn render_line(gl_pos: &mut usize, pos: usize, distance: f32, line: &str) -> Dom
     let pos_str = format!("{}", pos);
 
     // Create global id.
-    let gl_str = format!("n{}", gl_pos);
+    let gl_str = Selection::mk_id(*gl_pos);
     *gl_pos += 1;
 
     html!("tr", {.children(&mut [
@@ -278,54 +275,38 @@ async fn get_report(path: &str) -> Result<Report, String> {
     logreduce_report::Report::load_bytes(&data).map_err(|e| format!("{}", e))
 }
 
-fn clear_class(name: &str) {
-    let body = dominator::body();
-    let elems = body.get_elements_by_class_name(name);
-    for pos in 0..elems.length() {
-        if let Some(elem) = elems.item(pos) {
-            let _ = elem.class_list().remove_1(name);
-        }
-    }
-}
-
-fn highlight_row(elem: &web_sys::Element) {
-    if let Some(parent) = elem.parent_element() {
-        let _ = parent.class_list().add_1("bg-amber-100");
-    }
-}
-
 use gloo_timers::future::TimeoutFuture;
 // This function waits for the hash to be rendered
-async fn put_hash_into_view(hash: String) {
+async fn put_hash_into_view(selection: Selection) {
     let body = web_sys::window().unwrap().document().unwrap();
+    let elem_id = selection.elem_id();
     for _retry in 0..10 {
-        if let Some(elem) = body.get_element_by_id(&hash[1..]) {
-            gloo_console::log!(&format!("Putting {} into view", hash));
+        if let Some(elem) = body.get_element_by_id(&elem_id) {
+            gloo_console::log!(&format!("Putting {} into view", elem_id));
             elem.scroll_into_view_with_scroll_into_view_options(
                 web_sys::ScrollIntoViewOptions::new()
                     .behavior(web_sys::ScrollBehavior::Smooth)
                     .block(web_sys::ScrollLogicalPosition::Center)
                     .inline(web_sys::ScrollLogicalPosition::Center),
             );
-            highlight_row(&elem);
+            selection.highlight();
             break;
         }
-        gloo_console::log!(&format!("Waiting for {}", hash));
+        gloo_console::log!(&format!("Waiting for {}", elem_id));
         TimeoutFuture::new(200).await;
     }
 }
 
 pub fn main() {
     console_error_panic_hook::set_once();
-    let hash = web_sys::window().unwrap().location().hash().unwrap();
-    if hash.len() > 1 {
-        spawn_local(put_hash_into_view(hash))
-    }
     let app = App::new();
     spawn_local(clone!(app => async move {
         // gloo_timers::future::TimeoutFuture::new(3_000).await;
         let result = get_report("report.bin").await;
         app.report.replace(Some(result));
+        if let Some(selection) = Selection::from_url() {
+            put_hash_into_view(selection).await
+        }
     }));
     dominator::append_dom(&dominator::body(), render_app(&app));
 }
