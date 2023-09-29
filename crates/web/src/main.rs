@@ -138,19 +138,23 @@ fn render_log_report(report: &Report, log_report: &LogReport) -> Dom {
     ])})
 }
 
-fn render_error(source: &Source, body: &mut [Dom]) -> Dom {
+fn render_error(target: &Content, source: &Source, body: &mut [Dom]) -> Dom {
     html!("div", {.class(["pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
-        html!("div", {.class("bg-red-100").children(&mut [render_source_link(source)])}),
+        html!("div", {.class("bg-red-100").children(&mut [render_link(source.get_href(target), source.get_relative())])}),
         html!("div", {.children(body)})
     ])})
 }
 
-fn render_log_error(source: &Source, error: &str) -> Dom {
-    render_error(source, &mut [text("Read failure: "), text(error)])
+fn render_log_error(target: &Content, source: &Source, error: &str) -> Dom {
+    render_error(target, source, &mut [text("Read failure: "), text(error)])
 }
 
-fn render_unknown(source: &Source, index: &IndexName) -> Dom {
-    render_error(source, &mut [text("Unknown index: "), text(index.as_str())])
+fn render_unknown(target: &Content, source: &Source, index: &IndexName) -> Dom {
+    render_error(
+        target,
+        source,
+        &mut [text("Unknown index: "), text(index.as_str())],
+    )
 }
 
 fn render_report(report: &Report) -> Dom {
@@ -160,11 +164,11 @@ fn render_report(report: &Report) -> Dom {
         childs.push(render_log_report(report, lr))
     }
     for (source, err) in &report.read_errors {
-        childs.push(render_log_error(source, err));
+        childs.push(render_log_error(&report.target, source, err));
     }
     for (index, sources) in &report.unknown_files {
         for source in sources {
-            childs.push(render_unknown(source, index));
+            childs.push(render_unknown(&report.target, source, index));
         }
     }
 
