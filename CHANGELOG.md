@@ -1,7 +1,7 @@
 0.8.4
 =====
 
-- Improve index name tokenizer by splitting '.'.
+- Improve index name tokenizer by splitting '.' and removing hexadecimal components.
 - Update default excludes list.
 
 0.8.3
