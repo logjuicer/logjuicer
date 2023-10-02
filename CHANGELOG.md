@@ -4,6 +4,7 @@
 - Add samples_count query to check how large is an index.
 - Fix http dir query not using the provided certificate.
 - Try to use the default /etc/pki/tls/certs/ca-bundle.crt CA for TLS verification.
+- Support targro http directory.
 
 web-0.2.4 (next)
 =========
