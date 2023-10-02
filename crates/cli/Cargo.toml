@@ -36,3 +36,5 @@ serde = { workspace = true }
 
 # debug helper
 logreduce-tokenizer = { path = "../tokenizer" }
+url = { workspace = true }
+httpdir = { path = "../httpdir" }

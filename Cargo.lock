@@ -1163,6 +1163,7 @@ dependencies = [
  "anyhow",
  "atty",
  "clap",
+ "httpdir",
  "itertools 0.11.0",
  "logreduce-iterator",
  "logreduce-model",
@@ -1176,6 +1177,7 @@ dependencies = [
  "tracing-chrome",
  "tracing-subscriber",
  "tracing-tree",
+ "url",
 ]
 
 [[package]]
