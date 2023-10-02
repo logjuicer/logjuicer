@@ -265,11 +265,11 @@ pub fn http_list(client: &Agent, url: &Url) -> Result<Vec<Url>> {
 fn parse_index_of(base_url: Url, page: &str) -> Result<Vec<Url>> {
     // TODO check for title and support different types of indexes
     lazy_static! {
-        static ref RE: Regex = Regex::new(r#"<a href="([\\/a-zA-Z0-9][^"]+)">"#).unwrap();
+        static ref RE: Regex = Regex::new(r#"<a href="(\./)*([\\/a-zA-Z0-9][^"]+)""#).unwrap();
     }
 
     RE.captures_iter(page)
-        .map(|c| c.get(1).unwrap().as_str())
+        .map(|c| c.get(2).unwrap().as_str())
         // .map(|link| dbg!(link))
         .map(|link| {
             base_url
@@ -430,4 +430,37 @@ fn test_prow_httpdir() {
     base_mock.assert();
     builds_mock.assert();
     artifacts_mock.assert();
+}
+
+#[test]
+fn test_targro_httpdir() {
+    let base = Url::parse("http://localhost/job/").unwrap();
+    let urls = parse_index_of(base, r#"
+      <tr>
+        <td class="name up"><a href="../">..</a></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan="3"><hr /></td>
+      </tr>
+      <tr class="entry">
+        <td class="name file">
+          <a href="./tempest-results-barbican.1.html"
+            >tempest-results-barbican.1.html</a
+          >
+        </td>
+        <td>26-Sep-2023 17:35</td>
+        <td class="size">267665</td>
+      </tr>
+      <tr class="entry">
+        <td class="name dir"><a href="./cephstorage-0/">cephstorage-0/</a></td><td>26-Sep-2023 17:47</td><td class="size">56</td></tr>
+"#).unwrap();
+    assert_eq!(
+        urls.iter().map(|u| u.as_str()).collect::<Vec<&str>>(),
+        vec![
+            "http://localhost/job/tempest-results-barbican.1.html",
+            "http://localhost/job/cephstorage-0/"
+        ]
+    )
 }
