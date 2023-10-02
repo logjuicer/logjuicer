@@ -254,9 +254,9 @@ pub fn content_get_sources_iter(
         Content::File(src) => Box::new(file_iter(src)),
         Content::Directory(src) => match src {
             Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
-            Source::Remote(_, url) => Box::new(httpdir_iter(url)),
+            Source::Remote(_, url) => Box::new(httpdir_iter(url, env)),
         },
-        Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build)),
+        Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build, env)),
         Content::Prow(build) => Box::new(crate::prow::sources_iter(build, env)),
         Content::LocalZuulBuild(src, _) => Box::new(dir_iter(src.as_path())),
     }

@@ -155,6 +155,6 @@ pub fn discover_baselines(build: &ProwBuild, env: &Env) -> Result<Baselines> {
 pub fn sources_iter(build: &ProwBuild, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     match get_prow_artifact_url(env, &build.url) {
         Err(e) => Box::new(std::iter::once(Err(e))),
-        Ok(url) => crate::httpdir_iter(&url),
+        Ok(url) => crate::httpdir_iter(&url, env),
     }
 }

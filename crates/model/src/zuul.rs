@@ -174,8 +174,8 @@ pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Baselines> {
         .collect())
 }
 
-pub fn sources_iter(build: &ZuulBuild) -> Box<dyn Iterator<Item = Result<Source>>> {
-    crate::httpdir_iter(&build.log_url)
+pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
+    crate::httpdir_iter(&build.log_url, env)
 }
 
 fn new_content(api: ApiUrl, build: zuul_build::Build) -> Content {
