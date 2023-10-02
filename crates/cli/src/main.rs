@@ -84,6 +84,8 @@ enum Commands {
     ReadReport,
 
     // Secret options to debug specific part of the process
+    #[clap(hide = true, about = "List http directory urls")]
+    HttpLs { url: String },
 
     // Debug log files grouping
     #[clap(hide = true, about = "List source groups")]
@@ -188,6 +190,12 @@ impl Cli {
             Commands::Test { datasets } => dataset::test_datasets(&env, &datasets),
 
             // Debug handlers
+            Commands::HttpLs { url } => {
+                for url in httpdir::Crawler::new().walk(url::Url::parse(&url)?) {
+                    println!("{}", url?.as_str());
+                }
+                Ok(())
+            }
             Commands::DebugGroups { target } => debug_groups(&env, Input::from_string(target)),
             Commands::DebugTokenizer { line } => {
                 println!("{}\n", logreduce_tokenizer::process(&line));
