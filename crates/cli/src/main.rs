@@ -517,6 +517,7 @@ fn debug_model(model: Model) -> Result<()> {
                 index.line_count,
                 bytes_to_mb(index.byte_count)
             );
+            println!("  samples: {}", index.samples_count());
             index.sources.iter().for_each(|source| {
                 println!("  from: {}", source);
             })

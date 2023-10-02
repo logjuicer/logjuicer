@@ -91,6 +91,10 @@ impl Index {
             sources: self.sources.clone(),
         }
     }
+
+    pub fn samples_count(&self) -> usize {
+        self.index.samples_count()
+    }
 }
 
 impl Index {
@@ -476,6 +480,13 @@ impl ChunkIndex {
             ChunkIndex::Noop => noop_index::search(targets),
         }
     }
+
+    fn samples_count(&self) -> usize {
+        match self {
+            ChunkIndex::HashingTrick(i) => i.samples_count(),
+            ChunkIndex::Noop => 0,
+        }
+    }
 }
 
 pub mod hashing_index {
@@ -501,6 +512,9 @@ pub mod hashing_index {
         }
         pub fn search(&self, targets: &[String]) -> Vec<f32> {
             logreduce_index::search_mat_chunk(&self.baselines, targets)
+        }
+        pub fn samples_count(&self) -> usize {
+            self.baselines.iter().fold(0, |acc, fm| acc + fm.rows())
         }
     }
 }
