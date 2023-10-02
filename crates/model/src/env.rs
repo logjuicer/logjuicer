@@ -56,10 +56,20 @@ fn http_proxy() -> Result<String, std::env::VarError> {
         .or_else(|_| std::env::var("http_proxy"))
 }
 
+fn default_ca_bundle() -> Option<std::ffi::OsString> {
+    let path = std::path::Path::new("/etc/pki/tls/certs/ca-bundle.crt");
+    if path.exists() {
+        Some(path.into())
+    } else {
+        None
+    }
+}
+
 fn tls_ca_bundle() -> Option<std::ffi::OsString> {
     std::env::var_os("LOGREDUCE_CA_BUNDLE")
         .or_else(|| std::env::var_os("REQUESTS_CA_BUNDLE"))
         .or_else(|| std::env::var_os("CURL_CA_BUNDLE"))
+        .or_else(default_ca_bundle)
 }
 
 // Copied from https://github.com/PyO3/maturin/blob/23158969c97418b07a3c4d31282d220ec08c3c10/src/upload.rs#L395-L418
