@@ -1,15 +1,11 @@
 [package]
 name = "logreduce-cli"
-version = "0.8.5"
-
-license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce"
-documentation = "https://docs.rs/logreduce/"
-authors = ["TristanCacqueray"]
-
 description = "A command line to extract anomaly from log files."
-
-edition = "2018"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "logreduce"
