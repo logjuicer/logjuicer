@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "select id, status from reports where target = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "status",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "6640e2561d88ac080249cdaadb0c8afab91f600ff5ac373a80482793a64ba75d"
+}

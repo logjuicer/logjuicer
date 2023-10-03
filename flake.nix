@@ -141,9 +141,17 @@
           name = "logreduce";
         };
         devShell = craneLib.devShell {
-          packages = with pkgs; [ cargo-watch trunk tailwindcss wasm-pack ];
+          packages = with pkgs; [ cargo-watch trunk tailwindcss wasm-pack sqlx-cli sqlite ];
           LOGREDUCE_CACHE = "1";
           UPDATE_GOLDENFILES = "1";
+          # `cargo sqlx prepare` needs an absolute path (`database create` and `migrate run` don't)
+          shellHook = ''
+            if test -d crates/web-service/data; then
+              export DATABASE_URL="sqlite://$(pwd)/crates/web-service/data/logreduce.sqlite?mode=rwc";
+            else
+              export DATABASE_URL="sqlite://$(pwd)/data/logreduce.sqlite?mode=rwc";
+            fi
+          '';
         };
 
         # nix develop .#python

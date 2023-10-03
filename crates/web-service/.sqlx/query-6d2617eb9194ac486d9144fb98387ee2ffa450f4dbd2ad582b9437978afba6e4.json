@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "select id, created_at, updated_at, target, baseline, anomaly_count, status from reports order by id desc",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 1,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 2,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "target",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "baseline",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "anomaly_count",
+        "ordinal": 5,
+        "type_info": "Int64"
+      },
+      {
+        "name": "status",
+        "ordinal": 6,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6d2617eb9194ac486d9144fb98387ee2ffa450f4dbd2ad582b9437978afba6e4"
+}

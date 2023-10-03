@@ -8,18 +8,29 @@ authors.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "logreduce-web-service"
-path = "src/web-service-main.rs"
+name = "logreduce-api"
+path = "src/api.rs"
 
 [dependencies]
 anyhow = { workspace = true }
 tokio = { version = "1", features = ["full"] }
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
 tokio-util = "0.7"
 hyper = "0"
 warp = "0.3"
 http = "0.2"
 base64 = "0"
 futures = "0.3"
+sqlx = { version = "0", features = ["sqlite", "runtime-tokio", "chrono"] }
 threadpool = { workspace = true }
+itertools = { workspace = true }
+html-builder = { workspace = true }
+lazy_static = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 logreduce-report = { path = "../report" }
+logreduce-model = { path = "../model" }

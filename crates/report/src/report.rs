@@ -13,6 +13,8 @@ use std::time::{Duration, SystemTime};
 use thiserror::Error;
 use url::Url;
 
+pub mod report_row;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Report {
     pub version: smol_str::SmolStr,
@@ -26,6 +28,14 @@ pub struct Report {
     pub read_errors: Vec<(Source, Box<str>)>,
     pub total_line_count: usize,
     pub total_anomaly_count: usize,
+}
+
+impl Report {
+    pub fn anomaly_count(&self) -> usize {
+        self.log_reports
+            .iter()
+            .fold(0, |acc, lr| acc + lr.anomalies.len())
+    }
 }
 
 /// The report codec error.
