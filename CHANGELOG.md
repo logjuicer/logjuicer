@@ -1,4 +1,7 @@
-0.8.5 (next)
+next-version
+============
+
+0.8.5
 =====
 
 - Add samples_count query to check how large is an index.
