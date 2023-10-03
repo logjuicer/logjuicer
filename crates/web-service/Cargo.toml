@@ -1,0 +1,24 @@
+[package]
+name = "logreduce-web-service"
+description = "A web-service to extract anomaly from log files."
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "logreduce-web-service"
+path = "src/web-service-main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+hyper = "0"
+warp = "0.3"
+http = "0.2"
+base64 = "0"
+threadpool = { workspace = true }
+
+logreduce-report = { path = "../report" }
