@@ -1,97 +1,79 @@
 // Copyright (C) 2023 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+//! This module contains the database logic.
 
-use logreduce_report::{Content, Report};
+use sqlx::types::chrono::Utc;
 
-pub struct Database {
-    pub running: HashSet<Arc<str>>,
-    pub failed: Vec<(Arc<str>, Box<str>)>,
-    pub reports: Vec<Content>,
-}
-
-fn load_reports() -> Vec<Content> {
-    vec![]
-}
-
-impl Database {
-    fn new() -> Self {
-        Database {
-            running: HashSet::new(),
-            failed: Vec::new(),
-            reports: load_reports(),
-        }
-    }
-
-    fn completed(&mut self, base_url: Arc<str>, result: Result<Report, Box<str>>) {
-        let _ = self.running.remove(&base_url);
-        match result {
-            Ok(report) => {
-                if let Err(err) = report.save(Path::new("todo")) {
-                    self.failed
-                        .push((base_url, format!("Failed to save report: {:?}", err).into()))
-                } else {
-                    self.reports.push(report.target);
-                }
-            }
-            Err(err) => self.failed.push((base_url, err)),
-        }
-    }
-}
+use logreduce_report::report_row::{ReportID, ReportRow, ReportStatus};
 
 #[derive(Clone)]
-pub struct Workers {
-    pool: threadpool::ThreadPool,
-    pub database: Arc<Mutex<Database>>,
-}
+pub struct Db(sqlx::SqlitePool);
 
-impl Workers {
-    pub fn new() -> Self {
-        Workers {
-            pool: threadpool::ThreadPool::new(2),
-            database: Arc::new(Mutex::new(Database::new())),
-        }
+impl Db {
+    pub async fn new() -> sqlx::Result<Db> {
+        let db_url = "sqlite://data/logreduce.sqlite?mode=rwc";
+        let pool = sqlx::SqlitePool::connect(db_url).await?;
+        sqlx::migrate!("./migrations").run(&pool).await?;
+        Ok(Db(pool))
     }
 
-    pub fn submit(&self, base_url: &str) {
-        let url: Arc<str> = base_url.into();
-        let mut db = self.database.lock().unwrap();
-        // Check if the report is being processed
-        if db.running.insert(url.clone()) {
-            let db = self.database.clone();
-            self.pool.execute(move || {
-                println!("Starting processing of {}!", url);
-                let result = process_report(&url);
-                db.lock().unwrap().completed(url, result);
-                println!("Processing completed!");
-            })
-        }
+    pub async fn get_reports(&self) -> sqlx::Result<Vec<ReportRow>> {
+        sqlx::query_as!(
+        ReportRow,
+        "select id, created_at, updated_at, target, baseline, anomaly_count, status from reports order by id desc"
+    )
+        .fetch_all(&self.0)
+        .await
     }
-}
 
-fn process_report(_target: &Arc<str>) -> Result<Report, Box<str>> {
-    std::thread::sleep(std::time::Duration::from_secs(5));
-    Err("oops".into())
-}
+    pub async fn lookup_report(
+        &self,
+        target: &str,
+    ) -> sqlx::Result<Option<(ReportID, ReportStatus)>> {
+        sqlx::query!("select id, status from reports where target = ?", target)
+            .map(|row| (row.id.into(), row.status.into()))
+            .fetch_optional(&self.0)
+            .await
+    }
 
-use base64::{engine::general_purpose, Engine as _};
-fn url_path(url: &str) -> String {
-    let mut buf = "data/".to_string();
-    general_purpose::STANDARD_NO_PAD.encode_string(url, &mut buf);
-    buf
-}
+    pub async fn update_report(
+        &self,
+        report_id: ReportID,
+        anomaly_count: usize,
+        status: &ReportStatus,
+    ) -> sqlx::Result<()> {
+        let now = Utc::now();
+        let count = anomaly_count as i64;
+        let status = status.as_str();
+        sqlx::query!(
+            "update reports set updated_at = ?, anomaly_count = ?, status = ? where id = ?",
+            now,
+            count,
+            status,
+            report_id.0
+        )
+        .execute(&self.0)
+        .await
+        .map(|_| ())
+    }
 
-pub fn report_path(url: &str) -> String {
-    let mut fp = url_path(url);
-    fp.push_str(".bin");
-    fp
-}
-
-pub fn info_path(url: &str) -> String {
-    let mut fp = url_path(url);
-    fp.push_str(".inf");
-    fp
+    pub async fn initialize_report(&self, target: &str, baseline: &str) -> sqlx::Result<ReportID> {
+        let now_utc = Utc::now();
+        let status = ReportStatus::Pending.as_str();
+        let id = sqlx::query!(
+            "insert into reports (created_at, updated_at, target, baseline, anomaly_count, status)
+                      values (?, ?, ?, ?, ?, ?)",
+            now_utc,
+            now_utc,
+            target,
+            baseline,
+            0,
+            status
+        )
+        .execute(&self.0)
+        .await?
+        .last_insert_rowid();
+        Ok(id.into())
+    }
 }

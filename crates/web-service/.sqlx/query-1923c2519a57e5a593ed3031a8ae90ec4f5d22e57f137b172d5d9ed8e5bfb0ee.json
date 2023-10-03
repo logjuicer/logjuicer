@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "update reports set updated_at = ?, anomaly_count = ?, status = ? where id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "1923c2519a57e5a593ed3031a8ae90ec4f5d22e57f137b172d5d9ed8e5bfb0ee"
+}

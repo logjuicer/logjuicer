@@ -2,5 +2,5 @@
 backend = "http://localhost:3030/api"
 
 [[proxy]]
-backend = "http://localhost:3030/wsapi"
+backend = "ws://localhost:3030/wsapi"
 ws = true
