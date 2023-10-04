@@ -1340,6 +1340,7 @@ version = "0.8.5"
 dependencies = [
  "anyhow",
  "base64 0.21.2",
+ "futures",
  "http",
  "hyper",
  "logreduce-report",

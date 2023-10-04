@@ -250,6 +250,27 @@ fn do_render_welcome(_state: &Rc<App>) -> Dom {
     ])})
 }
 
+use futures::{SinkExt, StreamExt};
+use gloo_net::websocket::{futures::WebSocket, Message};
+fn do_render_run(_state: &Rc<App>) -> Dom {
+    log!("Starting ws!");
+    let mut ws = WebSocket::open("ws://localhost:3030/wsapi/run").unwrap();
+    let (mut _write, mut read) = ws.split();
+
+    let handler = async move {
+        while let Some(msg) = read.next().await {
+            log!(&format!("Got {:?}", msg));
+        }
+    };
+
+    html!("div", {.future(handler).class("px-2").children(&mut [
+        html!("div", {.class("font-semibold").text("Welcome to logreduce web interface!")}),
+        link!(Route::Report.to_url(), {
+            .text("test navigation to report")
+        })
+    ])})
+}
+
 fn render_app(state: &Rc<App>) -> Dom {
     let about = html!("div", {.class(["tooltip", "top-1"]).children(&mut [
         html!("p", {.class("text-gray-700").text("This is logreduce report viewer.")}),
@@ -288,7 +309,7 @@ fn render_app(state: &Rc<App>) -> Dom {
     ]).child_signal(state.route.signal_ref(clone!(state => move |route| Some(match route {
         Route::Report => do_render_report(&state),
         Route::Welcome => do_render_welcome(&state),
-        Route::Run => html!("div", {.text("Running...")}),
+        Route::Run => do_render_run(&state),
     }))))})
 }
 
