@@ -58,3 +58,27 @@ pub async fn report_get(
     };
     Ok(resp)
 }
+
+use futures::{SinkExt, StreamExt, TryFutureExt};
+use warp::filters::ws::Message;
+use warp::ws::WebSocket;
+pub async fn run_ws(ws: WebSocket, workers: Workers) {
+    println!("Got ws!");
+
+    // Split the socket into a sender and receive of messages.
+    let (mut user_ws_tx, mut _user_ws_rx) = ws.split();
+    let mut count = 0;
+    loop {
+        count += 1;
+        user_ws_tx
+            .send(Message::text(format!("Hello {}", count)))
+            .unwrap_or_else(|e| {
+                eprintln!("websocket send error: {}", e);
+                panic!("stop?");
+            })
+            .await;
+        println!("Sent message...");
+        tokio::time::sleep(std::time::Duration::from_millis(1_000)).await;
+    }
+    println!("Ws processing over");
+}

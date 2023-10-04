@@ -23,11 +23,19 @@ async fn main() {
     let get_api = warp::path("url")
         .and(warp::path::full())
         .and(warp::get())
-        .and(with_db(workers))
+        .and(with_db(workers.clone()))
         .and_then(routes::report_get);
 
-    let api = root_api.or(get_api);
+    let run_api = warp::path!("wsapi" / "run")
+        .and(warp::ws())
+        .and(with_db(workers))
+        .map(|ws: warp::ws::Ws, workers| {
+            // This will call our function if the handshake succeeds.
+            ws.on_upgrade(move |socket| routes::run_ws(socket, workers))
+        });
 
-    println!("Let's go!");
+    let api = root_api.or(get_api).or(run_api);
+
+    println!("Serving logreduce api on :3030");
     warp::serve(api).run(([0, 0, 0, 0], 3030)).await;
 }

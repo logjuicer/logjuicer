@@ -19,6 +19,7 @@ hyper = "0"
 warp = "0.3"
 http = "0.2"
 base64 = "0"
+futures = "0.3"
 threadpool = { workspace = true }
 
 logreduce-report = { path = "../report" }
