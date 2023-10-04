@@ -18,7 +18,8 @@ gloo-timers = { version = "0.2.1", features = ["futures"] }
 
 # network
 wasm-bindgen-futures = "0.4"
-gloo-net = "0.2"
+gloo-net = "0.4"
+futures = "0.3"
 
 # logreduce
 logreduce-report = { path = "../report" }
