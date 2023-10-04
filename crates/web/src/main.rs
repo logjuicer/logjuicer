@@ -3,14 +3,18 @@
 
 //! This module is the entrypoint of the logreduce web interface.
 
-use dominator::{clone, html, text, Dom};
-use futures_signals::signal::Mutable;
+use dominator::{clone, html, link, routing, text, Dom};
+use futures_signals::signal::SignalExt;
+use gloo_console::log;
 use logreduce_report::{bytes_to_mb, Content, IndexName, LogReport, Report, Source};
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
 mod selection;
 use crate::selection::Selection;
+
+mod state;
+use state::{App, Route};
 
 fn data_attr_html(name: &str, value: &mut [Dom]) -> Dom {
     html!("div", {.class("flex").children(&mut [
@@ -221,6 +225,31 @@ fn render_report_card(report: &Report) -> Dom {
     ])})
 }
 
+fn do_render_report(state: &Rc<App>) -> Dom {
+    spawn_local(clone!(state => async move {
+        // gloo_timers::future::TimeoutFuture::new(3_000).await;
+        let result = get_report("report.bin").await;
+        state.report.replace(Some(result));
+        if let Some(selection) = Selection::from_url() {
+            put_hash_into_view(selection).await
+        }
+    }));
+    html!("div", {.child_signal(state.report.signal_ref(|data| Some(match data {
+        Some(Ok(report)) => render_report(report),
+        Some(Err(err)) => html!("div", {.children(&mut [text("Error: "), text(err)])}),
+        None => html!("div", {.text("loading...")}),
+    })))})
+}
+
+fn do_render_welcome(_state: &Rc<App>) -> Dom {
+    html!("div", {.class("px-2").children(&mut [
+        html!("div", {.class("font-semibold").text("Welcome to logreduce web interface!")}),
+        link!(Route::Report.to_url(), {
+            .text("test navigation to report")
+        })
+    ])})
+}
+
 fn render_app(state: &Rc<App>) -> Dom {
     let about = html!("div", {.class(["tooltip", "top-1"]).children(&mut [
         html!("p", {.class("text-gray-700").text("This is logreduce report viewer.")}),
@@ -230,14 +259,24 @@ fn render_app(state: &Rc<App>) -> Dom {
         data_attr("Viewer", env!("CARGO_PKG_VERSION")),
         data_attr("License", env!("CARGO_PKG_LICENSE")),
     ])});
-    html!("div", {.children(&mut [
+    let router = routing::url()
+        .signal_ref(|url| state::Route::from_url(url))
+        .for_each(clone!(state => move |route| {
+            state.route.set_neq(route);
+            async {}
+        }));
+    let backlink = match &state.base_path {
+        None => html!("span", {.text("logreduce")}),
+        Some(base) => link!(base.clone(), {.text("logreduce")}),
+    };
+    html!("div", {.future(router).children(&mut [
         html!("nav", {.class(["sticky", "top-0", "bg-slate-300", "z-50", "flex", "px-1", "divide-x"]).children(&mut [
-            html!("div", {.class("grow").text("logreduce")}),
-            html!("div", {.class(["has-tooltip", "px-2", "flex", "items-center"])
+            html!("div", {.class("grow").children(&mut [backlink])}),
+            html!("div", {.class(["has-tooltip", "flex", "items-center"])
                           .child_signal(state.report.signal_ref(|data| match data {
                               Some(Ok(report)) => Some(html!("div", {.children(&mut [
                                   render_report_card(report),
-                                  html!("div", {.class("text-sm").text("info")}),
+                                  html!("div", {.class(["px-2", "text-sm"]).text("info")}),
                               ])})),
                               _ => None
                           }))}),
@@ -246,23 +285,11 @@ fn render_app(state: &Rc<App>) -> Dom {
                 html!("div", {.class("text-sm").text("about")}),
             ])})
         ])}),
-    ]).child_signal(state.report.signal_ref(|data| Some(match data {
-        Some(Ok(report)) => render_report(report),
-        Some(Err(err)) => html!("div", {.children(&mut [text("Error: "), text(err)])}),
-        None => html!("div", {.text("loading...")}),
-    })))})
-}
-
-struct App {
-    report: Mutable<Option<Result<Report, String>>>,
-}
-
-impl App {
-    fn new() -> Rc<Self> {
-        Rc::new(Self {
-            report: Mutable::new(None),
-        })
-    }
+    ]).child_signal(state.route.signal_ref(clone!(state => move |route| Some(match route {
+        Route::Report => do_render_report(&state),
+        Route::Welcome => do_render_welcome(&state),
+        Route::Run => html!("div", {.text("Running...")}),
+    }))))})
 }
 
 async fn get_report(path: &str) -> Result<Report, String> {
@@ -282,7 +309,7 @@ async fn put_hash_into_view(selection: Selection) {
     let elem_id = selection.elem_id();
     for _retry in 0..10 {
         if let Some(elem) = body.get_element_by_id(&elem_id) {
-            gloo_console::log!(&format!("Putting {} into view", elem_id));
+            log!(&format!("Putting {} into view", elem_id));
             elem.scroll_into_view_with_scroll_into_view_options(
                 web_sys::ScrollIntoViewOptions::new()
                     .behavior(web_sys::ScrollBehavior::Smooth)
@@ -292,21 +319,15 @@ async fn put_hash_into_view(selection: Selection) {
             selection.highlight();
             break;
         }
-        gloo_console::log!(&format!("Waiting for {}", elem_id));
+        log!(&format!("Waiting for {}", elem_id));
         TimeoutFuture::new(200).await;
     }
 }
 
+// use futures::{SinkExt, StreamExt};
+// use gloo_net::websocket::futures::WebSocket;
 pub fn main() {
     console_error_panic_hook::set_once();
     let app = App::new();
-    spawn_local(clone!(app => async move {
-        // gloo_timers::future::TimeoutFuture::new(3_000).await;
-        let result = get_report("report.bin").await;
-        app.report.replace(Some(result));
-        if let Some(selection) = Selection::from_url() {
-            put_hash_into_view(selection).await
-        }
-    }));
     dominator::append_dom(&dominator::body(), render_app(&app));
 }
