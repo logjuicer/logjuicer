@@ -262,11 +262,17 @@ pub fn http_list(client: &Agent, url: &Url) -> Result<Vec<Url>> {
     }
 }
 
-fn parse_index_of(base_url: Url, page: &str) -> Result<Vec<Url>> {
-    // TODO check for title and support different types of indexes
+fn parse_index_of(base_url: Url, base_page: &str) -> Result<Vec<Url>> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r#"<a href="(\./)*([\\/a-zA-Z0-9][^"]+)""#).unwrap();
     }
+
+    let page = if let Some(ignore_limit) = base_page.find("Logs of interest") {
+        // Ignore page footer that can contains 404 links
+        &base_page[0..ignore_limit]
+    } else {
+        base_page
+    };
 
     RE.captures_iter(page)
         .map(|c| c.get(2).unwrap().as_str())
@@ -462,5 +468,23 @@ fn test_targro_httpdir() {
             "http://localhost/job/tempest-results-barbican.1.html",
             "http://localhost/job/cephstorage-0/"
         ]
+    )
+}
+
+#[test]
+fn test_ignored_links() {
+    let base = Url::parse("http://localhost/job/").unwrap();
+    let urls = parse_index_of(
+        base,
+        r#"
+<a href="ci-framework-data/">ci-framework-data/</a>
+<h3>Logs of interest</h3>
+<li><a href="./ci-framework-data/logs/edpm/">EDPM logs</a>
+"#,
+    )
+    .unwrap();
+    assert_eq!(
+        urls.iter().map(|u| u.as_str()).collect::<Vec<&str>>(),
+        vec!["http://localhost/job/ci-framework-data/",]
     )
 }

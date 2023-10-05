@@ -1,6 +1,8 @@
 next-version
 ============
 
+- Ignore "index of" page footer in httpdir query to avoid 404 errors.
+
 0.8.5
 =====
 
