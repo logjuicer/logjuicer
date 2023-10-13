@@ -10,6 +10,8 @@ use std::fs::File;
 use std::io::{Read, Write};
 use url::Url;
 
+pub type UrlResult = std::result::Result<Url, Box<str>>;
+
 // Low level functions to create unique file names
 mod filename {
     use super::*;
@@ -99,7 +101,7 @@ impl Cache {
     }
 
     /// Get a cached httpdir.
-    pub fn httpdir_get(&self, url: &Url) -> Option<Result<Vec<Url>>> {
+    pub fn httpdir_get(&self, url: &Url) -> Option<Result<Vec<UrlResult>>> {
         self.get(&filename::httpdir(url)).map(|buf| {
             let fp = File::open(buf)?;
             bincode::deserialize_from(fp).context("Failed to decode cached result")
@@ -107,7 +109,7 @@ impl Cache {
     }
 
     /// Add a httpdir to the cache.
-    pub fn httpdir_add(&self, url: &Url, paths: &[Url]) -> Result<()> {
+    pub fn httpdir_add(&self, url: &Url, paths: &[UrlResult]) -> Result<()> {
         let fp = self.create(&filename::httpdir(url))?;
         bincode::serialize_into(fp, paths).context("Failed to serialize httpdir save")
     }
@@ -171,9 +173,9 @@ impl<R: Read> Read for CacheReader<R> {
 fn test_cache_httpdir() {
     let cache = Cache::new().unwrap();
     let url = Url::parse("http://localhost/builds").unwrap();
-    let paths: Vec<Url> = vec!["job-output.txt", "zuul-info/inventory.yaml"]
+    let paths: Vec<UrlResult> = vec!["job-output.txt", "zuul-info/inventory.yaml"]
         .iter()
-        .map(|p| url.join(p).unwrap())
+        .map(|p| Ok(url.join(p).unwrap()))
         .collect();
 
     cache.httpdir_drop(&url).unwrap();

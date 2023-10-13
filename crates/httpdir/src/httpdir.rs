@@ -8,17 +8,17 @@
 //! Here is an example usage:
 //!
 //! ```no_run
-//! # fn main() -> std::io::Result<()> {
+//! # fn main() -> Result<(), httpdir::Error> {
 //! use url::Url;
 //! let url = Url::parse("http://localhost/logs/").unwrap();
-//! let files: Vec<Url> = httpdir::list(url)?;
+//! let files: Vec<Result<Url, httpdir::Error>> = httpdir::list(url);
 //! # Ok(()) }
 //! ```
 //!
 //! Or using the iterator:
 //!
 //! ```no_run
-//! # fn main() -> std::io::Result<()> {
+//! # fn main() -> Result<(), httpdir::Error> {
 //! # use url::Url;
 //! # let url = Url::parse("http://localhost/logs/").unwrap();
 //! for file in httpdir::Crawler::new().walk(url) {
@@ -30,21 +30,41 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashSet;
-use std::io::Result;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use thiserror::Error;
 use threadpool::ThreadPool;
 use ureq::Agent;
 use url::Url;
 
+/// The crawler error
+#[derive(Error, Debug)]
+pub enum Error {
+    /// Process failure.
+    #[error("httpdir process panic")]
+    ProcessPanic,
+
+    /// Unusable url found.
+    #[error("bad httpdir url: {0}")]
+    BadUrl(url::ParseError),
+
+    /// Unreachable url found.
+    #[error("bad httpdir request: {0}: {1}")]
+    RequestError(Url, Box<ureq::Error>),
+
+    /// Bad server reply.
+    #[error("bad httpdir response: {0}: {1}")]
+    ResponseError(Url, std::io::Error),
+}
+
 /// Helper function to walk a single url and list all the available files.
-pub fn list(url: Url) -> Result<Vec<Url>> {
+pub fn list(url: Url) -> Vec<Result<Url, Error>> {
     Crawler::new().list(url)
 }
 
 /// The list function, but using the provided ureq client.
-pub fn list_with_client(client: Agent, url: Url) -> Result<Vec<Url>> {
+pub fn list_with_client(client: Agent, url: Url) -> Vec<Result<Url, Error>> {
     Crawler::new_with_client(client).list(url)
 }
 
@@ -80,7 +100,7 @@ impl Visitor {
 // - found a file url:  Some(url)
 // - got an error:      Some(error)
 // - finished the work: None
-type Message = Option<Result<Url>>;
+type Message = Option<Result<Url, Error>>;
 
 /// The state of the crawler, created calling `Crawler::new()`.
 pub struct Crawler {
@@ -90,11 +110,6 @@ pub struct Crawler {
     // The mpsc channel.
     rx: Receiver<Message>,
     tx: Sender<Message>,
-}
-
-// Helper function to create an io Error
-fn mk_error(msg: &str) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::Other, msg)
 }
 
 impl Crawler {
@@ -116,21 +131,21 @@ impl Crawler {
     }
 
     /// A simple implementation to list all the available files.
-    pub fn list(&self, url: Url) -> Result<Vec<Url>> {
+    pub fn list(&self, url: Url) -> Vec<Result<Url, Error>> {
         // Submit the initial task.
         self.start(url);
         // Wait for all the workers to complete.
         self.workers.join();
         // Collect the results.
         if self.workers.panic_count() > 0 {
-            Err(mk_error("Crawler panicked!"))
+            vec![Err(Error::ProcessPanic)]
         } else {
             self.rx.try_iter().flatten().collect()
         }
     }
 
     /// An iterator based implementation which works a bit differently to poll the results.
-    pub fn walk(self, url: Url) -> impl Iterator<Item = Result<Url>> {
+    pub fn walk(self, url: Url) -> impl Iterator<Item = Result<Url, Error>> {
         // Submit the initial task.
         self.start(url);
         // Create the iterator state.
@@ -162,27 +177,30 @@ impl Crawler {
             let client = client.clone();
 
             // Submit the work.
-            pool.execute(move || match http_list(&client, &url) {
-                // We decoded some urls.
-                Ok(urls) => {
-                    for url in urls {
-                        if url.path().ends_with("/etc/") || !url.as_str().starts_with(&base_url) {
-                            // Special case to avoid system config directory
-                            continue;
-                        } else if let Some(url) = path_dir(&url) {
-                            // Recursively call the handler on sub directory.
-                            Crawler::process(&visitor, &client, &sub_pool, &tx, url)
-                        } else {
-                            // Send file location to the mpsc channel.
-                            tx.send(Some(Ok(url))).unwrap()
+            pool.execute(move || {
+                for url in http_list(&client, &url) {
+                    match url {
+                        // We decoded some urls.
+                        Ok(url) => {
+                            if url.path().ends_with("/etc/") || !url.as_str().starts_with(&base_url)
+                            {
+                                // Special case to avoid system config directory
+                                continue;
+                            } else if let Some(url) = path_dir(&url) {
+                                // Recursively call the handler on sub directory.
+                                Crawler::process(&visitor, &client, &sub_pool, &tx, url)
+                            } else {
+                                // Send file location to the mpsc channel.
+                                tx.send(Some(Ok(url))).unwrap()
+                            }
                         }
-                    }
-                    // Indicate we are done.
-                    tx.send(None).unwrap()
-                }
 
-                // An error happened, propagates it.
-                Err(e) => tx.send(Some(Err(e))).unwrap(),
+                        // An error happened, propagates it.
+                        Err(e) => tx.send(Some(Err(e))).unwrap(),
+                    }
+                }
+                // Indicate we are done.
+                tx.send(None).unwrap()
             });
         }
     }
@@ -212,7 +230,7 @@ impl CrawlerIter {
 }
 
 impl Iterator for CrawlerIter {
-    type Item = Result<Url>;
+    type Item = Result<Url, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.rx.try_recv() {
@@ -228,7 +246,7 @@ impl Iterator for CrawlerIter {
             // There was a panic
             Err(_) if self.workers.panic_count() > 0 => {
                 self.abort = true;
-                Some(Err(mk_error("Crawler panicked!")))
+                Some(Err(Error::ProcessPanic))
             }
 
             // The workers are still active, we can block recv to wait for the next message.
@@ -257,20 +275,18 @@ fn path_dir(url: &Url) -> Option<Url> {
 }
 
 /// List the files and directories of a single url.
-pub fn http_list(client: &Agent, url: &Url) -> Result<Vec<Url>> {
+pub fn http_list(client: &Agent, url: &Url) -> Vec<Result<Url, Error>> {
     // dbg!(&url);
     match client.request_url("GET", url).call() {
-        Ok(resp) => {
-            let url =
-                Url::parse(resp.get_url()).map_err(|e| mk_error(&format!("Bad url {}", e)))?;
-            let body = resp.into_string()?;
-            parse_index_of(url, &body)
-        }
-        Err(e) => Err(mk_error(&format!("Request failed {}", e))),
+        Ok(resp) => match resp.into_string() {
+            Ok(body) => parse_index_of(url.clone(), &body),
+            Err(e) => vec![Err(Error::ResponseError(url.clone(), e))],
+        },
+        Err(e) => vec![Err(Error::RequestError(url.clone(), Box::new(e)))],
     }
 }
 
-fn parse_index_of(base_url: Url, base_page: &str) -> Result<Vec<Url>> {
+fn parse_index_of(base_url: Url, base_page: &str) -> Vec<Result<Url, Error>> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r#"<a href="(\./)*([\\/a-zA-Z0-9][^"]+)""#).unwrap();
     }
@@ -285,11 +301,7 @@ fn parse_index_of(base_url: Url, base_page: &str) -> Result<Vec<Url>> {
     RE.captures_iter(page)
         .map(|c| c.get(2).unwrap().as_str())
         // .map(|link| dbg!(link))
-        .map(|link| {
-            base_url
-                .join(link)
-                .map_err(|e| mk_error(&format!("Invalid link {}", e)))
-        })
+        .map(|link| base_url.join(link).map_err(Error::BadUrl))
         .collect()
 }
 
@@ -342,6 +354,8 @@ fn test_main_httpdir() {
 
     println!("Calling httpdir::list");
     let res = list(url.clone().unwrap())
+        .into_iter()
+        .collect::<Result<Vec<_>, Error>>()
         .unwrap()
         .into_iter()
         .sorted()
@@ -436,7 +450,10 @@ fn test_prow_httpdir() {
         .expect(0)
         .create();
 
-    let res = list(url.clone().unwrap()).unwrap();
+    let res = list(url.clone().unwrap())
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
 
     dbg!(&res);
     assert_eq!(res.len(), 3);
@@ -470,7 +487,7 @@ fn test_targro_httpdir() {
       </tr>
       <tr class="entry">
         <td class="name dir"><a href="./cephstorage-0/">cephstorage-0/</a></td><td>26-Sep-2023 17:47</td><td class="size">56</td></tr>
-"#).unwrap();
+"#).into_iter().collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(
         urls.iter().map(|u| u.as_str()).collect::<Vec<&str>>(),
         vec![
@@ -491,7 +508,10 @@ fn test_ignored_links() {
 <li><a href="./ci-framework-data/logs/edpm/">EDPM logs</a>
 "#,
     )
+    .into_iter()
+    .collect::<Result<Vec<_>, _>>()
     .unwrap();
+
     assert_eq!(
         urls.iter().map(|u| u.as_str()).collect::<Vec<&str>>(),
         vec!["http://localhost/job/ci-framework-data/",]
