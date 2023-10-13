@@ -29,8 +29,10 @@
 
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::HashSet;
 use std::io::Result;
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use threadpool::ThreadPool;
 use ureq::Agent;
@@ -49,19 +51,25 @@ pub fn list_with_client(client: Agent, url: Url) -> Result<Vec<Url>> {
 /// Helper struct to prevent infinit loop.
 struct Visitor {
     // todo: add unique host check
-    // todo: add url hashset to check for unique url
+    visited: Arc<Mutex<HashSet<Url>>>,
     min_len: usize,
 }
 
 impl Visitor {
     fn new() -> Visitor {
-        Visitor { min_len: 0 }
+        Visitor {
+            min_len: 0,
+            visited: Arc::new(Mutex::new(HashSet::new())),
+        }
     }
 
     fn visit(&self, url: &Url) -> Option<Visitor> {
         let min_len = url.path().len();
-        if min_len > self.min_len {
-            Some(Visitor { min_len })
+        if min_len > self.min_len && self.visited.lock().unwrap().insert(url.clone()) {
+            Some(Visitor {
+                min_len,
+                visited: self.visited.clone(),
+            })
         } else {
             None
         }
@@ -310,6 +318,7 @@ fn test_main_httpdir() {
 <tr><td valign="top"><img src="/icons/back.gif" alt="[PARENTDIR]"></td><td><a href="/logs/98/24398/5/check/dhall-diff/">Parent Directory</a></td><td>&nbsp;</td><td align="right">  - </td></tr>
 <tr><td valign="top"><img src="/icons/compressed.gif" alt="[   ]"></td><td><a href="job-output.json.gz">job-output.json.gz</a></td><td align="right">2022-03-23 17:33  </td><td align="right">7.0K</td></tr>
 <tr><td valign="top"><img src="/icons/compressed.gif" alt="[   ]"></td><td><a href="job-output.txt.gz">job-output.txt.gz</a></td><td align="right">2022-03-23 17:33  </td><td align="right">4.7K</td></tr>
+<tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="zuul-info/">zuul-info/</a></td><td align="right">2022-03-23 17:31  </td><td align="right">  - </td></tr>
 <tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="zuul-info/">zuul-info/</a></td><td align="right">2022-03-23 17:31  </td><td align="right">  - </td></tr>
 <tr><td valign="top"><img src="/icons/unknown.gif" alt="[   ]"></td><td><a href="zuul-manifest.json">zuul-manifest.json</a></td><td align="right">2022-03-23 17:33  </td><td align="right">478 </td></tr>
    <tr><th colspan="4"><hr></th></tr>
