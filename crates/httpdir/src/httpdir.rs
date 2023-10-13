@@ -282,6 +282,7 @@ pub fn http_list(client: &Agent, url: &Url) -> Vec<Result<Url, Error>> {
             Ok(body) => parse_index_of(url.clone(), &body),
             Err(e) => vec![Err(Error::ResponseError(url.clone(), e))],
         },
+        Err(ureq::Error::Status(404, _)) => vec![],
         Err(e) => vec![Err(Error::RequestError(url.clone(), Box::new(e)))],
     }
 }
