@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use url::Url;
 
 use crate::env::Env;
@@ -38,18 +38,21 @@ pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Sour
     // TODO: fix the httpdir cache to work with iterator
     let urls = match CACHE.httpdir_get(url) {
         Some(res) => res,
-        None => httpdir::list_with_client(env.client.clone(), url.clone())
-            .context("Can't list url")
-            .and_then(|res| {
-                CACHE.httpdir_add(url, &res)?;
-                Ok(res)
-            }),
+        None => {
+            let urls = httpdir::list_with_client(env.client.clone(), url.clone())
+                .into_iter()
+                // Convert httpdir error into cachable error
+                .map(|url_result| url_result.map_err(|e| format!("{:?}", e).into()))
+                .collect::<Vec<logreduce_cache::UrlResult>>();
+            CACHE.httpdir_add(url, &urls).map(|()| urls)
+        }
     };
     match urls {
-        Ok(urls) => Box::new(
-            urls.into_iter()
-                .map(move |u| Ok(Source::Remote(base_len, u))),
-        ),
+        Ok(urls) => Box::new(urls.into_iter().map(move |url_result| {
+            url_result
+                .map_err(anyhow::Error::msg)
+                .map(|url| Source::Remote(base_len, url))
+        })),
         Err(e) => Box::new(std::iter::once(Err(e))),
     }
 }

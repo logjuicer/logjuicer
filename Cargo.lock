@@ -978,6 +978,7 @@ dependencies = [
  "lazy_static",
  "mockito",
  "regex",
+ "thiserror",
  "threadpool",
  "ureq",
  "url",

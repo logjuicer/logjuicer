@@ -239,6 +239,7 @@ pub fn content_get_sources(content: &Content, env: &Env) -> Result<Vec<Source>> 
                 .map(|src| env.config.is_source_valid(src))
                 .unwrap_or(true)
         })
+        // FIXME: extract errors and emit them separately to avoid abort on a single error
         .collect::<Result<Vec<_>>>()
         .and_then(|sources| match sources.len() {
             0 => Err(anyhow::anyhow!(format!("Empty sources: {}", content))),
