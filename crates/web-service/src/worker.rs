@@ -75,7 +75,10 @@ impl Workers {
                         };
                         (status, count)
                     }
-                    Err(e) => (ReportStatus::Error(e), 0),
+                    Err(e) => {
+                        monitor.emit(format!("Error: {}", e).into());
+                        (ReportStatus::Error(e), 0)
+                    }
                 };
                 // Remove the monitor
                 let _ = running.write().unwrap().remove(&report_id);

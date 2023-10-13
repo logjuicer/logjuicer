@@ -123,7 +123,10 @@ pub fn do_render_new(state: &Rc<App>, target: String) -> Dom {
         result.replace(Some(resp));
     }));
     html!("div", {.child_signal(result.signal_ref(clone!(state => move |data| match data {
-            Some(Ok((report_id, ReportStatus::Pending))) => Some(do_render_run(&state, *report_id)),
+            Some(Ok((report_id, ReportStatus::Pending))) => {
+                // TODO: replace the url (instead of push_history), to prevent back action to trigger the new request
+                Some(do_render_run(&state, *report_id))
+            },
             Some(Ok((report_id, ReportStatus::Completed))) => {
                 state.visit(Route::Report(*report_id));
                 None
