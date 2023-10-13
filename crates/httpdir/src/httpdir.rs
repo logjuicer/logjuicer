@@ -19,10 +19,10 @@
 //!
 //! ```no_run
 //! # fn main() -> Result<(), httpdir::Error> {
-//! # use url::Url;
+//! # use url::Url; use std::sync::Arc;
 //! # let url = Url::parse("http://localhost/logs/").unwrap();
 //! for file in httpdir::Crawler::new().walk(url) {
-//!    let file: Url = file?;
+//!    let file: Arc<Url> = file?;
 //! }
 //! # Ok(()) }
 //! ```
@@ -71,7 +71,7 @@ pub fn list_with_client(client: Agent, url: Url) -> Vec<Result<Url, Error>> {
 /// Helper struct to prevent infinit loop.
 struct Visitor {
     // todo: add unique host check
-    visited: Arc<Mutex<HashSet<Url>>>,
+    visited: Arc<Mutex<HashSet<Arc<Url>>>>,
     min_len: usize,
 }
 
@@ -83,9 +83,9 @@ impl Visitor {
         }
     }
 
-    fn visit(&self, url: &Url) -> Option<Visitor> {
+    fn visit(&self, url: Arc<Url>) -> Option<Visitor> {
         let min_len = url.path().len();
-        if min_len > self.min_len && self.visited.lock().unwrap().insert(url.clone()) {
+        if min_len > self.min_len && self.visited.lock().unwrap().insert(url) {
             Some(Visitor {
                 min_len,
                 visited: self.visited.clone(),
@@ -100,7 +100,7 @@ impl Visitor {
 // - found a file url:  Some(url)
 // - got an error:      Some(error)
 // - finished the work: None
-type Message = Option<Result<Url, Error>>;
+type Message = Option<Result<Arc<Url>, Error>>;
 
 /// The state of the crawler, created calling `Crawler::new()`.
 pub struct Crawler {
@@ -140,12 +140,18 @@ impl Crawler {
         if self.workers.panic_count() > 0 {
             vec![Err(Error::ProcessPanic)]
         } else {
-            self.rx.try_iter().flatten().collect()
+            self.rx
+                .try_iter()
+                .flatten()
+                .map(|aurl| {
+                    aurl.map(|aurl| Arc::into_inner(aurl).expect("Reference count is not 0"))
+                })
+                .collect()
         }
     }
 
     /// An iterator based implementation which works a bit differently to poll the results.
-    pub fn walk(self, url: Url) -> impl Iterator<Item = Result<Url, Error>> {
+    pub fn walk(self, url: Url) -> impl Iterator<Item = Result<Arc<Url>, Error>> {
         // Submit the initial task.
         self.start(url);
         // Create the iterator state.
@@ -158,7 +164,13 @@ impl Crawler {
 
     fn start(&self, url: Url) {
         // Here we pass all the requirements by reference to avoid lifetime issues.
-        Crawler::process(&Visitor::new(), &self.client, &self.workers, &self.tx, url);
+        Crawler::process(
+            &Visitor::new(),
+            &self.client,
+            &self.workers,
+            &self.tx,
+            url.into(),
+        );
     }
 
     // Helper function to handle a single url.
@@ -167,10 +179,10 @@ impl Crawler {
         client: &Agent,
         pool: &ThreadPool,
         tx: &Sender<Message>,
-        url: Url,
+        url: Arc<Url>,
     ) {
-        let base_url = url.as_str().to_string();
-        if let Some(visitor) = visitor.visit(&url) {
+        let base_url = Arc::clone(&url);
+        if let Some(visitor) = visitor.visit(url.clone()) {
             // Increase reference counts.
             let tx = tx.clone();
             let sub_pool = pool.clone();
@@ -182,16 +194,17 @@ impl Crawler {
                     match url {
                         // We decoded some urls.
                         Ok(url) => {
-                            if url.path().ends_with("/etc/") || !url.as_str().starts_with(&base_url)
+                            if url.path().ends_with("/etc/")
+                                || !url.as_str().starts_with(base_url.as_str())
                             {
                                 // Special case to avoid system config directory
                                 continue;
                             } else if let Some(url) = path_dir(&url) {
                                 // Recursively call the handler on sub directory.
-                                Crawler::process(&visitor, &client, &sub_pool, &tx, url)
+                                Crawler::process(&visitor, &client, &sub_pool, &tx, url.into())
                             } else {
                                 // Send file location to the mpsc channel.
-                                tx.send(Some(Ok(url))).unwrap()
+                                tx.send(Some(Ok(url.into()))).unwrap()
                             }
                         }
 
@@ -230,7 +243,7 @@ impl CrawlerIter {
 }
 
 impl Iterator for CrawlerIter {
-    type Item = Result<Url, Error>;
+    type Item = Result<Arc<Url>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.rx.try_recv() {
@@ -279,7 +292,7 @@ pub fn http_list(client: &Agent, url: &Url) -> Vec<Result<Url, Error>> {
     // dbg!(&url);
     match client.request_url("GET", url).call() {
         Ok(resp) => match resp.into_string() {
-            Ok(body) => parse_index_of(url.clone(), &body),
+            Ok(body) => parse_index_of(url, &body),
             Err(e) => vec![Err(Error::ResponseError(url.clone(), e))],
         },
         Err(ureq::Error::Status(404, _)) => vec![],
@@ -287,7 +300,7 @@ pub fn http_list(client: &Agent, url: &Url) -> Vec<Result<Url, Error>> {
     }
 }
 
-fn parse_index_of(base_url: Url, base_page: &str) -> Vec<Result<Url, Error>> {
+fn parse_index_of(base_url: &Url, base_page: &str) -> Vec<Result<Url, Error>> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r#"<a href="(\./)*([\\/a-zA-Z0-9][^"]+)""#).unwrap();
     }
@@ -366,8 +379,8 @@ fn test_main_httpdir() {
     assert!(res.len() == 4);
 
     let iter_res = Crawler::new()
-        .walk(url.unwrap())
-        .map(|r| r.unwrap())
+        .walk(url.unwrap().into())
+        .map(|r| Arc::into_inner(r.unwrap()).unwrap())
         .sorted()
         .collect::<Vec<_>>();
     assert_eq!(res, iter_res);
@@ -468,7 +481,7 @@ fn test_prow_httpdir() {
 #[test]
 fn test_targro_httpdir() {
     let base = Url::parse("http://localhost/job/").unwrap();
-    let urls = parse_index_of(base, r#"
+    let urls = parse_index_of(&base, r#"
       <tr>
         <td class="name up"><a href="../">..</a></td>
         <td></td>
@@ -502,7 +515,7 @@ fn test_targro_httpdir() {
 fn test_ignored_links() {
     let base = Url::parse("http://localhost/job/").unwrap();
     let urls = parse_index_of(
-        base,
+        &base,
         r#"
 <a href="ci-framework-data/">ci-framework-data/</a>
 <h3>Logs of interest</h3>
