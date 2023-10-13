@@ -18,7 +18,7 @@ But it can also be used with curl:
 ### List reports
 
 ```ShellSession
-curl localhost:3030/api/reports | jq
+curl localhost:3000/api/reports | jq
 ```
 
 Returns the following list of [report row](../report/src/report_row.rs):
@@ -44,7 +44,7 @@ pub struct ReportRow {
 ### Get a report
 
 ```ShellSession
-curl localhost:3030/api/report/$REPORT_ID
+curl localhost:3000/api/report/$REPORT_ID
 ```
 
 Return the report containing the anomalies.
@@ -52,7 +52,7 @@ Return the report containing the anomalies.
 ### Create a report
 
 ```ShellSession
-curl localhost:3030/api/report/new?target=$URL
+curl localhost:3000/api/report/new?target=$URL
 ```
 
 Returns the ReportID, ReportStatus
@@ -60,7 +60,7 @@ Returns the ReportID, ReportStatus
 ### Watch a report
 
 ```ShellSession
-curl ws://localhost:3030/wsapi/report/$REPORT_ID
+curl ws://localhost:3000/wsapi/report/$REPORT_ID
 ```
 
 Watch the report creation process.
