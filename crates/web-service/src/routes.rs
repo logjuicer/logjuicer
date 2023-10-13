@@ -131,6 +131,13 @@ pub async fn do_report_watch(report_id: ReportID, ws: WebSocket, workers: Worker
     }
 }
 
-pub async fn index() -> &'static str {
-    "NOT IMPLEMENTED!"
+pub fn generate_html(url_base_path: &str, version: &str) -> String {
+    let url = format!("{url_base_path}assets/logreduce-web.");
+    format!(
+        r#"<!DOCTYPE html><html><head><meta charset="utf-8"><title>logreduce</title>
+<link rel="stylesheet" href="{url}css?v={version}">
+<link rel="preload" href="{url}wasm?v={version}" as="fetch" type="application/wasm" crossorigin="">
+<link rel="modulepreload" href="{url}js?v={version}">
+</head><body><script type="module">import init from '{url}js?v={version}';init();</script></body></html>"#
+    )
 }

@@ -43,5 +43,5 @@ logreduce_web_report: |
     <link rel="preload" href="{{ _assets_url }}.wasm" as="fetch" type="application/wasm" crossorigin="">
     <link rel="modulepreload" href="{{ _assets_url }}.js">
   </head><body>
-    <script type="module">import init from '{{ _assets_url }}.js';init('{{ _assets_url }}.wasm');</script>
+    <script type="module">import init from '{{ _assets_url }}.js';init();</script>
   </body></html>
