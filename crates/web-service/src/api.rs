@@ -4,7 +4,8 @@
 //! This module contains the HTTP logic.
 
 use axum::routing::{get, put};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use std::str::FromStr;
+use tower_http::trace::{self, TraceLayer};
 
 mod database;
 mod routes;
@@ -12,13 +13,9 @@ mod worker;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                "logreduce_web=debug,tower_http=debug,axum::rejection=trace".into()
-            }),
-        )
-        .with(tracing_subscriber::fmt::layer())
+    tracing_subscriber::fmt()
+        .with_target(false)
+        .compact()
         .init();
 
     let workers = worker::Workers::new().await;
@@ -29,9 +26,17 @@ async fn main() {
         .route("/api/report/new", put(routes::report_new))
         .route("/wsapi/report/:report_id", get(routes::report_watch))
         .route("/*path", get(routes::index))
-        .with_state(workers);
+        .with_state(workers)
+        .layer(tower_http::compression::CompressionLayer::new())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
+                .on_response(trace::DefaultOnResponse::new().level(tracing::Level::INFO)),
+        );
 
-    axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
+    let addr = std::net::SocketAddr::from_str("0.0.0.0:3000").unwrap();
+    tracing::info!("listening on {}", addr);
+    axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
         .unwrap();

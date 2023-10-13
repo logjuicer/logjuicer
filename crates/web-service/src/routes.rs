@@ -60,10 +60,15 @@ pub async fn report_new(
             "baseline is not supported".into(),
         ));
     };
-    let report = workers.db.lookup_report(&args.target).await.unwrap();
+    let report = workers
+        .db
+        .lookup_report(&args.target)
+        .await
+        .map_err(handle_db_error)?;
     match report {
         Some(report) => Ok(Json(report)),
         None => {
+            tracing::info!(target = args.target, "Creating a new report");
             let report_id = workers
                 .db
                 .initialize_report(&args.target, args.baseline.as_deref().unwrap_or("auto"))
