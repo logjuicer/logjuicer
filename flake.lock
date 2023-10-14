@@ -10,17 +10,17 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1693787605,
-        "narHash": "sha256-rwq5U8dy+a9JFny/73L0SJu1GfWwATMPMTp7D+mjHy8=",
+        "lastModified": 1695359325,
+        "narHash": "sha256-HZOraC0Cs2vNhygxRoo76NFeBXh7oZY1ZbGMzOMI68Y=",
         "owner": "ipetkov",
         "repo": "crane",
-        "rev": "8b4f7a4dab2120cf41e7957a28a853f45016bd9d",
+        "rev": "9dae37b4a545f05aa70a2f048428c5196690c5a4",
         "type": "github"
       },
       "original": {
         "owner": "ipetkov",
         "repo": "crane",
-        "rev": "8b4f7a4dab2120cf41e7957a28a853f45016bd9d",
+        "rev": "9dae37b4a545f05aa70a2f048428c5196690c5a4",
         "type": "github"
       }
     },
@@ -75,17 +75,17 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1691625043,
-        "narHash": "sha256-IiiOwgRTQm9W1QHe8qme7qYxDbAT2MYxbIJMfPEltN0=",
+        "lastModified": 1697067846,
+        "narHash": "sha256-QFcHhH+BpJlfKszCaS1ahsmmdpLm/yqY97yQC7SMbws=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "3d6ebeb283be256f008541ce2b089eb5fb0e4e01",
+        "rev": "b11ced7a9c1fc44392358e337c0d8f58efc97c89",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "3d6ebeb283be256f008541ce2b089eb5fb0e4e01",
+        "rev": "b11ced7a9c1fc44392358e337c0d8f58efc97c89",
         "type": "github"
       }
     },
@@ -132,17 +132,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1694139063,
-        "narHash": "sha256-M2dhhe6IzHmS0zQkmnzbcG98jEQGZ4UcS3VcT+rG/Do=",
+        "lastModified": 1697163235,
+        "narHash": "sha256-HzGr9LbTKf8x4NeDH94i1J2Cq/0CY1Qrt4z5pETk9HA=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "46dbbcaf435b0d22b149684589b9b059f73f4ffc",
+        "rev": "b48a7e5dab1b472dd9c9ee9053401489dbb4d6fc",
         "type": "github"
       },
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "46dbbcaf435b0d22b149684589b9b059f73f4ffc",
+        "rev": "b48a7e5dab1b472dd9c9ee9053401489dbb4d6fc",
         "type": "github"
       }
     },
