@@ -5,17 +5,17 @@
   inputs = {
     # nixpkgs is tracking nixpkgs-unstable
     nixpkgs.url =
-      "github:NixOS/nixpkgs/3d6ebeb283be256f008541ce2b089eb5fb0e4e01";
+      "github:NixOS/nixpkgs/b11ced7a9c1fc44392358e337c0d8f58efc97c89";
 
     flake-utils.url = "github:numtide/flake-utils";
 
     crane = {
-      url = "github:ipetkov/crane/8b4f7a4dab2120cf41e7957a28a853f45016bd9d";
+      url = "github:ipetkov/crane/9dae37b4a545f05aa70a2f048428c5196690c5a4";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rust-overlay = {
       url =
-        "github:oxalica/rust-overlay/46dbbcaf435b0d22b149684589b9b059f73f4ffc";
+        "github:oxalica/rust-overlay/b48a7e5dab1b472dd9c9ee9053401489dbb4d6fc";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
@@ -52,17 +52,21 @@
         base-info =
           craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; };
 
-        cli-info = {
+        cli-info = base-info // {
           src = src;
-          cargoExtraArgs = "--package=logreduce-cli";
           pname = "logreduce-cli";
-          version = base-info.version;
+          cargoExtraArgs = "--package=logreduce-cli";
         };
-        static-exe = craneLib.buildPackage (cli-info // {
+        exe = craneLib.buildPackage
+          (cli-info // { cargoArtifacts = craneLib.buildDepsOnly cli-info; });
+
+        cli-static-info = cli-info // {
           CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+        };
+        static-exe = craneLib.buildPackage (cli-static-info // {
+          cargoArtifacts = craneLib.buildDepsOnly cli-static-info;
         });
-        exe = craneLib.buildPackage cli-info;
 
         web-info = {
           src = src;
@@ -117,15 +121,16 @@
           '';
         });
 
-        api-info = {
+        api-info = base-info // {
           src = src;
-          cargoExtraArgs = "--package=logreduce-web-service";
           pname = "logreduce-api";
-          version = base-info.version;
+          cargoExtraArgs = "--package=logreduce-web-service";
+        };
+        api = craneLib.buildPackage (api-info // {
           # Start the build relative to the crate to take the sqlx migrations into account.
           preBuild = "cd crates/web-service";
-        };
-        api = craneLib.buildPackage api-info;
+          cargoArtifacts = craneLib.buildDepsOnly api-info;
+        });
 
         container = pkgs.dockerTools.streamLayeredImage {
           name = "ghcr.io/logreduce/logreduce";
