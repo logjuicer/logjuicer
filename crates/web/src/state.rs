@@ -78,6 +78,11 @@ impl App {
         dominator::routing::go_to_url(&route_url);
     }
 
+    pub fn replace_url(&self, route: Route) {
+        let route_url = self.to_url(route);
+        dominator::routing::replace_url(&route_url);
+    }
+
     pub fn to_url(&self, route: Route) -> String {
         route.to_url(&self.base_path)
     }
