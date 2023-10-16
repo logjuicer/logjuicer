@@ -7,9 +7,8 @@ use crate::config::Config;
 use anyhow::Result;
 
 pub struct Env {
-    pub cache: logreduce_cache::Cache,
+    pub cache: Option<logreduce_cache::Cache>,
     pub client: ureq::Agent,
-    pub use_cache: bool,
     pub output: OutputMode,
     pub config: Config,
 }
@@ -26,10 +25,14 @@ impl Env {
         let config = config
             .map(Config::from_path)
             .unwrap_or_else(|| Ok(Config::default()))?;
+        let cache = if std::env::var("LOGREDUCE_CACHE").is_ok() {
+            Some(logreduce_cache::Cache::new().expect("Cache"))
+        } else {
+            None
+        };
         Ok(Env {
-            cache: logreduce_cache::Cache::new().expect("Cache"),
+            cache,
             client: new_agent(),
-            use_cache: std::env::var("LOGREDUCE_CACHE").is_ok(),
             output,
             config,
         })

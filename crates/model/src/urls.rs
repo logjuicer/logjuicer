@@ -32,8 +32,8 @@ pub fn url_open(env: &Env, prefix: usize, url: &Url) -> Result<crate::reader::De
 pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     let base_len = url.as_str().trim_end_matches('/').len() + 1;
     // TODO: fix the httpdir cache to work with iterator
-    let maybe_cached = if env.use_cache {
-        env.cache.httpdir_get(url)
+    let maybe_cached = if let Some(cache) = &env.cache {
+        cache.httpdir_get(url)
     } else {
         None
     };
@@ -45,8 +45,8 @@ pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Sour
             // Convert httpdir error into cachable error
             .map(|url_result| url_result.map_err(|e| format!("{:?}", e).into()))
             .collect::<Vec<logreduce_cache::UrlResult>>();
-        if env.use_cache {
-            env.cache.httpdir_add(url, &urls).map(|()| urls)
+        if let Some(cache) = &env.cache {
+            cache.httpdir_add(url, &urls).map(|()| urls)
         } else {
             Ok(urls)
         }
