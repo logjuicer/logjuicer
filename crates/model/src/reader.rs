@@ -62,16 +62,15 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
 }
 
 pub fn head_url(env: &Env, prefix: usize, url: &Url) -> Result<bool> {
-    if env.use_cache {
-        match env.cache.head(prefix, url) {
+    if let Some(cache) = &env.cache {
+        match cache.head(prefix, url) {
             Some(result) => {
                 tracing::debug!("Cache hit for {}", url);
                 Ok(result)
             }
             None => {
                 tracing::debug!("Cache miss for {}", url);
-                env.cache
-                    .head_set(prefix, url, remote::head(&env.client, url)?)
+                cache.head_set(prefix, url, remote::head(&env.client, url)?)
             }
         }
     } else {
@@ -81,8 +80,8 @@ pub fn head_url(env: &Env, prefix: usize, url: &Url) -> Result<bool> {
 
 /// Read a url, using a prefix size for cache grouping directory.
 pub fn from_url(env: &Env, prefix: usize, url: &Url) -> Result<DecompressReader> {
-    if env.use_cache {
-        match env.cache.remote_get(prefix, url) {
+    if let Some(cache) = &env.cache {
+        match cache.remote_get(prefix, url) {
             Some(cache) => {
                 tracing::debug!("Cache hit for {}", url);
                 cache.map(Gz)
@@ -90,7 +89,7 @@ pub fn from_url(env: &Env, prefix: usize, url: &Url) -> Result<DecompressReader>
             None => {
                 tracing::debug!("Cache miss for {}", url);
                 let resp = remote::get_url(&env.client, url)?;
-                let cache = env.cache.remote_add(prefix, url, resp.into_reader())?;
+                let cache = cache.remote_add(prefix, url, resp.into_reader())?;
                 Ok(Cached(cache))
             }
         }
@@ -100,8 +99,8 @@ pub fn from_url(env: &Env, prefix: usize, url: &Url) -> Result<DecompressReader>
 }
 
 pub fn drop_url(env: &Env, prefix: usize, url: &Url) -> Result<()> {
-    if env.use_cache {
-        env.cache.remote_drop(prefix, url)
+    if let Some(cache) = &env.cache {
+        cache.remote_drop(prefix, url)
     } else {
         Ok(())
     }
