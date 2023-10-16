@@ -35,11 +35,12 @@ async fn main() {
         );
 
     if let Ok(assets) = std::env::var("LOGREDUCE_ASSETS") {
-        // TODO: ensure assets is / terminated;
-        let index = axum::response::Html(routes::generate_html(
-            &std::env::var("LOGREDUCE_BASE_URL").unwrap_or("/".into()),
-            env!("CARGO_PKG_VERSION"),
-        ));
+        let mut base_url = std::env::var("LOGREDUCE_BASE_URL").unwrap_or("/".into());
+        if !base_url.ends_with('/') {
+            base_url.push('/');
+        }
+        let index =
+            axum::response::Html(routes::generate_html(&base_url, env!("CARGO_PKG_VERSION")));
         app = app
             .nest_service("/assets", ServeDir::new(assets).precompressed_gzip())
             .fallback(get(|| async { index }))
