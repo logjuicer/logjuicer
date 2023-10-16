@@ -124,11 +124,10 @@ pub fn do_render_new(state: &Rc<App>, target: String) -> Dom {
     }));
     html!("div", {.child_signal(result.signal_ref(clone!(state => move |data| match data {
             Some(Ok((report_id, ReportStatus::Pending))) => {
-                // TODO: replace the url (instead of push_history), to prevent back action to trigger the new request
                 Some(do_render_run(&state, *report_id))
             },
             Some(Ok((report_id, ReportStatus::Completed))) => {
-                state.visit(Route::Report(*report_id));
+                state.replace_url(Route::Report(*report_id));
                 None
             },
             Some(Ok((_, ReportStatus::Error(e)))) => Some(html!("div", {.children(&mut [
@@ -166,12 +165,12 @@ pub fn do_render_run(state: &Rc<App>, report_id: ReportID) -> Dom {
             infos.lock_mut().push_cloned(Rc::new(msg));
             if done {
                 gloo_timers::future::TimeoutFuture::new(500).await;
-                state.visit(Route::Report(final_id));
+                state.replace_url(Route::Report(final_id));
             }
         }
         log!("WebSocket stream ended!");
         gloo_timers::future::TimeoutFuture::new(1_000).await;
-        state.visit(Route::Report(final_id));
+        state.replace_url(Route::Report(final_id));
     }));
 
     let sig = infos

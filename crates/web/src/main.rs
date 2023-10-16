@@ -34,6 +34,7 @@ fn render_app(state: &Rc<App>) -> Dom {
     let router = routing::url()
         .signal_ref(|url| state::Route::from_url(url))
         .for_each(clone!(state => move |route| {
+            log!(format!("New route {:?}", route));
             state.route.set_neq(route);
             async {}
         }));
