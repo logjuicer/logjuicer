@@ -7,10 +7,6 @@ use url::Url;
 use crate::env::Env;
 use crate::{Content, Source};
 
-lazy_static::lazy_static! {
-    static ref CACHE: logreduce_cache::Cache = logreduce_cache::Cache::new().expect("Cache");
-}
-
 #[tracing::instrument(level = "debug", skip(env))]
 pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
     if !url.has_authority() {
@@ -36,17 +32,26 @@ pub fn url_open(env: &Env, prefix: usize, url: &Url) -> Result<crate::reader::De
 pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     let base_len = url.as_str().trim_end_matches('/').len() + 1;
     // TODO: fix the httpdir cache to work with iterator
-    let urls = match CACHE.httpdir_get(url) {
-        Some(res) => res,
-        None => {
-            let urls = httpdir::list_with_client(env.client.clone(), url.clone())
-                .into_iter()
-                // Convert httpdir error into cachable error
-                .map(|url_result| url_result.map_err(|e| format!("{:?}", e).into()))
-                .collect::<Vec<logreduce_cache::UrlResult>>();
-            CACHE.httpdir_add(url, &urls).map(|()| urls)
+    let maybe_cached = if env.use_cache {
+        env.cache.httpdir_get(url)
+    } else {
+        None
+    };
+    let urls = if let Some(cached) = maybe_cached {
+        cached
+    } else {
+        let urls = httpdir::list_with_client(env.client.clone(), url.clone())
+            .into_iter()
+            // Convert httpdir error into cachable error
+            .map(|url_result| url_result.map_err(|e| format!("{:?}", e).into()))
+            .collect::<Vec<logreduce_cache::UrlResult>>();
+        if env.use_cache {
+            env.cache.httpdir_add(url, &urls).map(|()| urls)
+        } else {
+            Ok(urls)
         }
     };
+
     match urls {
         Ok(urls) => Box::new(urls.into_iter().map(move |url_result| {
             url_result
