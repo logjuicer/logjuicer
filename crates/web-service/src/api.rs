@@ -49,6 +49,10 @@ async fn main() {
     tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
+        .with_graceful_shutdown(async {
+            let _ = tokio::signal::ctrl_c().await;
+            tracing::info!("shuting down");
+        })
         .await
         .unwrap();
 }
