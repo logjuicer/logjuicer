@@ -2,6 +2,7 @@ next-version
 ============
 
 - Ignore "index of" page footer in httpdir query to avoid 404 errors.
+- Do not skip zuul baseline build when they have no ref or change associated.
 
 0.8.5
 =====

@@ -110,7 +110,7 @@ fn baseline_score(build: &ZuulBuild, target: &zuul_build::Build, now: &NaiveDate
     let mut score = 0;
     // Rules
     if build.project == target.project {
-        if build.change == target.change? {
+        if Some(build.change) == target.change || Some(&build.ref_url) == target.ref_url.as_ref() {
             // We don't want to compare with the same change
             score -= 500;
         } else {
