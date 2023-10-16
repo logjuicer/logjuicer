@@ -21,15 +21,17 @@ const TH_CLASS: [&str; 2] = ["px-3", "py-2"];
 fn render_report_row(state: &Rc<App>, report: &ReportRow) -> Dom {
     let status = match &report.status {
         ReportStatus::Pending => {
-            html!("td", {.child(link!(state.to_url(Route::Watch(report.id)), {.text("watch")}))})
+            link!(state.to_url(Route::Watch(report.id)), {.text("watch")})
         }
         ReportStatus::Completed => {
-            html!("td", {.child(link!(state.to_url(Route::Report(report.id)), {.text("read")}))})
+            link!(state.to_url(Route::Report(report.id)), {.text("read")})
         }
-        ReportStatus::Error(err) => html!("td", {.text(&format!("Err: {}", err))}),
+        ReportStatus::Error(err) => {
+            link!(state.to_url(Route::Report(report.id)), {.text("error").attr("title", &err)})
+        }
     };
     html!("tr", {.class(["border-b", "px-6"]).children(&mut [
-            status,
+            html!("td", {.class(TH_CLASS).child(status)}),
             html!("td", {.class(TH_CLASS).text(&report.target)}),
             html!("td", {.class(TH_CLASS).text(&format!("{}", report.updated_at))}),
         ])
