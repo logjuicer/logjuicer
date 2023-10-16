@@ -115,15 +115,14 @@ impl App {
             "/".into()
         };
 
-        // TODO
         let url = Url::new(&initial_url).unwrap();
-        let ws_proto = if url.protocol() == "https" {
+        let ws_proto = if url.protocol() == "https:" {
             "wss"
         } else {
             "ws"
         };
-        let ws_api = format!("{}://{}/wsapi/", ws_proto, url.host()).into();
-
+        let ws_api = format!("{}://{}{}wsapi/", ws_proto, url.host(), base_path).into();
+        gloo_console::log!(format!("Initial ws_api: {}", ws_api));
         Rc::new(Self {
             report: Mutable::new(None),
             is_static: initial_route == Route::StaticViewer,
