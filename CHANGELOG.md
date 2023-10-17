@@ -1,8 +1,10 @@
 next-version
 ============
 
-- Ignore "index of" page footer in httpdir query to avoid 404 errors.
-- Do not skip zuul baseline build when they have no ref or change associated.
+- release: Merge the web, api and cli release into a single version.
+- cli: Generate the html file along with the binary report.
+- httpdir: Ignore "index of" page footer in httpdir query to avoid 404 errors.
+- model: Do not skip zuul baseline build when they have no ref or change associated.
 - web: Make the log report header sticky.
 
 0.8.5

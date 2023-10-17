@@ -32,7 +32,8 @@
   command: >
     timeout {{ logreduce_max_run_time }}s {{ logreduce_cmd }}
       --model {{ _model_path }}
-      --report {{ zuul.executor.log_root }}/report.bin
+      --report {{ zuul.executor.log_root }}/logreduce.bin
+      {% if logreduce_web_url %}--web-package-url {{ logreduce_web_url }}{% endif %}
       {% if _has_config %}--config {{ logreduce_tmp_dir }}/logreduce-config.json {% endif %}
       zuul-build
       --api-url {{ logreduce_zuul_web }}
@@ -54,17 +55,10 @@
 
 - name: Register the output
   when: _logreduce_run.rc == 0
-  block:
-    - name: Copy the report html
-      copy:
-        content: "{{ logreduce_web_report }}"
-        dest: "{{ zuul.executor.log_root }}/logreduce.html"
-
-    - name: Return the report artifact
-      delegate_to: localhost
-      zuul_return:
-        data:
-          zuul:
-            artifacts:
-              - name: "LogReduce report"
-                url: "logreduce.html"
+  delegate_to: localhost
+  zuul_return:
+    data:
+      zuul:
+        artifacts:
+          - name: "LogReduce report"
+            url: "logreduce.html"
