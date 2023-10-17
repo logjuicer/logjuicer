@@ -1,8 +1,11 @@
 [package]
 name = "logreduce-web"
-version = "0.2.3"
-edition = "2021"
-license = "Apache-2.0"
+description = "The WASM based web client for logreduce."
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
 
 [features]
 default = ["api_client"]

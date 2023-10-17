@@ -17,6 +17,7 @@ pub mod report_row;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Report {
+    // FIXME: this field is unused
     pub version: smol_str::SmolStr,
     pub created_at: SystemTime,
     pub run_time: Duration,

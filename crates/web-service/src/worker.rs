@@ -130,9 +130,8 @@ fn process_report(env: &Env, target: &str, monitor: &ProcessMonitor) -> Result<R
         .map_err(|e| format!("training failed: {:?}", e))?;
 
     monitor.emit("Starting analysis".into());
-    let version = env!("CARGO_PKG_VERSION").into();
     let report = model
-        .report(version, env, content)
+        .report(env, content)
         .map_err(|e| format!("report failed: {:?}", e))?;
     Ok(report)
 }

@@ -1506,7 +1506,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "smol_str",
  "tempfile",
  "thiserror",
  "tracing",
@@ -1555,7 +1554,7 @@ dependencies = [
 
 [[package]]
 name = "logreduce-web"
-version = "0.2.3"
+version = "0.8.5"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
