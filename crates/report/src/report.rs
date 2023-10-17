@@ -13,12 +13,16 @@ use std::time::{Duration, SystemTime};
 use thiserror::Error;
 use url::Url;
 
+mod schema_capnp {
+    #![allow(dead_code, unused_qualifications, clippy::extra_unused_type_parameters)]
+    include!("../generated/schema_capnp.rs");
+}
+
+pub mod codec;
 pub mod report_row;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Report {
-    // FIXME: this field is unused
-    pub version: smol_str::SmolStr,
     pub created_at: SystemTime,
     pub run_time: Duration,
     pub target: Content,
@@ -46,30 +50,34 @@ pub enum Error {
     IOError(#[from] std::io::Error),
 
     #[error("decode error: {0}")]
-    DecodeError(#[from] bincode::Error),
+    DecodeError(#[from] capnp::Error),
 }
 
 impl Report {
     pub fn save(&self, path: &Path) -> Result<(), Error> {
-        bincode::serialize_into(
-            flate2::write::GzEncoder::new(
-                std::fs::File::create(path).map_err(Error::IOError)?,
-                flate2::Compression::fast(),
-            ),
-            self,
-        )
-        .map_err(Error::DecodeError)
+        codec::ReportEncoder::new()
+            .encode(
+                self,
+                flate2::write::GzEncoder::new(
+                    std::fs::File::create(path).map_err(Error::IOError)?,
+                    flate2::Compression::fast(),
+                ),
+            )
+            .map_err(Error::DecodeError)
     }
 
     pub fn load(path: &Path) -> Result<Report, Error> {
-        bincode::deserialize_from(flate2::read::GzDecoder::new(
-            std::fs::File::open(path).map_err(Error::IOError)?,
-        ))
-        .map_err(Error::DecodeError)
+        codec::ReportDecoder::new()
+            .decode(std::io::BufReader::new(flate2::read::GzDecoder::new(
+                std::fs::File::open(path).map_err(Error::IOError)?,
+            )))
+            .map_err(Error::DecodeError)
     }
 
     pub fn load_bytes(data: &[u8]) -> Result<Report, Error> {
-        bincode::deserialize_from(flate2::read::GzDecoder::new(data)).map_err(Error::DecodeError)
+        codec::ReportDecoder::new()
+            .decode(std::io::BufReader::new(flate2::read::GzDecoder::new(data)))
+            .map_err(Error::DecodeError)
     }
 }
 
@@ -105,6 +113,21 @@ impl ZuulBuild {
         url.push_str(&self.uuid);
         url
     }
+    pub fn sample(name: &str) -> Self {
+        Self {
+            api: ApiUrl::parse(&format!("http://localhost/{name}-api")).unwrap(),
+            uuid: format!("{name}-uuid").into(),
+            job_name: format!("{name}-job").into(),
+            project: format!("{name}-project").into(),
+            branch: format!("{name}-branch").into(),
+            result: format!("{name}-result").into(),
+            pipeline: format!("{name}-pipeline").into(),
+            log_url: Url::parse(&format!("http://localhost/{name}-log")).unwrap(),
+            ref_url: Url::parse(&format!("http://localhost/{name}-ref")).unwrap(),
+            end_time: codec::read_datetime(name.len() as u64).unwrap(),
+            change: name.len() as u64,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -121,6 +144,20 @@ pub struct ProwBuild {
 impl std::fmt::Display for ProwBuild {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.url.as_str())
+    }
+}
+
+impl ProwBuild {
+    pub fn sample(name: &str) -> Self {
+        Self {
+            url: Url::parse(&format!("http://localhost/{name}-url")).unwrap(),
+            uid: format!("{name}-uid").into(),
+            job_name: format!("{name}-job").into(),
+            project: format!("{name}-project").into(),
+            pr: name.len() as u64,
+            storage_type: format!("{name}-storage-type").into(),
+            storage_path: format!("{name}-storage-path").into(),
+        }
     }
 }
 
@@ -193,14 +230,14 @@ impl std::fmt::Display for Source {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Anomaly {
     pub distance: f32,
     pub pos: usize,
     pub line: Rc<str>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AnomalyContext {
     pub before: Vec<Rc<str>>,
     pub anomaly: Anomaly,
@@ -216,7 +253,7 @@ impl AnomalyContext {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct LogReport {
     pub test_time: Duration,
     pub line_count: usize,
@@ -281,7 +318,7 @@ fn test_report_sort() {
     assert_eq!(sources, expected);
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct IndexReport {
     pub train_time: Duration,
     pub sources: Vec<Source>,

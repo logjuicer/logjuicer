@@ -17,7 +17,6 @@ path = "src/report.rs"
 [dependencies]
 thiserror = { workspace = true }
 chrono = { workspace = true }
-bincode = { workspace = true }
 flate2 = { workspace = true }
 serde = { workspace = true }
 smol_str = { workspace = true }
@@ -25,3 +24,8 @@ itertools = { workspace = true }
 url = { workspace = true, features = ["serde"] }
 # For IndexName...
 logreduce-tokenizer = { path = "../tokenizer" }
+
+capnp = "0.18"
+
+[build-dependencies]
+capnpc = "0.18"

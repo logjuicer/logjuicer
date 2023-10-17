@@ -86,7 +86,7 @@ pub fn decode_builds<R: std::io::Read>(reader: R) -> serde_json::Result<Vec<Buil
 
 // Copy pasta from https://serde.rs/custom-date-format.html
 mod python_utc_without_trailing_z {
-    use chrono::{DateTime, TimeZone, Utc};
+    use chrono::{DateTime, Utc};
     use serde::{self, Deserialize, Deserializer, Serializer};
 
     const FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
@@ -104,8 +104,9 @@ mod python_utc_without_trailing_z {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Utc.datetime_from_str(&s, FORMAT)
-            .map_err(serde::de::Error::custom)
+        let naive =
+            chrono::NaiveDateTime::parse_from_str(&s, FORMAT).map_err(serde::de::Error::custom)?;
+        Ok(DateTime::from_naive_utc_and_offset(naive, Utc))
     }
 }
 
