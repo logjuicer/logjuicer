@@ -18,4 +18,5 @@ pub fn data_attr(name: &str, value: &str) -> Dom {
     data_attr_html(name, &mut [dominator::text(value)])
 }
 
+#[cfg(feature = "api_client")]
 pub type FetchResult<Value> = Option<Result<Value, String>>;

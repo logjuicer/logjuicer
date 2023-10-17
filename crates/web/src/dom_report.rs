@@ -12,7 +12,24 @@ use logreduce_report::{bytes_to_mb, Content, IndexName, LogReport, Report, Sourc
 
 use crate::dom_utils::{data_attr, data_attr_html, render_link};
 use crate::selection::Selection;
+
+#[cfg(feature = "api_client")]
 use crate::state::App;
+
+#[cfg(not(feature = "api_client"))]
+use futures_signals::signal::Mutable;
+#[cfg(not(feature = "api_client"))]
+pub struct App {
+    pub report: Mutable<Option<Result<Report, String>>>,
+}
+#[cfg(not(feature = "api_client"))]
+impl App {
+    pub fn new() -> Self {
+        Self {
+            report: Mutable::new(None),
+        }
+    }
+}
 
 fn render_source_link(source: &Source) -> Dom {
     render_link(source.as_str(), log_name(source.get_relative()))
