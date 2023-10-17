@@ -3,6 +3,7 @@ next-version
 
 - Ignore "index of" page footer in httpdir query to avoid 404 errors.
 - Do not skip zuul baseline build when they have no ref or change associated.
+- web: Make the log report header sticky.
 
 0.8.5
 =====
@@ -11,17 +12,8 @@ next-version
 - Fix http dir query not using the provided certificate.
 - Try to use the default /etc/pki/tls/certs/ca-bundle.crt CA for TLS verification.
 - Support targro http directory.
-
-web-0.2.4 (next)
-=========
-
-- Make the log report header sticky.
-
-web-0.2.3
-=========
-
-- Fix url of invalid report.
-- Add log line anchors.
+- web: Fix url of invalid report.
+- web: Add log line anchors.
 
 0.8.4
 =====

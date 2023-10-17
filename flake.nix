@@ -136,8 +136,10 @@
           cargoArtifacts = craneLib.buildDepsOnly api-info;
         });
 
+        container-name = "ghcr.io/logreduce/logreduce";
+
         container = pkgs.dockerTools.streamLayeredImage {
-          name = "ghcr.io/logreduce/logreduce";
+          name = container-name;
           contents = [ api web ];
           tag = "latest";
           created = "now";
@@ -173,6 +175,21 @@
           echo cp $out logreduce-x86_64-linux.tar.bz2
         '';
 
+        publish-container-release =
+          pkgs.writeShellScriptBin "logreduce-release" ''
+            export PATH=$PATH:${pkgs.gzip}/bin:${pkgs.skopeo}/bin
+            IMAGE="docker://${container-name}"
+
+            echo "Logging to registry..."
+            echo $GH_TOKEN | skopeo login --username $GH_USERNAME --password-stdin ghcr.io
+
+            echo "Building and publishing the image..."
+            ${container} | gzip --fast | skopeo copy docker-archive:/dev/stdin $IMAGE:${api-info.version}
+
+            echo "Tagging latest"
+            skopeo copy $IMAGE:${api-info.version} $IMAGE:latest
+          '';
+
       in {
         defaultPackage = exe;
         packages.api = api;
@@ -180,13 +197,13 @@
         packages.web_api = web;
         # use with:
         # $(nix build .#container) | podman load
-        # or publish directly with:
-        # $(nix build .#container) | gzip --fast | skopeo copy docker-archive:/dev/stdin docker://ghcr.io/logreduce/logreduce:latest
         packages.container = container;
         apps.default = flake-utils.lib.mkApp {
           drv = exe;
           name = "logreduce";
         };
+        apps.publish-container-release =
+          flake-utils.lib.mkApp { drv = publish-container-release; };
         devShell = craneLib.devShell {
           packages = with pkgs; [
             rust-analyzer
