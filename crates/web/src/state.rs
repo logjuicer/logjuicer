@@ -11,7 +11,6 @@ use web_sys::Url;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
-    StaticViewer,
     Report(ReportID),
     Watch(ReportID),
     NewReport(Rc<str>),
@@ -23,9 +22,7 @@ impl Route {
         let url = Url::new(url_str).unwrap();
         let path = url.pathname();
         let params = url.search_params();
-        if path.ends_with("/logreduce.html") {
-            Route::StaticViewer
-        } else if path.ends_with("/report/new") {
+        if path.ends_with("/report/new") {
             if let Some(target) = params.get("target") {
                 Route::NewReport(target.into())
             } else {
@@ -65,7 +62,6 @@ impl Default for Route {
 }
 
 pub struct App {
-    pub is_static: bool,
     pub report: Mutable<Option<Result<Report, String>>>,
     pub route: Mutable<Route>,
     pub base_path: Box<str>,
@@ -103,7 +99,7 @@ impl App {
         format!("{}report/{}", self.ws_api, report_id)
     }
 
-    pub fn new() -> Rc<Self> {
+    pub fn new() -> Self {
         let binding = routing::url();
         // Figure out what is the initial route
         let initial_url = binding.lock_ref();
@@ -123,12 +119,11 @@ impl App {
         };
         let ws_api = format!("{}://{}{}wsapi/", ws_proto, url.host(), base_path).into();
         gloo_console::log!(format!("Initial ws_api: {}", ws_api));
-        Rc::new(Self {
+        Self {
             report: Mutable::new(None),
-            is_static: initial_route == Route::StaticViewer,
             route: Mutable::new(initial_route),
             base_path,
             ws_api,
-        })
+        }
     }
 }

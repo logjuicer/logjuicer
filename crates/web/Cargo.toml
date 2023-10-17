@@ -4,6 +4,11 @@ version = "0.2.3"
 edition = "2021"
 license = "Apache-2.0"
 
+[features]
+default = ["api_client"]
+# Include the full web service client
+api_client = []
+
 [dependencies]
 # base
 console_error_panic_hook = "0.1"
