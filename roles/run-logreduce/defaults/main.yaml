@@ -9,7 +9,7 @@ _model_hash: "{% if _has_config %}-{{ logreduce_config | hash('md5') }}{% endif 
 _model_path: "{{ logreduce_tmp_dir }}/model.bin"
 
 # Change this to a local location with a folder per web's version.
-logreduce_web_url: "https://unpkg.com/logreduce-web@"
+logreduce_web_url: null
 
 # Set this to true to run logreduce
 logreduce_optin: false
@@ -29,16 +29,3 @@ logreduce_model_store_url: https://softwarefactory-project.io/logs/classifiers
 
 # Local path
 logreduce_tmp_dir: "{{ ansible_env.HOME }}/.logreduce"
-
-# The location of the logreduce-web artifact.
-_assets_url: "{{ logreduce_web_url }}{{ logreduce_version }}/logreduce-web"
-logreduce_web_report: |
-  <!DOCTYPE html><html><head>
-    <meta charset="utf-8">
-    <title>Logreduce {{ zuul.build | default('') }}</title>
-    <link rel="stylesheet" href="{{ _assets_url }}.css">
-    <link rel="preload" href="{{ _assets_url }}.wasm" as="fetch" type="application/wasm" crossorigin="">
-    <link rel="modulepreload" href="{{ _assets_url }}.js">
-  </head><body>
-    <script type="module">import init from '{{ _assets_url }}.js';init();</script>
-  </body></html>

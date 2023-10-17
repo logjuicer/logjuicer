@@ -21,7 +21,7 @@ The application support the following SPA URL:
 ## Contribute
 
 Develop the web interface by first generating a report with:
-`cargo run -p logreduce-cli -- --report report.bin ...`. Then
+`cargo run -p logreduce-cli -- --report logreduce.bin ...`. Then
 run the
 
 ```ShellSession

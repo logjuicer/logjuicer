@@ -29,6 +29,13 @@ struct Cli {
     #[clap(long, help = "Create an html report")]
     report: Option<PathBuf>,
 
+    #[clap(
+        hide = true,
+        long,
+        help = "Base url for web package. The version number will be added to it. Default to 'https://unpkg.com/logreduce-web@'"
+    )]
+    web_package_url: Option<String>,
+
     #[clap(long, help = "Load or save the model", value_name = "FILE")]
     model: Option<PathBuf>,
 
@@ -113,13 +120,26 @@ impl Cli {
         let env = Env::new_with_settings(self.config, output)?;
         match self.command {
             // Discovery commands
-            Commands::Path { path } => {
-                process(&env, self.report, self.model, None, Input::Path(path))
-            }
-            Commands::Url { url } => process(&env, self.report, self.model, None, Input::Url(url)),
+            Commands::Path { path } => process(
+                &env,
+                self.report,
+                self.web_package_url,
+                self.model,
+                None,
+                Input::Path(path),
+            ),
+            Commands::Url { url } => process(
+                &env,
+                self.report,
+                self.web_package_url,
+                self.model,
+                None,
+                Input::Url(url),
+            ),
             Commands::ZuulBuild { log_root, api_url } => process(
                 &env,
                 self.report,
+                self.web_package_url,
                 self.model,
                 None,
                 Input::ZuulBuild(log_root, api_url),
@@ -130,6 +150,7 @@ impl Cli {
             Commands::Diff { src, dst } => process(
                 &env,
                 self.report,
+                self.web_package_url,
                 self.model,
                 Some(src.into_iter().map(Input::from_string).collect()),
                 Input::from_string(dst),
@@ -309,6 +330,7 @@ fn main() -> Result<()> {
 fn process(
     env: &Env,
     report: Option<PathBuf>,
+    web_package_url: Option<String>,
     model_path: Option<PathBuf>,
     baselines: Option<Vec<Input>>,
     input: Input,
@@ -362,9 +384,12 @@ fn process(
             let report = model.report(env, content)?;
 
             match file.extension().and_then(std::ffi::OsStr::to_str) {
-                Some("bin") => report
-                    .save(&file)
-                    .context("Failed to write the binary report"),
+                Some("bin") => {
+                    report
+                        .save(&file)
+                        .context("Failed to write the binary report")?;
+                    write_html(&file, web_package_url)
+                }
                 Some("html") => std::fs::write(
                     &file,
                     logreduce_static_html::render(&report).context("Error rendering the report")?,
@@ -561,4 +586,30 @@ fn clear_progress(output_mode: OutputMode) {
     if output_mode.inlined() {
         print!("\r\x1b[K");
     }
+}
+
+fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Result<()> {
+    let version = env!("CARGO_PKG_VERSION");
+    let assets_url = match web_package_url {
+        Some(url) => format!("{url}{version}/logreduce-web"),
+        None => format!("https://unpkg.com/logreduce-web@{version}/logreduce-web"),
+    };
+
+    // By default the client fetch a file named "logreduce.bin".
+    // If that's not the case, then inject a small script to tweak that behavior.
+    let report_script = match report.file_name().and_then(|os| os.to_str()) {
+        Some(path) if path != "logreduce.bin" => format!("window.report = '{path}';"),
+        _ => "".to_string(),
+    };
+
+    let index = format!(
+        r#"<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Logreduce</title>
+<link rel="stylesheet" href="{assets_url}.css">
+<link rel="preload" href="{assets_url}.wasm" as="fetch" type="application/wasm" crossorigin="">
+<link rel="modulepreload" href="{assets_url}.js"></head>
+<body><script type="module">{report_script}import init from '{assets_url}.js';init();</script></body></html>"#
+    );
+
+    std::fs::write(report.with_extension("html"), index).context("Failed to write the html file")
 }

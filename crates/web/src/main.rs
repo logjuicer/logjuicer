@@ -86,9 +86,16 @@ fn render_app(state: &Rc<App>) -> Dom {
     }))))});
 
     #[cfg(not(feature = "api_client"))]
+    let report_path = web_sys::window()
+        .unwrap()
+        .get("report")
+        .and_then(|obj| obj.as_string())
+        .unwrap_or_else(|| "logreduce.bin".to_string());
+
+    #[cfg(not(feature = "api_client"))]
     let body = html!("div", {.children(clone!(state => &mut [
         nav,
-        fetch_and_render_report(&state, "report.bin".into()),
+        fetch_and_render_report(&state, report_path),
     ]))});
 
     body
