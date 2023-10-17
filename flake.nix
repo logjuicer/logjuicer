@@ -68,11 +68,10 @@
           cargoArtifacts = craneLib.buildDepsOnly cli-static-info;
         });
 
-        web-info = {
+        web-info = base-info // {
           src = src;
+          pname = "logreduce-web";
           cargoExtraArgs = "--package=logreduce-web";
-        } // craneLib.crateNameFromCargoToml {
-          cargoToml = ./crates/web/Cargo.toml;
         };
         web-package = {
           name = "logreduce-web";

@@ -365,7 +365,7 @@ impl Model {
 
     /// Create the final report.
     #[tracing::instrument(level = "debug", skip(env, self))]
-    pub fn report(&self, version: smol_str::SmolStr, env: &Env, target: Content) -> Result<Report> {
+    pub fn report(&self, env: &Env, target: Content) -> Result<Report> {
         let start_time = Instant::now();
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
@@ -422,7 +422,7 @@ impl Model {
             }
         }
         Ok(Report {
-            version,
+            version: "".into(),
             created_at,
             run_time: start_time.elapsed(),
             target,

@@ -219,7 +219,6 @@ pub fn render_report_card(report: &Report) -> Dom {
         data_attr_html("Target", &mut [render_content(&report.target)]),
         data_attr_html("Baselines", &mut report.baselines.iter().map(render_content).collect::<Vec<Dom>>()),
         data_attr("Created at", &render_time(&report.created_at)),
-        data_attr("Version",    &report.version),
         data_attr("Run time",   &format!("{:.2} sec", report.run_time.as_secs_f32())),
         data_attr("Result",     &result),
     ])})
