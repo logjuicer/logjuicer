@@ -213,6 +213,7 @@
             wasm-pack
             sqlx-cli
             sqlite
+            capnproto
           ];
           LOGREDUCE_CACHE = "1";
           UPDATE_GOLDENFILES = "1";

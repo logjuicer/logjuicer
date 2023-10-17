@@ -6,6 +6,7 @@ next-version
 - httpdir: Ignore "index of" page footer in httpdir query to avoid 404 errors.
 - model: Do not skip zuul baseline build when they have no ref or change associated.
 - web: Make the log report header sticky.
+- report: Serialize using capnproto to implement backward compatibility.
 
 0.8.5
 =====

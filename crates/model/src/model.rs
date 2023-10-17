@@ -422,7 +422,6 @@ impl Model {
             }
         }
         Ok(Report {
-            version: "".into(),
             created_at,
             run_time: start_time.elapsed(),
             target,

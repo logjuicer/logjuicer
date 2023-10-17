@@ -8,7 +8,7 @@ use std::path::Path;
 
 /// A IndexName is an identifier that is used to group similar source.
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct IndexName(std::rc::Rc<str>);
+pub struct IndexName(pub std::rc::Rc<str>);
 
 impl std::fmt::Display for IndexName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

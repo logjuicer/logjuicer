@@ -1,0 +1,2 @@
+/crates/web-service/.sqlx/*.json linguist-generated=true
+/crates/report/generated/schema_capnp.rs linguist-generated=true

@@ -35,7 +35,7 @@ threadpool = "1"
 regex = "1"
 lazy_static = "1"
 walkdir = "2"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4.31", features = ["serde"] }
 html-builder = "0.5"
 time-humanize = "0.1"
 smol_str = { version = "0.2", features = ["serde"] }
