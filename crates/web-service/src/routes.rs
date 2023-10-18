@@ -31,12 +31,15 @@ pub async fn reports_list(State(workers): State<Workers>) -> Result<Json<Vec<Rep
 }
 
 pub async fn report_get(Path(report_id): Path<ReportID>) -> Result<hyper::Response<Body>> {
-    let fp = format!("data/{}.bin", report_id);
+    let fp = format!("data/{}.gz", report_id);
     if let Ok(file) = File::open(&fp).await {
         // The file exists, stream its content...
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
-        Ok(hyper::Response::new(body))
+        Ok(hyper::Response::builder()
+            .header("Content-Encoding", "gzip")
+            .body(body)
+            .unwrap())
     } else {
         Err((StatusCode::NOT_FOUND, "Report Not Found".into()))
     }

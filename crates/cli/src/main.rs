@@ -384,7 +384,7 @@ fn process(
             let report = model.report(env, content)?;
 
             match file.extension().and_then(std::ffi::OsStr::to_str) {
-                Some("bin") => {
+                Some("bin") | Some("gz") => {
                     report
                         .save(&file)
                         .context("Failed to write the binary report")?;
@@ -398,15 +398,6 @@ fn process(
                 _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
             }?;
             tracing::info!("Wrote report {:?}", file);
-
-            // Make an extra copy in devel mode.
-            if file.extension() != Some(std::ffi::OsStr::new("bin"))
-                && std::env::var("LOGREDUCE_CACHE").is_ok()
-            {
-                let mut report_bin = file.clone();
-                report_bin.set_extension("bin");
-                report.save(&report_bin)?;
-            }
             Ok(())
         }
     }
@@ -594,13 +585,11 @@ fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Resu
         Some(url) => format!("{url}{version}/logreduce-web"),
         None => format!("https://unpkg.com/logreduce-web@{version}/logreduce-web"),
     };
-
-    // By default the client fetch a file named "logreduce.bin".
-    // If that's not the case, then inject a small script to tweak that behavior.
-    let report_script = match report.file_name().and_then(|os| os.to_str()) {
-        Some(path) if path != "logreduce.bin" => format!("window.report = '{path}';"),
-        _ => "".to_string(),
-    };
+    let report_file_name = report
+        .file_name()
+        .and_then(|os| os.to_str())
+        .ok_or(anyhow::anyhow!("Invalid path {:?}", report))?;
+    let report_script = format!("window.report = '{report_file_name}';");
 
     let index = format!(
         r#"<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -610,6 +599,5 @@ fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Resu
 <link rel="modulepreload" href="{assets_url}.js"></head>
 <body><script type="module">{report_script}import init from '{assets_url}.js';init();</script></body></html>"#
     );
-
     std::fs::write(report.with_extension("html"), index).context("Failed to write the html file")
 }
