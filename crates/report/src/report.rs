@@ -55,29 +55,43 @@ pub enum Error {
 
 impl Report {
     pub fn save(&self, path: &Path) -> Result<(), Error> {
+        let file = std::fs::File::create(path).map_err(Error::IOError)?;
+        if path.to_string_lossy().ends_with(".gz") {
+            let dest = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
+            self.save_writer(dest)
+        } else {
+            self.save_writer(file)
+        }
+    }
+
+    pub fn save_writer(&self, dest: impl std::io::Write) -> Result<(), Error> {
         codec::ReportEncoder::new()
-            .encode(
-                self,
-                flate2::write::GzEncoder::new(
-                    std::fs::File::create(path).map_err(Error::IOError)?,
-                    flate2::Compression::fast(),
-                ),
-            )
+            .encode(self, dest)
             .map_err(Error::DecodeError)
     }
 
     pub fn load(path: &Path) -> Result<Report, Error> {
+        let file = std::fs::File::open(path).map_err(Error::IOError)?;
+        if path.to_string_lossy().ends_with(".gz") {
+            let src = flate2::read::GzDecoder::new(file);
+            Self::load_reader(src)
+        } else {
+            Self::load_reader(file)
+        }
+    }
+
+    pub fn load_reader(src: impl std::io::Read) -> Result<Report, Error> {
+        Self::load_bufreader(std::io::BufReader::new(src))
+    }
+
+    pub fn load_bufreader(src: impl std::io::BufRead) -> Result<Report, Error> {
         codec::ReportDecoder::new()
-            .decode(std::io::BufReader::new(flate2::read::GzDecoder::new(
-                std::fs::File::open(path).map_err(Error::IOError)?,
-            )))
+            .decode(src)
             .map_err(Error::DecodeError)
     }
 
     pub fn load_bytes(data: &[u8]) -> Result<Report, Error> {
-        codec::ReportDecoder::new()
-            .decode(std::io::BufReader::new(flate2::read::GzDecoder::new(data)))
-            .map_err(Error::DecodeError)
+        Self::load_reader(data)
     }
 }
 

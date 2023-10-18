@@ -65,7 +65,7 @@ impl Workers {
                 let (status, count) = match process_report(&env, &target, &monitor) {
                     Ok(report) => {
                         let count = report.anomaly_count();
-                        let fp = format!("data/{}.bin", report_id);
+                        let fp = format!("data/{}.gz", report_id);
                         let status = if let Err(err) = report.save(std::path::Path::new(&fp)) {
                             monitor.emit(format!("Error: saving failed: {}", err).into());
                             ReportStatus::Error(format!("Save error: {}", err))
