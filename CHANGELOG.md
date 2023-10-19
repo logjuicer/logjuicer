@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.9.0
+=====
+
 - release: Merge the web, api and cli release into a single version.
 - cli: Generate the html file along with the binary report.
 - httpdir: Ignore "index of" page footer in httpdir query to avoid 404 errors.
