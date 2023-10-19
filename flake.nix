@@ -145,7 +145,7 @@
           created = "now";
           extraCommands = "mkdir 1777 data";
           config.Entrypoint = [ "logreduce-api" ];
-          config.Env = [ "LOGREDUCE_ASSETS=${true}/" ];
+          config.Env = [ "LOGREDUCE_ASSETS=${web}/" ];
           config.Labels = {
             "org.opencontainers.image.source" =
               "https://github.com/logreduce/logreduce";
@@ -177,6 +177,7 @@
 
         publish-container-release =
           pkgs.writeShellScriptBin "logreduce-release" ''
+            set -e
             export PATH=$PATH:${pkgs.gzip}/bin:${pkgs.skopeo}/bin
             IMAGE="docker://${container-name}"
 
