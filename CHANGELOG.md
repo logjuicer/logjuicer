@@ -1,6 +1,8 @@
 next-version
 ============
 
+- zuul: handle builds without an event_id.
+
 0.9.0
 =====
 

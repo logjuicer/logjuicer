@@ -58,7 +58,7 @@ pub struct Build {
     #[serde(rename = "ref")]
     pub change_ref: Box<str>,
     /// The internal event id.
-    pub event_id: Box<str>,
+    pub event_id: Option<Box<str>>,
 }
 
 /// A Build artifact.
