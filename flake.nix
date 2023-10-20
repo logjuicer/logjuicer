@@ -10,12 +10,12 @@
     flake-utils.url = "github:numtide/flake-utils";
 
     crane = {
-      url = "github:ipetkov/crane/9dae37b4a545f05aa70a2f048428c5196690c5a4";
+      url = "github:ipetkov/crane/bc5fa8cd53ef32b9b827f24b993c42a8c4dd913b";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rust-overlay = {
       url =
-        "github:oxalica/rust-overlay/b48a7e5dab1b472dd9c9ee9053401489dbb4d6fc";
+        "github:oxalica/rust-overlay/679ea0878edc749f23516ea6d7ffa974c6304bf5";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
@@ -31,7 +31,7 @@
           overlays = [ (import rust-overlay) ];
         };
 
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+        rustToolchain = pkgs.rust-bin.nightly.latest.default.override {
           targets = [ "x86_64-unknown-linux-musl" "wasm32-unknown-unknown" ];
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
