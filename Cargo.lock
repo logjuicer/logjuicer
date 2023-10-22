@@ -1542,13 +1542,17 @@ dependencies = [
 name = "logreduce-report"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "capnp",
  "capnpc",
  "chrono",
+ "criterion",
  "flate2",
  "itertools 0.11.0",
+ "logreduce-generate",
  "logreduce-tokenizer",
  "serde",
+ "serde_json",
  "smol_str",
  "thiserror",
  "url",

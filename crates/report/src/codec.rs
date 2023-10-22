@@ -4,10 +4,9 @@
 use crate::*;
 
 use capnp::Result;
-use std::convert::TryInto;
 use std::io::BufRead;
-use std::ops::Add;
 use std::time::{Duration, SystemTime};
+use std::{convert::TryInto, ops::Add};
 
 pub struct ReportEncoder;
 
@@ -80,7 +79,7 @@ impl ReportEncoder {
         }
         module.set_total_line_count(report.total_line_count as u32);
         module.set_total_anomaly_count(report.total_anomaly_count as u32);
-        capnp::serialize_packed::write_message(write, &message)
+        capnp::serialize::write_message(write, &message)
     }
 
     fn write_log_report(
@@ -287,7 +286,7 @@ impl ReportDecoder {
 
     pub fn decode(&self, reader: impl BufRead) -> Result<Report> {
         let message_reader =
-            capnp::serialize_packed::read_message(reader, capnp::message::ReaderOptions::new())?;
+            capnp::serialize::read_message(reader, capnp::message::ReaderOptions::new())?;
         let reader = message_reader.get_root::<schema_capnp::report::Reader<'_>>()?;
 
         Ok(Report {
@@ -511,58 +510,7 @@ fn write_system_time(t: &SystemTime) -> Result<u64> {
 
 #[test]
 fn capnp_roundtrip() {
-    use std::ops::Add;
-
-    let report = Report {
-        created_at: SystemTime::UNIX_EPOCH.add(Duration::from_secs(42 * 24 * 3600)),
-        run_time: Duration::from_secs(42),
-        target: Content::File(Source::Local(4, "/proc/status".into())),
-        baselines: vec![
-            Content::File(Source::Remote(
-                4,
-                "http://localhost/status".try_into().unwrap(),
-            )),
-            Content::Zuul(Box::new(ZuulBuild::sample("zuul-demo"))),
-            Content::Prow(Box::new(ProwBuild::sample("prow-demo"))),
-            Content::LocalZuulBuild(
-                "/executor".into(),
-                Box::new(ZuulBuild::sample("local-zuul")),
-            ),
-        ],
-        log_reports: vec![LogReport {
-            test_time: Duration::from_secs(84),
-            line_count: 1,
-            byte_count: 13,
-            anomalies: vec![AnomalyContext {
-                before: vec!["before".into(), "...".into()],
-                anomaly: Anomaly {
-                    distance: 0.5,
-                    pos: 1,
-                    line: "anomaly".into(),
-                },
-                after: vec![],
-            }],
-            index_name: IndexName("test".into()),
-            source: Source::Local(4, "/proc/status".into()),
-        }],
-        index_reports: HashMap::from([(
-            IndexName("i".into()),
-            IndexReport {
-                train_time: Duration::from_secs(51),
-                sources: vec![Source::Local(4, "/etc/hosts".into())],
-            },
-        )]),
-        unknown_files: HashMap::from([(
-            IndexName("j".into()),
-            vec![Source::Remote(
-                4,
-                url::Url::parse("http://local/hosts").unwrap(),
-            )],
-        )]),
-        read_errors: vec![(Source::Local(1, "".into()), "oops".into())],
-        total_line_count: 42,
-        total_anomaly_count: 23,
-    };
+    let report = Report::sample();
     let mut buffer = std::io::Cursor::new(vec![]);
     ReportEncoder::new().encode(&report, &mut buffer).unwrap();
     buffer.set_position(0);
