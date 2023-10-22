@@ -29,3 +29,13 @@ capnp = "0.18"
 
 [build-dependencies]
 capnpc = "0.18"
+
+[dev-dependencies]
+criterion = { workspace = true }
+logreduce-generate = { path = "../generate" }
+bincode = { workspace = true }
+serde_json = { workspace = true }
+
+[[bench]]
+name = "bench-report"
+harness = false

@@ -2,6 +2,7 @@ next-version
 ============
 
 - zuul: handle builds without an event_id.
+- report: change encoding format to unpacked.
 
 0.9.0
 =====
