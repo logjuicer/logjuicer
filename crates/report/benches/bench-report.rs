@@ -52,7 +52,7 @@ fn bench_read(c: &mut Criterion) {
     group.bench_function("capnp", |b| {
         b.iter(|| {
             // Create a message reader
-            let mut slice: &[u8] = &encoded_capnp;
+            let mut slice: &[u8] = black_box(&encoded_capnp);
             let message_reader = capnp::serialize::read_message_from_flat_slice(
                 &mut slice,
                 capnp::message::ReaderOptions::new(),
@@ -73,7 +73,7 @@ fn bench_read(c: &mut Criterion) {
     });
     group.bench_function("bincode", |b| {
         b.iter(|| {
-            let slice: &[u8] = &encoded_bincode;
+            let slice: &[u8] = black_box(&encoded_bincode);
             let report: Report = bincode::deserialize_from(slice).unwrap();
             let count = report
                 .log_reports
@@ -84,7 +84,8 @@ fn bench_read(c: &mut Criterion) {
     });
     group.bench_function("json", |b| {
         b.iter(|| {
-            let report: Report = serde_json::from_reader(encoded_json).unwrap();
+            let slice: &[u8] = black_box(&encoded_json);
+            let report: Report = serde_json::from_reader(slice).unwrap();
             let count = report
                 .log_reports
                 .iter()
