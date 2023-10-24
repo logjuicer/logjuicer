@@ -81,6 +81,7 @@ To read more about the project:
 - How the log file iterator works: [Introducing the BytesLines iterator](https://www.softwarefactory-project.io/introducing-the-byteslines-iterator.html)
 - [Completing the first release of logreduce-rust](https://www.softwarefactory-project.io/completing-the-first-release-of-logreduce-rust.html)
 - How the web interface works: [WASM based web interface](https://www.softwarefactory-project.io/logreduce-wasm-based-web-interface.html)
+- The report file format: [Leveraging Cap'n Proto For Logreduce Reports](https://www.softwarefactory-project.io/leveraging-capn-proto-for-logreduce-reports.html)
 
 
 ## Contribute
