@@ -40,11 +40,16 @@ impl Db {
     pub async fn lookup_report(
         &self,
         target: &str,
+        baseline: &str,
     ) -> sqlx::Result<Option<(ReportID, ReportStatus)>> {
-        sqlx::query!("select id, status from reports where target = ?", target)
-            .map(|row| (row.id.into(), row.status.into()))
-            .fetch_optional(&self.0)
-            .await
+        sqlx::query!(
+            "select id, status from reports where target = ? and baseline = ?",
+            target,
+            baseline
+        )
+        .map(|row| (row.id.into(), row.status.into()))
+        .fetch_optional(&self.0)
+        .await
     }
 
     pub async fn update_report(

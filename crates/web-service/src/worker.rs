@@ -44,7 +44,7 @@ impl Workers {
 
     // TODO: deny this clippy warning
     #[allow(clippy::map_entry)]
-    pub fn submit(&self, report_id: ReportID, target: &str) {
+    pub fn submit(&self, report_id: ReportID, target: &str, baseline: Option<&str>) {
         let mut running_init_write = self.running.write().unwrap();
         // Check if the report is being processed
         if !running_init_write.contains_key(&report_id) {
@@ -56,13 +56,15 @@ impl Workers {
             // Prepare worker variables
             let env = self.env.clone();
             let target = target.to_string();
+            let baseline = baseline.map(|s| s.to_string());
             let running = self.running.clone();
             let db = self.db.clone();
             let handle = tokio::runtime::Handle::current();
 
             // Submit the execution to the thread pool
             self.pool.execute(move || {
-                let (status, count) = match process_report(&env, &target, &monitor) {
+                let baseline = baseline.as_deref();
+                let (status, count) = match process_report(&env, &target, baseline, &monitor) {
                     Ok(report) => {
                         let count = report.anomaly_count();
                         let fp = format!("data/{}.gz", report_id);
@@ -115,22 +117,47 @@ impl ProcessMonitor {
     }
 }
 
-fn process_report(env: &Env, target: &str, monitor: &ProcessMonitor) -> Result<Report, String> {
-    monitor.emit(format!("Running `logreduce url {}`", target).into());
+fn process_report(
+    env: &Env,
+    target: &str,
+    baseline: Option<&str>,
+    monitor: &ProcessMonitor,
+) -> Result<Report, String> {
+    match baseline {
+        None => monitor.emit(format!("Running `logreduce url {}`", target).into()),
+        Some(baseline) => {
+            monitor.emit(format!("Running `logreduce diff {} {}`", baseline, target).into())
+        }
+    }
+
+    use logreduce_report::Content;
+    fn check_content(content: &Content) -> Result<(), String> {
+        match content {
+            Content::Zuul(_) | logreduce_report::Content::Prow(_) => Ok(()),
+            _ => Err("Only zuul or prow build are supported".to_string()),
+        }
+    }
+
     let input = logreduce_model::Input::Url(target.into());
     let content =
         logreduce_model::content_from_input(env, input).map_err(|e| format!("{:?}", e))?;
 
-    match content {
-        logreduce_report::Content::Zuul(_) | logreduce_report::Content::Prow(_) => Ok(()),
-        _ => Err("Only zuul or prow build are supported".to_string()),
-    }?;
-
     monitor.emit(format!("Content resolved: {}", content).into());
-    let baselines = logreduce_model::content_discover_baselines(&content, env)
-        .map_err(|e| format!("discovery failed: {:?}", e))?;
+    check_content(&content)?;
+
+    let baselines = match baseline {
+        Some(baseline) => {
+            let input = logreduce_model::Input::Url(baseline.into());
+            vec![logreduce_model::content_from_input(env, input)
+                .map_err(|e| format!("baseline: {:?}", e))?]
+        }
+        None => logreduce_model::content_discover_baselines(&content, env)
+            .map_err(|e| format!("discovery failed: {:?}", e))?,
+    };
 
     monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
+    baselines.iter().try_for_each(check_content)?;
+
     let model = logreduce_model::Model::train(env, baselines, logreduce_model::hashing_index::new)
         .map_err(|e| format!("training failed: {:?}", e))?;
 
