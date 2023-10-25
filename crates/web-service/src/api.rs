@@ -12,6 +12,22 @@ mod database;
 mod routes;
 mod worker;
 
+fn collect_vstat() {
+    if let Ok(statvfs) = rustix::fs::statvfs("data") {
+        if let Some(used) = statvfs
+            .f_blocks
+            .checked_sub(statvfs.f_bavail)
+            .map(|f_bused| (f_bused * statvfs.f_bsize) as f64)
+        {
+            metrics::gauge!("logreduce_data_used_bytes", used);
+        }
+        metrics::gauge!(
+            "logreduce_data_available_bytes",
+            (statvfs.f_bsize * statvfs.f_bavail) as f64
+        );
+    }
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -27,6 +43,17 @@ async fn main() {
     // Call `describe()` method to register help string.
     collector.describe();
 
+    metrics::describe_gauge!(
+        "logreduce_data_used_bytes",
+        metrics::Unit::Bytes,
+        "Disk usage in bytes."
+    );
+    metrics::describe_gauge!(
+        "logreduce_data_available_bytes",
+        metrics::Unit::Bytes,
+        "Disk usage in bytes."
+    );
+
     let workers = worker::Workers::new().await;
 
     let mut app = axum::Router::new()
@@ -40,6 +67,7 @@ async fn main() {
             get(move || {
                 // Collect information just before handle '/metrics'
                 collector.collect();
+                collect_vstat();
                 std::future::ready(handle.render())
             }),
         )
