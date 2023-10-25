@@ -39,7 +39,6 @@ use state::Route;
 
 fn render_app(state: &Rc<App>) -> Dom {
     let about = html!("div", {.class(["tooltip", "top-1"]).children(&mut [
-        html!("p", {.class("text-gray-700").text("This is logreduce report viewer.")}),
         html!("div", {.class(["hover:bg-slate-400"]).children(&mut [
             render_link("https://github.com/logreduce/logreduce#readme", "documentation")
         ])}),
