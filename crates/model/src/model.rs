@@ -207,21 +207,23 @@ pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Baseli
                 crate::files::discover_baselines_from_path(env, pathbuf.as_path())
             }
             Source::Remote(_, _) => Err(anyhow::anyhow!(
-                "Can't find remmote baselines, they need to be provided"
+                "Use the diff command to process remote file.",
             )),
         },
         Content::Directory(_) => Err(anyhow::anyhow!(
-            "Can't discover directory baselines, they need to be provided",
+            "Use the diff command to process directory.",
         )),
         Content::Prow(build) => crate::prow::discover_baselines(build, env),
         Content::Zuul(build) => crate::zuul::discover_baselines(build, env),
         Content::LocalZuulBuild(_, build) => crate::zuul::discover_baselines(build, env),
     })
     .and_then(|baselines| match baselines.len() {
-        0 => Err(anyhow::anyhow!("Empty discovered baselines")),
+        0 => Err(anyhow::anyhow!(
+            "Baselines discovery failed, use the diff command to provide the baseline."
+        )),
         _ => {
             tracing::info!(
-                "Found the following baselines: {}",
+                "Found the following baselines: {}.",
                 baselines.iter().format(", ")
             );
             Ok(baselines)
