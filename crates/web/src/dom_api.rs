@@ -32,7 +32,9 @@ fn render_report_row(state: &Rc<App>, report: &ReportRow) -> Dom {
     };
     html!("tr", {.class(["border-b", "px-6"]).children(&mut [
             html!("td", {.class(TH_CLASS).child(status)}),
+            html!("td", {.class(TH_CLASS).text(&format!("{}", report.anomaly_count))}),
             html!("td", {.class(TH_CLASS).text(&report.target)}),
+            html!("td", {.class(TH_CLASS).text(&report.baseline)}),
             html!("td", {.class(TH_CLASS).text(&format!("{}", report.updated_at))}),
         ])
     })
@@ -46,7 +48,9 @@ fn render_report_rows(state: &Rc<App>, reports: &[ReportRow]) -> Dom {
     html!("table", {.class(["my-6", "w-full", "text-sm", "text-left"]).children(&mut [
         html!("thead", {.class(["bg-slate-100"]).children(&mut [
             html!("th", {.class(TH_CLASS).text("Status")}),
-            html!("th", {.class(TH_CLASS).text("Url")}),
+            html!("th", {.class(TH_CLASS).text("Anomaly")}),
+            html!("th", {.class(TH_CLASS).text("URL")}),
+            html!("th", {.class(TH_CLASS).text("Baseline")}),
             html!("th", {.class(TH_CLASS).text("Updated At")}),
         ])}),
         html!("tbody", {.children(&mut tbody)}),
@@ -92,6 +96,13 @@ fn render_input(state: &Rc<App>) -> Dom {
 }
 
 pub fn do_render_welcome(state: &Rc<App>) -> Dom {
+    html!("div", {.class("px-2").children(&mut [
+        html!("div", {.class(["font-semibold", "mt-2"]).text("Welcome to the logreduce web interface!")}),
+        render_input(state),
+    ])})
+}
+
+pub fn do_render_audit(state: &Rc<App>) -> Dom {
     let reports = Mutable::new(None);
     let url = state.reports_url();
     spawn_local(clone!(reports => async move {
@@ -99,8 +110,6 @@ pub fn do_render_welcome(state: &Rc<App>) -> Dom {
         reports.replace(Some(resp));
     }));
     html!("div", {.class("px-2").children(&mut [
-        html!("div", {.class("font-semibold").text("Welcome to the logreduce web interface!")}),
-        render_input(state),
         html!("div", {.class("p-2").child_signal(reports.signal_ref(clone!(state => move |reports| Some(match reports {
             Some(Ok(reports)) => render_report_rows(&state, reports),
             Some(Err(err)) => html!("div", {.children(&mut [text("Error: "), text(err)])}),
@@ -114,8 +123,16 @@ async fn request_reports(url: &str) -> Result<Vec<ReportRow>, String> {
         .send()
         .await
         .map_err(|e| format!("request err: {}", e))?;
-    let data = resp.json().await.map_err(|e| format!("json err: {}", e))?;
-    Ok(data)
+    if resp.ok() {
+        let data = resp.json().await.map_err(|e| format!("json err: {}", e))?;
+        Ok(data)
+    } else {
+        Err(format!(
+            "api {} {}",
+            resp.status(),
+            resp.text().await.unwrap_or("".into()),
+        ))
+    }
 }
 
 pub fn do_render_new(state: &Rc<App>, target: String) -> Dom {

@@ -15,6 +15,7 @@ pub enum Route {
     Watch(ReportID),
     NewReport(Rc<str>),
     Welcome,
+    Audit,
 }
 
 impl Route {
@@ -39,6 +40,7 @@ impl Route {
                     Ok(report_id) => Route::Report(report_id),
                     Err(_) => Route::Welcome,
                 },
+                ["audit", ..] => Route::Audit,
                 _ => Route::Welcome,
             }
         }
@@ -49,7 +51,8 @@ impl Route {
             Route::NewReport(target) => format!("{}report/new?target={}", base, target),
             Route::Watch(report_id) => format!("{}report/watch/{}", base, report_id),
             Route::Report(report_id) => format!("{}report/{}", base, report_id),
-            _ => format!("{}logreduce.html", base),
+            Route::Audit => format!("{}audit", base),
+            Route::Welcome => base.to_string(),
         }
     }
 }
