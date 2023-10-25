@@ -133,6 +133,6 @@ pub fn generate_html(url_base_path: &str, version: &str) -> String {
 <link rel="stylesheet" href="{url}css?v={version}">
 <link rel="preload" href="{url}wasm?v={version}" as="fetch" type="application/wasm" crossorigin="">
 <link rel="modulepreload" href="{url}js?v={version}">
-</head><body><script type="module">import init from '{url}js?v={version}';init();</script></body></html>"#
+</head><body><script type="module">import init from '{url}js?v={version}';init('{url}wasm?v={version}');</script></body></html>"#
     )
 }
