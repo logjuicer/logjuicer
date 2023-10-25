@@ -79,16 +79,10 @@ pub async fn report_new(
     State(workers): State<Workers>,
     Query(args): Query<NewReportQuery>,
 ) -> Result<Json<(ReportID, ReportStatus)>> {
-    // TODO: support custom baseline
-    if args.baseline.is_some() {
-        return Err((
-            StatusCode::NOT_IMPLEMENTED,
-            "baseline is not supported".into(),
-        ));
-    };
+    let baseline = args.baseline.as_deref().unwrap_or("auto");
     let report = workers
         .db
-        .lookup_report(&args.target)
+        .lookup_report(&args.target, baseline)
         .await
         .map_err(handle_db_error)?;
     match report {
@@ -97,10 +91,10 @@ pub async fn report_new(
             tracing::info!(target = args.target, "Creating a new report");
             let report_id = workers
                 .db
-                .initialize_report(&args.target, args.baseline.as_deref().unwrap_or("auto"))
+                .initialize_report(&args.target, baseline)
                 .await
                 .map_err(handle_db_error)?;
-            workers.submit(report_id, &args.target);
+            workers.submit(report_id, &args.target, args.baseline.as_deref());
             Ok(Json((report_id, ReportStatus::Pending)))
         }
     }
