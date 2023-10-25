@@ -263,6 +263,7 @@ async fn get_report(path: &str) -> Result<Report, String> {
 }
 
 pub fn fetch_and_render_report(state: &Rc<App>, path: String) -> Dom {
+    state.report.set_neq(None);
     spawn_local(clone!(state => async move {
         // gloo_timers::future::TimeoutFuture::new(3_000).await;
         let result = get_report(&path).await;
