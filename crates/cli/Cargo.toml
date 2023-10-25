@@ -15,7 +15,6 @@ path = "src/main.rs"
 anyhow = { workspace = true }
 itertools = { workspace = true }
 logreduce-model = { path = "../model" }
-logreduce-static-html = { path = "../static-html" }
 logreduce-iterator = { path = "../iterator" }
 logreduce-report = { path = "../report" }
 clap = { workspace = true }

@@ -1,7 +1,7 @@
 next-version
 ============
 
-
+- cli: creating static html reports is no-longer supported.
 
 0.9.1
 =====

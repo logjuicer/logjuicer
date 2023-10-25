@@ -390,10 +390,6 @@ fn process(
                         .context("Failed to write the binary report")?;
                     write_html(&file, web_package_url)
                 }
-                Some("html") => std::fs::write(
-                    &file,
-                    logreduce_static_html::render(&report).context("Error rendering the report")?,
-                )
                 .context("Failed to write the report"),
                 _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
             }?;
