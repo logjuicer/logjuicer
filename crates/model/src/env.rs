@@ -75,6 +75,19 @@ fn tls_ca_bundle() -> Option<std::ffi::OsString> {
         .or_else(default_ca_bundle)
 }
 
+fn default_ca_extra() -> Option<std::ffi::OsString> {
+    let path = std::path::Path::new("/etc/pki/tls/certs/ca-extra.crt");
+    if path.exists() {
+        Some(path.into())
+    } else {
+        None
+    }
+}
+
+fn tls_ca_extra() -> Option<std::ffi::OsString> {
+    std::env::var_os("LOGREDUCE_CA_EXTRA").or_else(default_ca_extra)
+}
+
 // Copied from https://github.com/PyO3/maturin/blob/23158969c97418b07a3c4d31282d220ec08c3c10/src/upload.rs#L395-L418
 fn new_agent_safe() -> Result<ureq::Agent, std::io::Error> {
     use std::sync::Arc;
@@ -85,11 +98,25 @@ fn new_agent_safe() -> Result<ureq::Agent, std::io::Error> {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         builder = builder.proxy(proxy);
     };
-    if let Some(ca_bundle) = tls_ca_bundle() {
-        let mut reader = std::io::BufReader::new(std::fs::File::open(ca_bundle)?);
+    let ca_bundle = tls_ca_bundle();
+    let ca_extra = tls_ca_extra();
+    if let Some(ca_path) = ca_bundle.as_ref().or(ca_extra.as_ref()) {
+        let mut reader = std::io::BufReader::new(std::fs::File::open(ca_path)?);
         let certs = rustls_pemfile::certs(&mut reader)?;
         let mut root_certs = rustls::RootCertStore::empty();
         root_certs.add_parsable_certificates(&certs);
+
+        if ca_extra.is_some() {
+            // Add mozilla certificates too, as done by ureq:rtls:root_certs
+            root_certs.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+                rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                    ta.subject,
+                    ta.spki,
+                    ta.name_constraints,
+                )
+            }));
+        }
+
         let client_config = rustls::ClientConfig::builder()
             .with_safe_defaults()
             .with_root_certificates(root_certs)
