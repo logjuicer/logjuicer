@@ -1464,7 +1464,6 @@ dependencies = [
  "logreduce-iterator",
  "logreduce-model",
  "logreduce-report",
- "logreduce-static-html",
  "logreduce-tokenizer",
  "serde",
  "serde_yaml",
@@ -1556,16 +1555,6 @@ dependencies = [
  "smol_str",
  "thiserror",
  "url",
-]
-
-[[package]]
-name = "logreduce-static-html"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "html-builder",
- "itertools 0.11.0",
- "logreduce-report",
 ]
 
 [[package]]
