@@ -251,15 +251,22 @@ async fn get_report(path: &str) -> Result<Report, String> {
         .send()
         .await
         .map_err(|e| format!("Request error: {}", e))?;
-    if !resp.ok() {
-        return Err(format!("Bad status: {}", resp.status()));
+    if resp.status() == 404 {
+        let msg = resp.text().await;
+        match msg {
+            Ok(msg) => Err(msg),
+            Err(e) => Err(format!("Not found {}", e)),
+        }
+    } else if !resp.ok() {
+        Err(format!("Bad status: {}", resp.status()))
+    } else {
+        let data: Vec<u8> = resp
+            .binary()
+            .await
+            .map_err(|e| format!("Response error: {}", e))?;
+        // log!(format!("Loaded report: {:?}", &data[..24]));
+        logreduce_report::Report::load_bytes(&data).map_err(|e| format!("Decode error: {}", e))
     }
-    let data: Vec<u8> = resp
-        .binary()
-        .await
-        .map_err(|e| format!("Response error: {}", e))?;
-    // log!(format!("Loaded report: {:?}", &data[..24]));
-    logreduce_report::Report::load_bytes(&data).map_err(|e| format!("Decode error: {}", e))
 }
 
 pub fn fetch_and_render_report(state: &Rc<App>, path: String) -> Dom {
@@ -274,7 +281,7 @@ pub fn fetch_and_render_report(state: &Rc<App>, path: String) -> Dom {
     }));
     html!("div", {.child_signal(state.report.signal_ref(|data| Some(match data {
         Some(Ok(report)) => render_report(report),
-        Some(Err(err)) => html!("div", {.children(&mut [text("Error: "), text(err)])}),
+        Some(Err(err)) => html!("pre", {.class(["font-mono", "m-2", "ml-4"]).text(err)}),
         None => html!("div", {.text("loading...")}),
     })))})
 }

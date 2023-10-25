@@ -27,6 +27,16 @@ impl Db {
         .await
     }
 
+    pub async fn get_report_status(
+        &self,
+        report_id: ReportID,
+    ) -> sqlx::Result<Option<ReportStatus>> {
+        sqlx::query!("select status from reports where id = ?", report_id.0)
+            .map(|row| row.status.into())
+            .fetch_optional(&self.0)
+            .await
+    }
+
     pub async fn lookup_report(
         &self,
         target: &str,

@@ -31,7 +31,10 @@ pub async fn reports_list(State(workers): State<Workers>) -> Result<Json<Vec<Rep
     Ok(Json(reports))
 }
 
-pub async fn report_get(Path(report_id): Path<ReportID>) -> Result<hyper::Response<Body>> {
+pub async fn report_get(
+    State(workers): State<Workers>,
+    Path(report_id): Path<ReportID>,
+) -> Result<hyper::Response<Body>> {
     let fp = format!("data/{}.gz", report_id);
     if let Ok(file) = File::open(&fp).await {
         // The file exists, stream its content...
@@ -41,6 +44,25 @@ pub async fn report_get(Path(report_id): Path<ReportID>) -> Result<hyper::Respon
             .header("Content-Encoding", "gzip")
             .body(body)
             .unwrap())
+    } else if let Some(status) = workers
+        .db
+        .get_report_status(report_id)
+        .await
+        .map_err(handle_db_error)?
+    {
+        match status {
+            ReportStatus::Pending => Err((
+                StatusCode::NOT_FOUND,
+                "Report is pending, try again later".into(),
+            )),
+            ReportStatus::Error(s) => Err((
+                StatusCode::NOT_FOUND,
+                format!("Report creation failed:\n {s}"),
+            )),
+            ReportStatus::Completed => {
+                Err((StatusCode::NOT_FOUND, "Report is file is missing".into()))
+            }
+        }
     } else {
         Err((StatusCode::NOT_FOUND, "Report Not Found".into()))
     }
