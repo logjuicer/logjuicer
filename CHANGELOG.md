@@ -6,6 +6,7 @@ next-version
 - api: provides a /ready and /metrics endpoint for monitoring.
 - web: minor improvement to the user interface.
 - config: ignore .jar files by default.
+- web: add baseline selection form to the interface.
 
 0.9.1
 =====

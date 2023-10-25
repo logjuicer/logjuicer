@@ -58,37 +58,70 @@ fn render_report_rows(state: &Rc<App>, reports: &[ReportRow]) -> Dom {
 }
 
 fn is_valid_url(url: &str) -> bool {
-    url.chars().filter(|c| *c == '/').count() > 2 && web_sys::Url::new(url).is_ok()
+    url.is_empty()
+        || (url.chars().filter(|c| *c == '/').count() > 2 && web_sys::Url::new(url).is_ok())
 }
 
 fn render_input(state: &Rc<App>) -> Dom {
     let url = Mutable::new("".to_string());
+    let baseline = Mutable::new("".to_string());
+    let show_submit = Mutable::new(false);
 
-    html!("form", {.class("flex").class(["shadow-lg", "rounded-md", "py-3", "px-5"]).children(&mut [
+    html!("form", {.class("grid").class(["shadow-lg", "rounded-md", "py-3", "px-5"]).children(&mut [
         html!("input" => HtmlInputElement, {
             .focused(true)
-                .attr("value", "http://localhost/42")
-                .class(["w-full", "rounded", "border"])
-                .attr("placeholder", "Target url")
+                .class(["w-full", "rounded", "border", "pl-1"])
+                .attr("placeholder", "Target URL")
                 .prop_signal("value", url.signal_cloned())
 
                 .with_node!(element => {
-                    .event(clone!(url => move |_: events::Input| {
+                    .event(clone!(show_submit => clone!(url => move |_: events::Input| {
                         let url_value: String = element.value();
                         let _ = if is_valid_url(&url_value) {
+                            if !url_value.is_empty() {
+                                show_submit.set_neq(true);
+                            }
                             element.class_list().remove_1("border-red-500")
                         } else {
+                            show_submit.set_neq(false);
                             element.class_list().add_1("border-red-500")
                         };
                         url.set_neq(url_value);
-                    }))
+                    })))
                 })
         }),
+        html!("div", {.class(["flex", "justify-center", "mt-2", "gap-2"]).visible_signal(show_submit.signal()).children(&mut [
+            html!("button", {.class(["whitespace-nowrap", "rounded", "px-2", "py-1", "text-white", "font-bold", "bg-blue-500", "hover:bg-blue-700"])
+                             .text("Logreduce Search")}),
+            html!("input" => HtmlInputElement, {
+                .class(["w-full", "rounded", "border", "pl-1"])
+                    .attr("placeholder", "Baseline URL")
+                    .prop_signal("value", baseline.signal_cloned())
+
+                    .with_node!(element => {
+                        .event(clone!(baseline => move |_: events::Input| {
+                            let url_value: String = element.value();
+                            let _ = if is_valid_url(&url_value) {
+                                element.class_list().remove_1("border-red-500")
+                            } else {
+                                element.class_list().add_1("border-red-500")
+                            };
+                            baseline.set_neq(url_value);
+                        }))
+                    })
+            })
+        ])}),
     ]).event_with_options(&EventOptions::preventable(), clone!(state => clone!(url => move |ev : events::Submit| {
 
         let target_url: &str = &(url.lock_mut());
+        let baseline_url: &str = &(baseline.lock_mut());
+        let baseline = if baseline_url.is_empty() || !is_valid_url(baseline_url) {
+            None
+        } else {
+            Some(baseline_url.into())
+        };
         if is_valid_url(target_url) {
-            state.visit(Route::NewReport(target_url.into()));
+            state.visit(Route::NewReport(target_url.into(), baseline));
         }
         ev.prevent_default();
         ev.stop_propagation();
@@ -194,7 +227,7 @@ pub fn do_render_run(state: &Rc<App>, report_id: ReportID) -> Dom {
 
     let sig = infos
         .signal_vec_cloned()
-        .map(|ev| html!("div", {.text(&ev)}));
+        .map(|ev| html!("pre", {.class(["font-mono", "m-2", "ml-4"]).text(&ev)}));
 
     html!("div", {.future(handler).class("px-2").children_signal_vec(sig)})
 }
