@@ -13,7 +13,7 @@ use web_sys::Url;
 pub enum Route {
     Report(ReportID),
     Watch(ReportID),
-    NewReport(Rc<str>),
+    NewReport(Rc<str>, Option<Rc<str>>),
     Welcome,
     Audit,
 }
@@ -24,8 +24,9 @@ impl Route {
         let path = url.pathname();
         let params = url.search_params();
         if path.ends_with("/report/new") {
+            let baseline = params.get("baseline");
             if let Some(target) = params.get("target") {
-                Route::NewReport(target.into())
+                Route::NewReport(target.into(), baseline.map(|s| s.into()))
             } else {
                 Route::Welcome
             }
@@ -48,7 +49,10 @@ impl Route {
 
     pub fn to_url(&self, base: &str) -> String {
         match self {
-            Route::NewReport(target) => format!("{}report/new?target={}", base, target),
+            Route::NewReport(target, None) => format!("{}report/new?target={}", base, target),
+            Route::NewReport(target, Some(baseline)) => {
+                format!("{}report/new?target={}&baseline={}", base, target, baseline)
+            }
             Route::Watch(report_id) => format!("{}report/watch/{}", base, report_id),
             Route::Report(report_id) => format!("{}report/{}", base, report_id),
             Route::Audit => format!("{}audit", base),
@@ -94,8 +98,12 @@ impl App {
         format!("{}api/report/{}", self.base_path, report_id)
     }
 
-    pub fn new_report_url(&self, target: &str) -> String {
-        format!("{}api/report/new?target={}", self.base_path, target)
+    pub fn new_report_url(&self, target: &str, baseline: Option<&str>) -> String {
+        let base = &self.base_path;
+        match baseline {
+            None => format!("{base}api/report/new?target={target}"),
+            Some(baseline) => format!("{base}api/report/new?target={target}&baseline={baseline}"),
+        }
     }
 
     pub fn ws_report_url(&self, report_id: ReportID) -> String {

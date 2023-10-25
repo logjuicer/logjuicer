@@ -79,7 +79,7 @@ fn render_app(state: &Rc<App>) -> Dom {
     #[cfg(feature = "api_client")]
     let body = html!("div", {.future(router).children(&mut [nav]).child_signal(state.route.signal_ref(clone!(state => move |route| Some(match route {
         Route::Report(report_id) => fetch_and_render_report(&state, state.report_url(*report_id)),
-        Route::NewReport(target) => do_render_new(&state, state.new_report_url(target)),
+        Route::NewReport(target, baseline) => do_render_new(&state, state.new_report_url(target, baseline.as_deref())),
         Route::Watch(report_id) => do_render_run(&state, *report_id),
         Route::Welcome => do_render_welcome(&state),
         Route::Audit => do_render_audit(&state),
