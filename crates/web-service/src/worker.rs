@@ -121,6 +121,11 @@ fn process_report(env: &Env, target: &str, monitor: &ProcessMonitor) -> Result<R
     let content =
         logreduce_model::content_from_input(env, input).map_err(|e| format!("{:?}", e))?;
 
+    match content {
+        logreduce_report::Content::Zuul(_) | logreduce_report::Content::Prow(_) => Ok(()),
+        _ => Err("Only zuul or prow build are supported".to_string()),
+    }?;
+
     monitor.emit(format!("Content resolved: {}", content).into());
     let baselines = logreduce_model::content_discover_baselines(&content, env)
         .map_err(|e| format!("discovery failed: {:?}", e))?;
