@@ -6,11 +6,12 @@
 use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::Json;
-
+use futures::TryFutureExt;
 use hyper::Body;
-use logreduce_report::report_row::{ReportID, ReportRow, ReportStatus};
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
+
+use logreduce_report::report_row::{ReportID, ReportRow, ReportStatus};
 
 use crate::worker::Workers;
 
@@ -87,51 +88,42 @@ pub async fn report_watch(
     ws: WebSocketUpgrade,
     Path(report_id): Path<ReportID>,
     State(workers): State<Workers>,
-) -> axum::response::Response {
-    ws.on_upgrade(move |socket| do_report_watch(report_id, socket, workers))
+) -> Result<axum::response::Response> {
+    match workers.subscribe(report_id) {
+        Some(monitor) => Ok(ws.on_upgrade(move |socket| {
+            do_report_watch(monitor, socket)
+                .unwrap_or_else(|err| tracing::warn!("websocket handler error: {}", err))
+        })),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            "Report is not pending or running".into(),
+        )),
+    }
 }
 
 use axum::extract::ws::{Message, WebSocket};
-use futures::{SinkExt, StreamExt, TryFutureExt};
-pub async fn do_report_watch(report_id: ReportID, ws: WebSocket, workers: Workers) {
-    // Split the socket into a sender and receive of messages.
-    let (mut user_ws_tx, mut _user_ws_rx) = ws.split();
-
-    let monitor = workers.subscribe(report_id).unwrap();
+pub async fn do_report_watch(
+    monitor: crate::worker::ProcessMonitor,
+    mut ws: WebSocket,
+) -> std::result::Result<(), axum::Error> {
     let mut monitor_rx = monitor.chan.subscribe();
     {
         let events = monitor.events.read().await;
         if events.is_empty() {
-            user_ws_tx
-                .send("Waiting to start...".into())
-                .unwrap_or_else(|e| {
-                    eprintln!("websocket send error: {}", e);
-                    panic!("stop?");
-                })
-                .await;
+            ws.send("Waiting to start...".into()).await?;
         } else {
             // Send previous events
             for event in events.iter() {
-                user_ws_tx
-                    .send(Message::Text(event.to_string()))
-                    .unwrap_or_else(|e| {
-                        eprintln!("websocket send error: {}", e);
-                        panic!("stop?");
-                    })
-                    .await;
+                ws.send(Message::Text(event.to_string())).await?;
             }
         };
     }
 
     while let Ok(msg) = monitor_rx.recv().await {
-        user_ws_tx
-            .send(Message::Text(msg.to_string()))
-            .unwrap_or_else(|e| {
-                eprintln!("websocket send error: {}", e);
-                panic!("stop?");
-            })
-            .await;
+        ws.send(Message::Text(msg.to_string())).await?;
     }
+    ws.close().await?;
+    Ok(())
 }
 
 pub fn generate_html(url_base_path: &str, version: &str) -> String {
