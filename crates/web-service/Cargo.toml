@@ -34,5 +34,8 @@ lazy_static = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+metrics-exporter-prometheus = "0.12.1"
+metrics-process = "1.0.12"
+
 logreduce-report = { path = "../report" }
 logreduce-model = { path = "../model" }

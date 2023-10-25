@@ -19,13 +19,30 @@ async fn main() {
         .compact()
         .init();
 
+    let builder = metrics_exporter_prometheus::PrometheusBuilder::new();
+    let handle = builder
+        .install_recorder()
+        .expect("failed to install Prometheus recorder");
+    let collector = metrics_process::Collector::default();
+    // Call `describe()` method to register help string.
+    collector.describe();
+
     let workers = worker::Workers::new().await;
 
     let mut app = axum::Router::new()
+        .route("/ready", get(|| async { "ok" }))
         .route("/api/reports", get(routes::reports_list))
         .route("/api/report/:report_id", get(routes::report_get))
         .route("/api/report/new", put(routes::report_new))
         .route("/wsapi/report/:report_id", get(routes::report_watch))
+        .route(
+            "/metrics",
+            get(move || {
+                // Collect information just before handle '/metrics'
+                collector.collect();
+                std::future::ready(handle.render())
+            }),
+        )
         .with_state(workers)
         .layer(tower_http::compression::CompressionLayer::new())
         .layer(
@@ -43,7 +60,7 @@ async fn main() {
             axum::response::Html(routes::generate_html(&base_url, env!("CARGO_PKG_VERSION")));
         app = app
             .nest_service("/assets", ServeDir::new(assets).precompressed_gzip())
-            .fallback(get(|| async { index }))
+            .fallback(get(|| std::future::ready(index)))
     }
 
     let addr = std::net::SocketAddr::from_str("0.0.0.0:3000").unwrap();
