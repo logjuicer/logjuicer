@@ -83,6 +83,7 @@ fn render_app(state: &Rc<App>) -> Dom {
         Route::NewReport(target) => do_render_new(&state, state.new_report_url(target)),
         Route::Watch(report_id) => do_render_run(&state, *report_id),
         Route::Welcome => do_render_welcome(&state),
+        Route::Audit => do_render_audit(&state),
     }))))});
 
     #[cfg(not(feature = "api_client"))]
