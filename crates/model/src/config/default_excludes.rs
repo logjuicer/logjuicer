@@ -14,6 +14,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     ".bin$",
     ".pcap.log.txt$",
     ".pkl$",
+    ".jar$",
     // font
     ".eot$",
     ".otf$",
