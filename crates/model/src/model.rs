@@ -20,6 +20,8 @@ pub use logreduce_report::{
     AnomalyContext, ApiUrl, Content, IndexReport, LogReport, ProwBuild, Report, Source, ZuulBuild,
 };
 
+pub use logreduce_index::{FeaturesMatrix, FeaturesMatrixBuilder};
+
 use crate::env::Env;
 use crate::files::{dir_iter, file_iter, file_open};
 use crate::unordered::KnownLines;
@@ -33,6 +35,8 @@ mod reader;
 pub mod unordered;
 pub mod urls;
 pub mod zuul;
+
+use logreduce_index::traits::*;
 
 const MODEL_MAGIC: &str = "LGRD";
 
@@ -64,10 +68,10 @@ type Baselines = Vec<Content>;
 
 /// An archive of baselines that is used to search anomaly.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Model {
+pub struct Model<IR: IndexReader> {
     pub created_at: SystemTime,
     pub baselines: Baselines,
-    pub indexes: HashMap<IndexName, Index>,
+    pub indexes: HashMap<IndexName, Index<IR>>,
 }
 
 pub fn indexname_from_source(source: &Source) -> IndexName {
@@ -75,16 +79,16 @@ pub fn indexname_from_source(source: &Source) -> IndexName {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Index {
+pub struct Index<IR: IndexReader> {
     pub created_at: SystemTime,
     pub train_time: Duration,
     pub sources: Vec<Source>,
-    index: logreduce_index::FeaturesMatrix,
+    index: IR,
     pub line_count: usize,
     pub byte_count: usize,
 }
 
-impl Index {
+impl<IR: IndexReader> Index<IR> {
     pub fn to_report(&self) -> IndexReport {
         IndexReport {
             train_time: self.train_time,
@@ -97,9 +101,12 @@ impl Index {
     }
 }
 
-impl Index {
-    #[tracing::instrument(level = "debug", name = "Index::train", skip(env))]
-    pub fn train(env: &Env, sources: &[Source]) -> Result<Index> {
+impl<IR: IndexReader> Index<IR> {
+    #[tracing::instrument(level = "debug", name = "Index::train", skip(env, builder))]
+    pub fn train<IB>(env: &Env, builder: IB, sources: &[Source]) -> Result<Index<IR>>
+    where
+        IB: IndexBuilder<Reader = IR>,
+    {
         let created_at = SystemTime::now();
         let start_time = Instant::now();
         let is_json = if let Some(source) = sources.first() {
@@ -107,7 +114,7 @@ impl Index {
         } else {
             false
         };
-        let mut trainer = process::IndexTrainer::new(is_json);
+        let mut trainer = process::IndexTrainer::new(builder, is_json);
         for source in sources {
             let reader = match source {
                 Source::Local(_, path_buf) => file_open(path_buf.as_path())?,
@@ -137,7 +144,7 @@ impl Index {
         env: &Env,
         source: &Source,
         skip_lines: &'a mut KnownLines,
-    ) -> Result<process::ChunkProcessor<crate::reader::DecompressReader>> {
+    ) -> Result<process::ChunkProcessor<IR, crate::reader::DecompressReader>> {
         env.debug_or_progress(&format!("Inspecting {}", source));
         let fp = match source {
             Source::Local(_, path_buf) => file_open(path_buf.as_path()),
@@ -281,10 +288,13 @@ pub fn group_sources(env: &Env, baselines: &[Content]) -> Result<HashMap<IndexNa
     Ok(groups)
 }
 
-impl Model {
+impl<IR: IndexReader> Model<IR> {
     /// Create a Model from baselines.
     #[tracing::instrument(level = "debug", skip(env))]
-    pub fn train(env: &Env, baselines: Baselines) -> Result<Model> {
+    pub fn train<IB: Default + IndexBuilder<Reader = IR>>(
+        env: &Env,
+        baselines: Baselines,
+    ) -> Result<Model<IR>> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
         for (index_name, sources) in group_sources(env, &baselines)?.drain() {
@@ -293,7 +303,8 @@ impl Model {
                 index_name,
                 sources.iter().format(", ")
             ));
-            let index = Index::train(env, &sources)?;
+            let builder = IB::default();
+            let index = Index::train(env, builder, &sources)?;
             indexes.insert(index_name, index);
         }
         Ok(Model {
@@ -303,68 +314,8 @@ impl Model {
         })
     }
 
-    fn validate_magic<R: Read>(input: &mut R) -> Result<()> {
-        bincode::deserialize_from(input)
-            .context("Loading model magic")
-            .and_then(|cookie: String| {
-                if cookie == MODEL_MAGIC {
-                    Ok(())
-                } else {
-                    Err(anyhow::anyhow!("bad cookie: {}", cookie))
-                }
-            })
-    }
-
-    fn validate_version<R: Read>(input: &mut R) -> Result<()> {
-        bincode::deserialize_from(input)
-            .context("Loading model version")
-            .and_then(|version: usize| {
-                if version == MODEL_VERSION {
-                    Ok(())
-                } else {
-                    Err(anyhow::anyhow!("bad version: {}", version))
-                }
-            })
-    }
-
-    fn validate_timestamp<R: Read>(input: &mut R) -> Result<SystemTime> {
-        bincode::deserialize_from(input).context("Loading model timestamp")
-    }
-
-    fn validate<R: Read>(input: &mut R) -> Result<SystemTime> {
-        Model::validate_magic(input)?;
-        Model::validate_version(input)?;
-        Model::validate_timestamp(input)
-    }
-
-    pub fn check(path: &Path) -> Result<SystemTime> {
-        let mut input =
-            flate2::read::GzDecoder::new(std::fs::File::open(path).context("Can't open file")?);
-        Model::validate(&mut input)
-    }
-
-    pub fn load(path: &Path) -> Result<Model> {
-        tracing::info!(path = path.to_str(), "Loading provided model");
-        let mut input =
-            flate2::read::GzDecoder::new(std::fs::File::open(path).context("Can't open file")?);
-        Model::validate(&mut input)?;
-        bincode::deserialize_from(input).context("Can't load model")
-    }
-
-    pub fn save(&self, path: &Path) -> Result<()> {
-        tracing::info!(path = path.to_str(), "Saving model");
-        let mut output = flate2::write::GzEncoder::new(
-            std::fs::File::create(path).context("Can't create file")?,
-            flate2::Compression::fast(),
-        );
-        bincode::serialize_into(&mut output, MODEL_MAGIC).context("Can't save cookie")?;
-        bincode::serialize_into(&mut output, &MODEL_VERSION).context("Can't save time")?;
-        bincode::serialize_into(&mut output, &SystemTime::now()).context("Can't save time")?;
-        bincode::serialize_into(output, self).context("Can't save model")
-    }
-
     /// Get the matching index for a given Source.
-    pub fn get_index<'a>(&'a self, index_name: &IndexName) -> Option<&'a Index> {
+    pub fn get_index<'a>(&'a self, index_name: &IndexName) -> Option<&'a Index<IR>> {
         lookup_or_single(&self.indexes, index_name)
     }
 
@@ -441,6 +392,68 @@ impl Model {
     }
 }
 
+impl<IR: IndexReader + Serialize + serde::de::DeserializeOwned> Model<IR> {
+    fn validate_magic<R: Read>(input: &mut R) -> Result<()> {
+        bincode::deserialize_from(input)
+            .context("Loading model magic")
+            .and_then(|cookie: String| {
+                if cookie == MODEL_MAGIC {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("bad cookie: {}", cookie))
+                }
+            })
+    }
+
+    fn validate_version<R: Read>(input: &mut R) -> Result<()> {
+        bincode::deserialize_from(input)
+            .context("Loading model version")
+            .and_then(|version: usize| {
+                if version == MODEL_VERSION {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("bad version: {}", version))
+                }
+            })
+    }
+
+    fn validate_timestamp<R: Read>(input: &mut R) -> Result<SystemTime> {
+        bincode::deserialize_from(input).context("Loading model timestamp")
+    }
+
+    fn validate<R: Read>(input: &mut R) -> Result<SystemTime> {
+        Model::<IR>::validate_magic(input)?;
+        Model::<IR>::validate_version(input)?;
+        Model::<IR>::validate_timestamp(input)
+    }
+
+    pub fn check(path: &Path) -> Result<SystemTime> {
+        let mut input =
+            flate2::read::GzDecoder::new(std::fs::File::open(path).context("Can't open file")?);
+        Model::<IR>::validate(&mut input)
+    }
+
+    pub fn load(path: &Path) -> Result<Model<IR>> {
+        tracing::info!(path = path.to_str(), "Loading provided model");
+        let mut input =
+            flate2::read::GzDecoder::new(std::fs::File::open(path).context("Can't open file")?);
+        Model::<IR>::validate(&mut input)?;
+        bincode::deserialize_from(input).context("Can't load model")
+    }
+
+    pub fn save(&self, path: &Path) -> Result<()> {
+        tracing::info!(path = path.to_str(), "Saving model");
+        let mut output = flate2::write::GzEncoder::new(
+            std::fs::File::create(path).context("Can't create file")?,
+            flate2::Compression::fast(),
+        );
+        bincode::serialize_into(&mut output, MODEL_MAGIC).context("Can't save cookie")?;
+        bincode::serialize_into(&mut output, &MODEL_VERSION).context("Can't save time")?;
+        bincode::serialize_into(&mut output, &SystemTime::now()).context("Can't save time")?;
+        bincode::serialize_into(output, self).context("Can't save model")
+    }
+}
+
 /// Helper function to make a single value hash map always match the key.
 /// This is useful when logreduce is used to compare two files which may have different index name.
 fn lookup_or_single<'a, K: Eq + std::hash::Hash, V>(hm: &'a HashMap<K, V>, k: &K) -> Option<&'a V> {
@@ -459,7 +472,7 @@ fn lookup_or_single<'a, K: Eq + std::hash::Hash, V>(hm: &'a HashMap<K, V>, k: &K
 
 #[test]
 fn test_save_load() {
-    let model = Model {
+    let model: Model<logreduce_index::FeaturesMatrix> = Model {
         created_at: SystemTime::now(),
         baselines: Vec::new(),
         indexes: HashMap::new(),
@@ -467,5 +480,5 @@ fn test_save_load() {
     let dir = tempfile::tempdir().expect("tmpdir");
     let model_path = dir.path().join("model.bin");
     model.save(&model_path).expect("save");
-    Model::load(&model_path).expect("load");
+    Model::<logreduce_index::FeaturesMatrix>::load(&model_path).expect("load");
 }

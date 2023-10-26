@@ -9,9 +9,13 @@ pub fn model_process(c: &mut Criterion) {
     let baselines = lines[0..42].join("\n");
     let target = lines[1024..2048].join("\n");
 
-    let index =
-        logreduce_model::process::IndexTrainer::single(false, std::io::Cursor::new(baselines))
-            .unwrap();
+    let builder = logreduce_index::FeaturesMatrixBuilder::default();
+    let index = logreduce_model::process::IndexTrainer::single(
+        builder,
+        false,
+        std::io::Cursor::new(baselines),
+    )
+    .unwrap();
 
     c.bench_function("anomalies_from_reader", |b| {
         b.iter(|| {

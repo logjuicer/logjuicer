@@ -9,7 +9,7 @@ use std::io::Read;
 use std::rc::Rc;
 
 use crate::unordered::KnownLines;
-use logreduce_index::IndexBuilder;
+use logreduce_index::traits::*;
 use logreduce_iterator::LogLine;
 use logreduce_report::{Anomaly, AnomalyContext};
 
@@ -18,18 +18,21 @@ const CTX_DISTANCE: usize = 3;
 const CHUNK_SIZE: usize = 512;
 
 /// Helper struct to manage indexing multiples readers.
-pub struct IndexTrainer {
-    builder: IndexBuilder,
+pub struct IndexTrainer<IB: IndexBuilder> {
+    builder: IB,
     is_json: bool,
     skip_lines: KnownLines,
     pub line_count: usize,
     pub byte_count: usize,
 }
 
-impl IndexTrainer {
-    pub fn new(is_json: bool) -> IndexTrainer {
+impl<IB> IndexTrainer<IB>
+where
+    IB: IndexBuilder,
+{
+    pub fn new(builder: IB, is_json: bool) -> IndexTrainer<IB> {
         Self {
-            builder: logreduce_index::IndexBuilder::new(),
+            builder,
             is_json,
             skip_lines: KnownLines::new(),
             line_count: 0,
@@ -38,8 +41,8 @@ impl IndexTrainer {
     }
 
     /// Index a single reader
-    pub fn single<R: Read>(is_json: bool, read: R) -> Result<logreduce_index::FeaturesMatrix> {
-        let mut trainer = IndexTrainer::new(is_json);
+    pub fn single<R: Read>(builder: IB, is_json: bool, read: R) -> Result<IB::Reader> {
+        let mut trainer = IndexTrainer::new(builder, is_json);
         trainer.add(read)?;
         Ok(trainer.build())
     }
@@ -60,7 +63,7 @@ impl IndexTrainer {
         Ok(())
     }
 
-    pub fn build(self) -> logreduce_index::FeaturesMatrix {
+    pub fn build(self) -> IB::Reader {
         self.builder.build()
     }
 }
@@ -68,9 +71,9 @@ impl IndexTrainer {
 /// Helper struct to manage the log lines and the unique tokenized lines.
 /// The goal is to perform the index search on unique lines, while keeping a
 /// buffer of the raw line to manage the surrounding context.
-pub struct ChunkProcessor<'a, R: Read> {
+pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
     reader: logreduce_iterator::BytesLines<R>,
-    index: &'a logreduce_index::FeaturesMatrix,
+    index: &'a IR,
     /// The raw log line with their global position
     buffer: Vec<(logreduce_iterator::LogLine, usize)>,
     /// The target tokenized lines
@@ -95,7 +98,7 @@ pub struct ChunkProcessor<'a, R: Read> {
     is_job_output: bool,
 }
 
-impl<'a, R: Read> Iterator for ChunkProcessor<'a, R> {
+impl<'a, IR: IndexReader, R: Read> Iterator for ChunkProcessor<'a, IR, R> {
     type Item = Result<AnomalyContext>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -111,14 +114,14 @@ impl<'a, R: Read> Iterator for ChunkProcessor<'a, R> {
     }
 }
 
-impl<'a, R: Read> ChunkProcessor<'a, R> {
+impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
     pub fn new(
         read: R,
-        index: &'a logreduce_index::FeaturesMatrix,
+        index: &'a IR,
         is_json: bool,
         is_job_output: bool,
         skip_lines: &'a mut KnownLines,
-    ) -> ChunkProcessor<'a, R> {
+    ) -> ChunkProcessor<'a, IR, R> {
         ChunkProcessor {
             reader: logreduce_iterator::BytesLines::new(read, is_json),
             index,
@@ -189,7 +192,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
 
     /// Helper function for the anomalies_from_reader implementation.
     fn do_search_anomalies(&mut self) {
-        let distances = logreduce_index::search_mat_chunk(&self.index.view(), &self.targets);
+        let distances = self.index.distance(&self.targets);
 
         let mut buffer_pos = 0;
         let mut last_context_pos = 0;
@@ -396,7 +399,7 @@ fn test_leftovers() {
 fn test_chunk_processor() {
     let baseline = std::io::Cursor::new(["001: regular log line", "in-between line"].join("\n"));
 
-    let mut trainer = IndexTrainer::new(false);
+    let mut trainer = IndexTrainer::new(logreduce_index::FeaturesMatrixBuilder::default(), false);
     trainer.add(baseline).unwrap();
     let index = trainer.build();
 
