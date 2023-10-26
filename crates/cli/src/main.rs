@@ -9,7 +9,7 @@ use itertools::Itertools;
 use logreduce_model::env::{Env, OutputMode};
 use logreduce_model::{
     content_discover_baselines, content_from_input, content_get_sources, group_sources, Content,
-    Input, Model, Source,
+    FeaturesMatrix, FeaturesMatrixBuilder, Input, Model, Source,
 };
 use logreduce_report::{bytes_to_mb, Report};
 use std::path::PathBuf;
@@ -161,7 +161,7 @@ impl Cli {
                         "A output file path is required, please add a `--model FILE` argument"
                     )
                 })?;
-                let model = Model::train(
+                let model = Model::train::<FeaturesMatrixBuilder>(
                     &env,
                     baselines
                         .into_iter()
@@ -178,7 +178,7 @@ impl Cli {
                         "check-model requires a path, please add a `--model FILE` argument"
                     )
                 })?;
-                let timestamp = Model::check(&model_path)?;
+                let timestamp = Model::<FeaturesMatrix>::check(&model_path)?;
                 match max_age {
                     Some(age) => {
                         let elapsed = std::time::SystemTime::now()
@@ -350,7 +350,7 @@ fn process(
 
         // Create the model. TODO: enable custom index.
         tracing::debug!("Building model");
-        Model::train(env, baselines)
+        Model::<FeaturesMatrix>::train::<FeaturesMatrixBuilder>(env, baselines)
     };
 
     let model = match model_path {
@@ -398,7 +398,7 @@ fn process(
     }
 }
 
-fn process_live(env: &Env, content: &Content, model: &Model) -> Result<()> {
+fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> Result<()> {
     let print_context = |pos: usize, xs: &[Rc<str>]| {
         xs.iter()
             .enumerate()
@@ -516,7 +516,7 @@ fn print_created(time: std::time::SystemTime) {
     )
 }
 
-fn debug_model(model: Model) -> Result<()> {
+fn debug_model(model: Model<FeaturesMatrix>) -> Result<()> {
     print_created(model.created_at);
     println!("baselines:");
     model.baselines.iter().for_each(|content| {

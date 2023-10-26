@@ -12,6 +12,8 @@ use itertools::Itertools;
 use sprs::*;
 use std::collections::HashMap;
 
+pub mod traits;
+
 pub type F = f32;
 type SparseVec = CsVecBase<Vec<usize>, Vec<F>, F>;
 pub type FeaturesMatrix = CsMatBase<F, usize, Vec<usize>, Vec<usize>, Vec<F>>;
@@ -55,7 +57,7 @@ pub fn load_mat(buf: &[u8]) -> FeaturesMatrix {
 }
 
 /// Index implementation using a csr matrix storage.
-/// Use the [`IndexBuilder`] for a streaming implementation.
+/// Use the [`FeaturesMatrixBuilder`] for a streaming implementation.
 pub fn index_mat(lines: &[String]) -> FeaturesMatrix {
     create_mat(&lines.iter().map(|s| vectorize(s)).collect::<Vec<_>>())
 }
@@ -98,24 +100,26 @@ fn cosine_distance_chunk(
     result
 }
 
-pub struct IndexBuilder {
+pub struct FeaturesMatrixBuilder {
     current_row: usize,
     row: Vec<usize>,
     col: Vec<usize>,
     val: Vec<f32>,
 }
 
-impl IndexBuilder {
-    pub fn new() -> Self {
-        Self {
-            current_row: 0,
-            row: Vec::with_capacity(65535),
-            col: Vec::with_capacity(65535),
-            val: Vec::with_capacity(65535),
-        }
+impl traits::IndexReader for FeaturesMatrix {
+    fn distance(&self, targets: &[String]) -> Vec<f32> {
+        search_mat_chunk(&self.view(), targets)
     }
+    fn rows(&self) -> usize {
+        self.rows()
+    }
+}
 
-    pub fn add(&mut self, line: &str) {
+impl traits::IndexBuilder for FeaturesMatrixBuilder {
+    type Reader = FeaturesMatrix;
+
+    fn add(&mut self, line: &str) {
         let row = self.current_row;
         self.current_row += 1;
         let vector = vectorize(line);
@@ -127,14 +131,19 @@ impl IndexBuilder {
         }
     }
 
-    pub fn build(self) -> FeaturesMatrix {
+    fn build(self) -> FeaturesMatrix {
         TriMat::from_triplets((self.row.len(), SIZE), self.row, self.col, self.val).to_csr()
     }
 }
 
-impl Default for IndexBuilder {
+impl Default for FeaturesMatrixBuilder {
     fn default() -> Self {
-        Self::new()
+        Self {
+            current_row: 0,
+            row: Vec::with_capacity(65535),
+            col: Vec::with_capacity(65535),
+            val: Vec::with_capacity(65535),
+        }
     }
 }
 

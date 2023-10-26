@@ -53,7 +53,9 @@ fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
             .find(|p| p.extension() == Some(OsStr::new("fail"))),
     ) {
         (Some(good), Some(fail)) => {
-            let model = Model::train(env, [content_from_pathbuf(good.to_path_buf())].to_vec())?;
+            let model = Model::<logreduce_model::FeaturesMatrix>::train::<
+                logreduce_model::FeaturesMatrixBuilder,
+            >(env, [content_from_pathbuf(good.to_path_buf())].to_vec())?;
             let index = model.get_index(&IndexName::new()).unwrap();
             let anomalies = index
                 .inspect(

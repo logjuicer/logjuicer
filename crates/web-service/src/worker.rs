@@ -158,8 +158,10 @@ fn process_report(
     monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
     baselines.iter().try_for_each(check_content)?;
 
-    let model = logreduce_model::Model::train(env, baselines)
-        .map_err(|e| format!("training failed: {:?}", e))?;
+    let model = logreduce_model::Model::<logreduce_model::FeaturesMatrix>::train::<
+        logreduce_model::FeaturesMatrixBuilder,
+    >(env, baselines)
+    .map_err(|e| format!("training failed: {:?}", e))?;
 
     monitor.emit("Starting analysis".into());
     let report = model
