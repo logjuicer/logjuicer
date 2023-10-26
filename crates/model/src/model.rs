@@ -37,7 +37,7 @@ pub mod zuul;
 const MODEL_MAGIC: &str = "LGRD";
 
 // Remember to bump this value when changing the tokenizer or the vectorizer to avoid using incompatible models.
-const MODEL_VERSION: usize = 6;
+const MODEL_VERSION: usize = 7;
 
 /// The user input.
 #[derive(Debug, Serialize, Deserialize)]
@@ -79,7 +79,7 @@ pub struct Index {
     pub created_at: SystemTime,
     pub train_time: Duration,
     pub sources: Vec<Source>,
-    index: ChunkIndex,
+    index: logreduce_index::FeaturesMatrix,
     pub line_count: usize,
     pub byte_count: usize,
 }
@@ -93,13 +93,13 @@ impl Index {
     }
 
     pub fn samples_count(&self) -> usize {
-        self.index.samples_count()
+        self.index.rows()
     }
 }
 
 impl Index {
-    #[tracing::instrument(level = "debug", name = "Index::train", skip(env, index))]
-    pub fn train(env: &Env, sources: &[Source], mut index: ChunkIndex) -> Result<Index> {
+    #[tracing::instrument(level = "debug", name = "Index::train", skip(env))]
+    pub fn train(env: &Env, sources: &[Source]) -> Result<Index> {
         let created_at = SystemTime::now();
         let start_time = Instant::now();
         let is_json = if let Some(source) = sources.first() {
@@ -107,7 +107,7 @@ impl Index {
         } else {
             false
         };
-        let mut trainer = process::ChunkTrainer::new(&mut index, is_json);
+        let mut trainer = process::IndexTrainer::new(is_json);
         for source in sources {
             let reader = match source {
                 Source::Local(_, path_buf) => file_open(path_buf.as_path())?,
@@ -117,15 +117,18 @@ impl Index {
                 tracing::error!("{}: failed to load: {}", source, e)
             }
         }
-        trainer.complete();
+        let line_count = trainer.line_count;
+        let byte_count = trainer.byte_count;
+        let index = trainer.build();
+        let sources = sources.to_vec();
         let train_time = start_time.elapsed();
         Ok(Index {
             created_at,
-            train_time,
-            line_count: trainer.line_count,
-            byte_count: trainer.byte_count,
             index,
-            sources: sources.to_vec(),
+            sources,
+            train_time,
+            line_count,
+            byte_count,
         })
     }
 
@@ -280,8 +283,8 @@ pub fn group_sources(env: &Env, baselines: &[Content]) -> Result<HashMap<IndexNa
 
 impl Model {
     /// Create a Model from baselines.
-    #[tracing::instrument(level = "debug", skip(mk_index, env))]
-    pub fn train(env: &Env, baselines: Baselines, mk_index: fn() -> ChunkIndex) -> Result<Model> {
+    #[tracing::instrument(level = "debug", skip(env))]
+    pub fn train(env: &Env, baselines: Baselines) -> Result<Model> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
         for (index_name, sources) in group_sources(env, &baselines)?.drain() {
@@ -290,7 +293,7 @@ impl Model {
                 index_name,
                 sources.iter().format(", ")
             ));
-            let index = Index::train(env, &sources, mk_index())?;
+            let index = Index::train(env, &sources)?;
             indexes.insert(index_name, index);
         }
         Ok(Model {
@@ -451,90 +454,6 @@ fn lookup_or_single<'a, K: Eq + std::hash::Hash, V>(hm: &'a HashMap<K, V>, k: &K
             }
         }
         Some(v) => Some(v),
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum ChunkIndex {
-    HashingTrick(hashing_index::HashingIndex),
-    Noop,
-}
-
-/// An API to work with chunks of logs instead of individual line.
-impl ChunkIndex {
-    fn tokenize(&self, line: &str) -> String {
-        match self {
-            ChunkIndex::HashingTrick(_) => hashing_index::tokenize(line),
-            ChunkIndex::Noop => noop_index::tokenize(line),
-        }
-    }
-
-    fn add(&mut self, baselines: &[String]) {
-        match self {
-            ChunkIndex::HashingTrick(i) => i.add(baselines),
-            ChunkIndex::Noop => {}
-        }
-    }
-
-    fn search(&self, targets: &[String]) -> Vec<f32> {
-        match self {
-            ChunkIndex::HashingTrick(i) => i.search(targets),
-            ChunkIndex::Noop => noop_index::search(targets),
-        }
-    }
-
-    fn samples_count(&self) -> usize {
-        match self {
-            ChunkIndex::HashingTrick(i) => i.samples_count(),
-            ChunkIndex::Noop => 0,
-        }
-    }
-}
-
-pub mod hashing_index {
-    use serde::{Deserialize, Serialize};
-    /// A ChunkIndex implementation.
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct HashingIndex {
-        baselines: Vec<logreduce_index::FeaturesMatrix>,
-    }
-
-    pub fn new() -> super::ChunkIndex {
-        super::ChunkIndex::HashingTrick(HashingIndex {
-            baselines: Vec::new(),
-        })
-    }
-
-    pub fn tokenize(line: &str) -> String {
-        logreduce_tokenizer::process(line)
-    }
-    impl HashingIndex {
-        pub fn add(&mut self, baselines: &[String]) {
-            self.baselines.push(logreduce_index::index_mat(baselines))
-        }
-        pub fn search(&self, targets: &[String]) -> Vec<f32> {
-            logreduce_index::search_mat_chunk(&self.baselines, targets)
-        }
-        pub fn samples_count(&self) -> usize {
-            self.baselines.iter().fold(0, |acc, fm| acc + fm.rows())
-        }
-    }
-}
-
-pub mod noop_index {
-    pub fn new() -> super::ChunkIndex {
-        super::ChunkIndex::Noop
-    }
-
-    /// A ChunkIndex implementation for testing purpose.
-    pub fn tokenize(line: &str) -> String {
-        line.to_string()
-    }
-
-    pub fn search(targets: &[String]) -> Vec<f32> {
-        let mut distances = Vec::with_capacity(targets.len());
-        distances.resize(targets.len(), 0.0);
-        distances
     }
 }
 

@@ -11,6 +11,7 @@ pub fn process(c: &mut Criterion) {
     let targets = &lines[512..(512 + 64)];
 
     let model = index_mat(baselines);
+    let model = model.view();
     /*
     // This benchmark measure searching 64 targets in 512 baseines.
     // The goal is to compare per-line search versus chunk search.

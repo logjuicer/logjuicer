@@ -15,6 +15,7 @@ use std::collections::HashMap;
 pub type F = f32;
 type SparseVec = CsVecBase<Vec<usize>, Vec<F>, F>;
 pub type FeaturesMatrix = CsMatBase<F, usize, Vec<usize>, Vec<usize>, Vec<F>>;
+pub type FeaturesMatrixView<'a> = CsMatView<'a, F>;
 
 /// A SparseVec with the norm pre computed
 #[derive(Debug)]
@@ -31,14 +32,14 @@ fn into_feature(line: &str) -> Features {
     }
 }
 
-/// Build a list of features
-pub fn index(lines: &mut impl Iterator<Item = String>) -> Vec<Features> {
+/// A simple index implementation, used for testing.
+pub fn index_list(lines: &mut impl Iterator<Item = String>) -> Vec<Features> {
     lines.map(|line| into_feature(&line)).collect()
 }
 
 /// Compute the distance of a given line to a list of features, returns a number between 0.0 and 1.0
-/// (0. means the line is in the baseline)
-pub fn search(baselines: &[Features], line: &str) -> F {
+/// (0. means that the line is in the baseline)
+pub fn search_list(baselines: &[Features], line: &str) -> F {
     let features = into_feature(line);
     1.0 - baselines.iter().fold(0.0, |acc, baseline| {
         similarity(&features, baseline).max(acc)
@@ -53,39 +54,88 @@ pub fn load_mat(buf: &[u8]) -> FeaturesMatrix {
     deserialize(buf).unwrap()
 }
 
-/// Another implementation for index using a matrix storage
+/// Index implementation using a csr matrix storage.
+/// Use the [`IndexBuilder`] for a streaming implementation.
 pub fn index_mat(lines: &[String]) -> FeaturesMatrix {
     create_mat(&lines.iter().map(|s| vectorize(s)).collect::<Vec<_>>())
 }
 
-/// Another implementation for search using a matrix product
-pub fn search_mat(baselines: &FeaturesMatrix, lines: &[String]) -> Vec<F> {
+/// A simple search implementation, used for testing/benchmark.
+/// Use the [`search_mat_chunk`] instead.
+pub fn search_mat(baselines: &FeaturesMatrixView, lines: &[String]) -> Vec<F> {
     let target_vectors = lines.iter().map(|s| vectorize(s)).collect::<Vec<_>>();
     let mut targets = create_mat(&target_vectors);
     targets.transpose_mut();
-    cosine_distance(baselines, &targets)
+    let mut result = vec![1.0; targets.cols()];
+    cosine_distance(baselines, &targets, &mut result);
+    result
 }
 
 /// Another impementation using baselines chunk
-pub fn search_mat_chunk(baselines: &[FeaturesMatrix], lines: &[String]) -> Vec<F> {
+pub fn search_mat_chunk(baselines: &FeaturesMatrixView, lines: &[String]) -> Vec<F> {
     let target_vectors = lines.iter().map(|s| vectorize(s)).collect::<Vec<_>>();
     let mut targets = create_mat(&target_vectors);
     targets.transpose_mut();
     cosine_distance_chunk(baselines, &targets)
 }
 
-fn cosine_distance_chunk(baselines: &[FeaturesMatrix], targets: &FeaturesMatrix) -> Vec<F> {
+fn cosine_distance_chunk(
+    baselines_chunks: &FeaturesMatrixView,
+    targets: &FeaturesMatrix,
+) -> Vec<F> {
     // The targets are transposed, the column is the log line number.
     let mut result = vec![1.0; targets.cols()];
 
-    baselines.iter().for_each(|baseline| {
-        let distances_mat = baseline * targets;
+    let max = baselines_chunks.rows();
+    let mut start = 0;
+    while start < max {
+        let range = start..(start + 512).min(max);
+        start += 512;
 
-        distances_mat
-            .iter()
-            .for_each(|(v, (_, col))| result[col] = (1.0 - v).min(result[col]));
-    });
+        let baselines = baselines_chunks.slice_outer(range);
+        cosine_distance(&baselines, targets, &mut result)
+    }
     result
+}
+
+pub struct IndexBuilder {
+    current_row: usize,
+    row: Vec<usize>,
+    col: Vec<usize>,
+    val: Vec<f32>,
+}
+
+impl IndexBuilder {
+    pub fn new() -> Self {
+        Self {
+            current_row: 0,
+            row: Vec::with_capacity(65535),
+            col: Vec::with_capacity(65535),
+            val: Vec::with_capacity(65535),
+        }
+    }
+
+    pub fn add(&mut self, line: &str) {
+        let row = self.current_row;
+        self.current_row += 1;
+        let vector = vectorize(line);
+        let l2_norm = vector.l2_norm();
+        for (col, val) in vector.iter() {
+            self.row.push(row);
+            self.col.push(col);
+            self.val.push(*val / l2_norm);
+        }
+    }
+
+    pub fn build(self) -> FeaturesMatrix {
+        TriMat::from_triplets((self.row.len(), SIZE), self.row, self.col, self.val).to_csr()
+    }
+}
+
+impl Default for IndexBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Create a normalized matrix
@@ -100,15 +150,14 @@ fn create_mat(vectors: &[SparseVec]) -> FeaturesMatrix {
     mat.to_csr()
 }
 
-/// Compute the cosine distance between two noramlized matrix
-fn cosine_distance(baselines: &FeaturesMatrix, targets: &FeaturesMatrix) -> Vec<F> {
+/// Compute the cosine distance between two noramlized matrix.
+/// Update the result argument when the distance is lower.
+fn cosine_distance(baselines: &FeaturesMatrixView, targets: &FeaturesMatrix, result: &mut [F]) {
     // The targets are transposed, the column is the log line number.
-    let mut result = vec![1.0; targets.cols()];
     let distances_mat = baselines * targets;
     distances_mat
         .iter()
-        .for_each(|(v, (_, col))| result[col] = (1.0 - v).min(result[col]));
-    result
+        .for_each(|(v, (_, col))| result[col] = (1.0 - v).min(result[col]))
 }
 
 const SIZE: usize = 260000;
@@ -116,7 +165,6 @@ const SIZE: usize = 260000;
 // result = vector()
 // for each word:
 //    result[hash(word)] = 1
-// TODO: vectorize directly into a FeaturesMatrix
 fn vectorize(line: &str) -> SparseVec {
     let (keys, values) = line
         .split(' ')
@@ -166,9 +214,9 @@ mod tests {
             "the third line is a warning",
         ])
         .map(|s| s.to_string());
-        let model = index(&mut baselines);
-        assert!(dbg!(search(&model, "a new error")) > 0.6);
-        assert_eq!(search(&model, "the second line"), 0.0);
+        let model = index_list(&mut baselines);
+        assert!(dbg!(search_list(&model, "a new error")) > 0.6);
+        assert_eq!(search_list(&model, "the second line"), 0.0);
     }
 
     #[test]
@@ -180,12 +228,13 @@ mod tests {
         ];
         let targets = vec!["a new error".to_string(), "the second line".to_string()];
         let model = index_mat(&baselines);
-        let distances = search_mat(&model, &targets);
+        let model = &model.view();
+        let distances = search_mat(model, &targets);
         // The first target is definitely not in the baseline
         let expected = vec![0.7642977, 0.000000059604645];
         assert_eq!(distances, expected);
 
-        let distances = search_mat_chunk(&[model], &targets);
+        let distances = search_mat_chunk(model, &targets);
         assert_eq!(distances, expected);
     }
 

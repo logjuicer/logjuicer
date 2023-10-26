@@ -7,6 +7,7 @@ next-version
 - web: minor improvement to the user interface.
 - config: ignore .jar files by default.
 - web: add baseline selection form to the interface.
+- index: improve feature matrix storage to use contiguous memory.
 
 0.9.1
 =====
