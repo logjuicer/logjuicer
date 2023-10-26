@@ -168,7 +168,6 @@ impl Cli {
                         .map(Input::from_string)
                         .map(|x| content_from_input(&env, x))
                         .collect::<Result<Vec<_>>>()?,
-                    logreduce_model::hashing_index::new,
                 )?;
                 model.save(&model_path)
             }
@@ -351,7 +350,7 @@ fn process(
 
         // Create the model. TODO: enable custom index.
         tracing::debug!("Building model");
-        Model::train(env, baselines, logreduce_model::hashing_index::new)
+        Model::train(env, baselines)
     };
 
     let model = match model_path {

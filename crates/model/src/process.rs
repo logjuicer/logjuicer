@@ -9,7 +9,7 @@ use std::io::Read;
 use std::rc::Rc;
 
 use crate::unordered::KnownLines;
-use crate::ChunkIndex;
+use logreduce_index::IndexBuilder;
 use logreduce_iterator::LogLine;
 use logreduce_report::{Anomaly, AnomalyContext};
 
@@ -18,33 +18,30 @@ const CTX_DISTANCE: usize = 3;
 const CHUNK_SIZE: usize = 512;
 
 /// Helper struct to manage indexing multiples readers.
-pub struct ChunkTrainer<'a> {
-    index: &'a mut ChunkIndex,
+pub struct IndexTrainer {
+    builder: IndexBuilder,
     is_json: bool,
     skip_lines: KnownLines,
-    baselines: Vec<String>,
     pub line_count: usize,
     pub byte_count: usize,
 }
 
-impl<'a> ChunkTrainer<'a> {
-    pub fn new(index: &'a mut ChunkIndex, is_json: bool) -> ChunkTrainer<'a> {
-        ChunkTrainer {
-            index,
+impl IndexTrainer {
+    pub fn new(is_json: bool) -> IndexTrainer {
+        Self {
+            builder: logreduce_index::IndexBuilder::new(),
             is_json,
             skip_lines: KnownLines::new(),
-            baselines: Vec::new(),
             line_count: 0,
             byte_count: 0,
         }
     }
 
     /// Index a single reader
-    pub fn single<R: Read>(index: &'a mut ChunkIndex, is_json: bool, read: R) -> Result<()> {
-        let mut trainer = ChunkTrainer::new(index, is_json);
+    pub fn single<R: Read>(is_json: bool, read: R) -> Result<logreduce_index::FeaturesMatrix> {
+        let mut trainer = IndexTrainer::new(is_json);
         trainer.add(read)?;
-        trainer.complete();
-        Ok(())
+        Ok(trainer.build())
     }
 
     pub fn add<R: Read>(&mut self, read: R) -> Result<()> {
@@ -54,24 +51,17 @@ impl<'a> ChunkTrainer<'a> {
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             self.line_count += 1;
             self.byte_count += line.0.len();
-            let tokens = self.index.tokenize(raw_str);
+            let tokens = logreduce_tokenizer::process(raw_str);
 
             if self.skip_lines.insert(&tokens) {
-                self.baselines.push(tokens);
-
-                if self.baselines.len() == CHUNK_SIZE {
-                    self.index.add(&self.baselines);
-                    self.baselines.clear();
-                }
+                self.builder.add(&tokens);
             }
         }
         Ok(())
     }
 
-    pub fn complete(&mut self) {
-        if !self.baselines.is_empty() {
-            self.index.add(&self.baselines);
-        }
+    pub fn build(self) -> logreduce_index::FeaturesMatrix {
+        self.builder.build()
     }
 }
 
@@ -80,7 +70,7 @@ impl<'a> ChunkTrainer<'a> {
 /// buffer of the raw line to manage the surrounding context.
 pub struct ChunkProcessor<'a, R: Read> {
     reader: logreduce_iterator::BytesLines<R>,
-    index: &'a ChunkIndex,
+    index: &'a logreduce_index::FeaturesMatrix,
     /// The raw log line with their global position
     buffer: Vec<(logreduce_iterator::LogLine, usize)>,
     /// The target tokenized lines
@@ -124,7 +114,7 @@ impl<'a, R: Read> Iterator for ChunkProcessor<'a, R> {
 impl<'a, R: Read> ChunkProcessor<'a, R> {
     pub fn new(
         read: R,
-        index: &'a ChunkIndex,
+        index: &'a logreduce_index::FeaturesMatrix,
         is_json: bool,
         is_job_output: bool,
         skip_lines: &'a mut KnownLines,
@@ -161,7 +151,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
             }
 
             // Call the static method of the ChunkIndex trait
-            let tokens = self.index.tokenize(raw_str);
+            let tokens = logreduce_tokenizer::process(raw_str);
 
             // Keep in the buffer all the lines until we get CHUNK_SIZE unique lines
             self.buffer.push((line, self.coord));
@@ -199,7 +189,7 @@ impl<'a, R: Read> ChunkProcessor<'a, R> {
 
     /// Helper function for the anomalies_from_reader implementation.
     fn do_search_anomalies(&mut self) {
-        let distances = self.index.search(&self.targets);
+        let distances = logreduce_index::search_mat_chunk(&self.index.view(), &self.targets);
 
         let mut buffer_pos = 0;
         let mut last_context_pos = 0;
@@ -346,7 +336,7 @@ fn collect_before(
 
 #[test]
 fn test_leftovers() {
-    let index = crate::hashing_index::new();
+    let index = logreduce_index::index_mat(&[]);
     let mut skip_lines = KnownLines::new();
     let reader = std::io::Cursor::new("");
     let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines);
@@ -404,12 +394,11 @@ fn test_leftovers() {
 
 #[test]
 fn test_chunk_processor() {
-    let mut index = crate::hashing_index::new();
     let baseline = std::io::Cursor::new(["001: regular log line", "in-between line"].join("\n"));
 
-    let mut trainer = ChunkTrainer::new(&mut index, false);
+    let mut trainer = IndexTrainer::new(false);
     trainer.add(baseline).unwrap();
-    trainer.complete();
+    let index = trainer.build();
 
     let data = std::io::Cursor::new(
         [
@@ -427,6 +416,7 @@ fn test_chunk_processor() {
     let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
+        println!("anomalies: {:?}", anomaly);
         anomalies.push(anomaly);
         assert!(anomalies.len() <= 3)
     }
