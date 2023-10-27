@@ -9,4 +9,3 @@ These notes documents the release process for logjuicer.
 - Create and push a new signed tag.
 - Wait for CI to finish creating the release.
 - Copy the CHANGELOG to the release body.
-- Update the *logjuicer_version* in `roles/run-logjuicer/defaults/main.yaml`
