@@ -6,4 +6,4 @@
     - include_tasks: run.yaml
   when:
     - not zuul_success | bool
-    - logreduce_optin | default(False) | bool
+    - logjuicer_optin | default(False) | bool

@@ -19,8 +19,8 @@ resolver = "2"
 [workspace.package]
 version = "0.9.2"
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce"
-documentation = "https://docs.rs/logreduce/"
+repository = "https://github.com/logjuicer/logjuicer"
+documentation = "https://docs.rs/logjuicer/"
 authors = ["TristanCacqueray"]
 edition = "2021"
 

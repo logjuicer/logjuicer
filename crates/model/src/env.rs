@@ -7,7 +7,7 @@ use crate::config::Config;
 use anyhow::Result;
 
 pub struct Env {
-    pub cache: Option<logreduce_cache::Cache>,
+    pub cache: Option<logjuicer_cache::Cache>,
     pub client: ureq::Agent,
     pub output: OutputMode,
     pub config: Config,
@@ -25,8 +25,8 @@ impl Env {
         let config = config
             .map(Config::from_path)
             .unwrap_or_else(|| Ok(Config::default()))?;
-        let cache = if std::env::var("LOGREDUCE_CACHE").is_ok() {
-            Some(logreduce_cache::Cache::new().expect("Cache"))
+        let cache = if std::env::var("LOGJUICER_CACHE").is_ok() {
+            Some(logjuicer_cache::Cache::new().expect("Cache"))
         } else {
             None
         };
@@ -69,7 +69,7 @@ fn default_ca_bundle() -> Option<std::ffi::OsString> {
 }
 
 fn tls_ca_bundle() -> Option<std::ffi::OsString> {
-    std::env::var_os("LOGREDUCE_CA_BUNDLE")
+    std::env::var_os("LOGJUICER_CA_BUNDLE")
         .or_else(|| std::env::var_os("REQUESTS_CA_BUNDLE"))
         .or_else(|| std::env::var_os("CURL_CA_BUNDLE"))
         .or_else(default_ca_bundle)
@@ -85,7 +85,7 @@ fn default_ca_extra() -> Option<std::ffi::OsString> {
 }
 
 fn tls_ca_extra() -> Option<std::ffi::OsString> {
-    std::env::var_os("LOGREDUCE_CA_EXTRA").or_else(default_ca_extra)
+    std::env::var_os("LOGJUICER_CA_EXTRA").or_else(default_ca_extra)
 }
 
 // Copied from https://github.com/PyO3/maturin/blob/23158969c97418b07a3c4d31282d220ec08c3c10/src/upload.rs#L395-L418

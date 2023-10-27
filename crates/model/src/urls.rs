@@ -44,7 +44,7 @@ pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Sour
             .into_iter()
             // Convert httpdir error into cachable error
             .map(|url_result| url_result.map_err(|e| format!("{:?}", e).into()))
-            .collect::<Vec<logreduce_cache::UrlResult>>();
+            .collect::<Vec<logjuicer_cache::UrlResult>>();
         if let Some(cache) = &env.cache {
             cache.httpdir_add(url, &urls).map(|()| urls)
         } else {

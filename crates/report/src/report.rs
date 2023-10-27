@@ -3,7 +3,7 @@
 
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
-pub use logreduce_tokenizer::index_name::IndexName;
+pub use logjuicer_tokenizer::index_name::IndexName;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;

@@ -19,7 +19,7 @@
 
     - name: Set model path
       set_fact:
-        _model_dest_path: "{{ logreduce_model_root }}/{{ _model_name.stdout }}"
+        _model_dest_path: "{{ logjuicer_model_root }}/{{ _model_name.stdout }}"
 
     - name: Ensure classifier directory exists
       file:

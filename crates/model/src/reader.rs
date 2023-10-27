@@ -45,7 +45,7 @@ pub enum DecompressReader {
     Gz(GzDecoder<File>),
     // TODO: support BZIP2 compression
     Remote(UreqReader),
-    Cached(logreduce_cache::CacheReader<UreqReader>),
+    Cached(logjuicer_cache::CacheReader<UreqReader>),
 }
 use DecompressReader::*;
 

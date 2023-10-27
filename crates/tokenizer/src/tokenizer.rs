@@ -4,7 +4,7 @@
 #![warn(missing_docs)]
 #![allow(clippy::manual_range_contains)]
 
-//! This library provides a tokenizer function for the [logreduce](https://github.com/logreduce/logreduce) project.
+//! This library provides a tokenizer function for the [logjuicer](https://github.com/logjuicer/logjuicer) project.
 //!
 //! The goal is to replace varying words with fixed tokens (e.g. `sha256://...` is converted to `%HASH`).
 //!
@@ -12,7 +12,7 @@
 //! for example with a bag of words or hashing vectorizer. It looks like this:
 //!
 //! ```rust
-//! # use logreduce_tokenizer::{process};
+//! # use logjuicer_tokenizer::{process};
 //! assert_eq!(process(
 //!    "2017-06-24 02:52:17.732 22627 tempest.lib.common.rest_client [req-b932e095-6706-4f5a-bd75-241c407a9d01 ] Request (main): 201 POST https://10.0.1.9/identity/v3/auth/tokens"),
 //!    "%ID %ID %ID tempest.lib.common.rest_client %COOKIE Request main%EQ %ID POST %URL")
@@ -21,7 +21,7 @@
 //! Here are some use cases:
 //!
 //! ```rust
-//! # use logreduce_tokenizer::*;
+//! # use logjuicer_tokenizer::*;
 //! tokens_eq!("+ export ZUUL_REF=refs/zuul/master/6546b192211a4531859db9d8b9375154",
 //!            "+ export ZUUL_REF=refs/zuul/master/9249f6066a2041bbbeb838e2ca1cf2b4");
 //! tokens_eq!("2017-06-23 20:10:06,848 INFO:dlrn-build:DEBUG: writing output... [ 90%] configuration",
@@ -32,7 +32,7 @@
 //!
 //! TODO: decode json object and re-order the key to pass this test:
 //! ```should_panic
-//! # use logreduce_tokenizer::{process};
+//! # use logjuicer_tokenizer::{process};
 //! assert_eq!(process("{\"key\": true, \"oth\": 1}"), process("{\"oth\": 1, \"key\": true}"));
 //! ```
 

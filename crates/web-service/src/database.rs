@@ -5,14 +5,14 @@
 
 use sqlx::types::chrono::Utc;
 
-use logreduce_report::report_row::{ReportID, ReportRow, ReportStatus};
+use logjuicer_report::report_row::{ReportID, ReportRow, ReportStatus};
 
 #[derive(Clone)]
 pub struct Db(sqlx::SqlitePool);
 
 impl Db {
     pub async fn new() -> sqlx::Result<Db> {
-        let db_url = "sqlite://data/logreduce.sqlite?mode=rwc";
+        let db_url = "sqlite://data/logjuicer.sqlite?mode=rwc";
         let pool = sqlx::SqlitePool::connect(db_url).await?;
         sqlx::migrate!("./migrations").run(&pool).await?;
         Ok(Db(pool))

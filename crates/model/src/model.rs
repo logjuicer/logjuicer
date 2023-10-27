@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! This library provides a model implementation for the [logreduce](https://github.com/logreduce/logreduce) project.
+//! This library provides a model implementation for the [logjuicer](https://github.com/logjuicer/logjuicer) project.
 //!
 //! This module dispatch the abstract Content and Source to their implementationm e.g. the files module.
 
@@ -14,13 +14,13 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 use url::Url;
 
-pub use logreduce_tokenizer::index_name::IndexName;
+pub use logjuicer_tokenizer::index_name::IndexName;
 
-pub use logreduce_report::{
+pub use logjuicer_report::{
     AnomalyContext, ApiUrl, Content, IndexReport, LogReport, ProwBuild, Report, Source, ZuulBuild,
 };
 
-pub use logreduce_index::{FeaturesMatrix, FeaturesMatrixBuilder};
+pub use logjuicer_index::{FeaturesMatrix, FeaturesMatrixBuilder};
 
 use crate::env::Env;
 use crate::files::{dir_iter, file_iter, file_open};
@@ -36,7 +36,7 @@ pub mod unordered;
 pub mod urls;
 pub mod zuul;
 
-use logreduce_index::traits::*;
+use logjuicer_index::traits::*;
 
 const MODEL_MAGIC: &str = "LGRD";
 
@@ -455,7 +455,7 @@ impl<IR: IndexReader + Serialize + serde::de::DeserializeOwned> Model<IR> {
 }
 
 /// Helper function to make a single value hash map always match the key.
-/// This is useful when logreduce is used to compare two files which may have different index name.
+/// This is useful when logjuicer is used to compare two files which may have different index name.
 fn lookup_or_single<'a, K: Eq + std::hash::Hash, V>(hm: &'a HashMap<K, V>, k: &K) -> Option<&'a V> {
     match hm.get(k) {
         None => {
@@ -472,7 +472,7 @@ fn lookup_or_single<'a, K: Eq + std::hash::Hash, V>(hm: &'a HashMap<K, V>, k: &K
 
 #[test]
 fn test_save_load() {
-    let model: Model<logreduce_index::FeaturesMatrix> = Model {
+    let model: Model<logjuicer_index::FeaturesMatrix> = Model {
         created_at: SystemTime::now(),
         baselines: Vec::new(),
         indexes: HashMap::new(),
@@ -480,5 +480,5 @@ fn test_save_load() {
     let dir = tempfile::tempdir().expect("tmpdir");
     let model_path = dir.path().join("model.bin");
     model.save(&model_path).expect("save");
-    Model::<logreduce_index::FeaturesMatrix>::load(&model_path).expect("load");
+    Model::<logjuicer_index::FeaturesMatrix>::load(&model_path).expect("load");
 }

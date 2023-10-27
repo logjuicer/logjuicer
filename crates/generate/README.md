@@ -1,4 +1,4 @@
-logreduce-generate
+logjuicer-generate
 ==================
 
-This library provides a logfile generator for testing the logreduce project.
+This library provides a logfile generator for testing the logjuicer project.

@@ -3,7 +3,7 @@
 
 //! This module provides a model configuration.
 
-use logreduce_report::Source;
+use logjuicer_report::Source;
 use regex::RegexSet;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

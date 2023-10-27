@@ -1,18 +1,18 @@
 [package]
-name = "logreduce-index"
+name = "logjuicer-index"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce-tokenizer"
-documentation = "https://docs.rs/logreduce-index/"
+repository = "https://github.com/logjuicer/logjuicer-tokenizer"
+documentation = "https://docs.rs/logjuicer-index/"
 authors = ["TristanCacqueray"]
 
-description = "Vectorizer and index functions for the logreduce project."
+description = "Vectorizer and index functions for the logjuicer project."
 
 edition = "2018"
 
 [lib]
-name = "logreduce_index"
+name = "logjuicer_index"
 path = "src/index.rs"
 
 [dependencies]
@@ -24,7 +24,7 @@ bincode = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
-logreduce-generate = { path = "../generate" }
+logjuicer-generate = { path = "../generate" }
 
 [[bench]]
 name = "bench-index"

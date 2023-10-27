@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use goldenfile::Mint;
-use logreduce_tokenizer::index_name::IndexName;
+use logjuicer_tokenizer::index_name::IndexName;
 use std::io::Write;
 
 #[test]

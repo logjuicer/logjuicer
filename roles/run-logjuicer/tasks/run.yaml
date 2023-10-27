@@ -9,40 +9,40 @@
     mode: 0700
     state: directory
   with_items:
-    - "{{ logreduce_tmp_dir }}"
+    - "{{ logjuicer_tmp_dir }}"
 
 - name: Download pre-built model
   get_url:
-    url: "{{ logreduce_model_store_url }}/{{ _model_name }}"
+    url: "{{ logjuicer_model_store_url }}/{{ _model_name }}"
     dest: "{{ _model_path }}"
   failed_when: false
 
 - name: Copy config
   copy:
-    content: "{{ logreduce_config | to_json }}"
-    dest: "{{ logreduce_tmp_dir }}/logreduce-config.json"
+    content: "{{ logjuicer_config | to_json }}"
+    dest: "{{ logjuicer_tmp_dir }}/logjuicer-config.json"
   when: _has_config
 
 - name: Check pre-built model
   shell: |
-    {{ logreduce_cmd }} --model {{ _model_path }} check-model --max-age {{ logreduce_model_age }} || rm -f {{ _model_path }}
+    {{ logjuicer_cmd }} --model {{ _model_path }} check-model --max-age {{ logjuicer_model_age }} || rm -f {{ _model_path }}
   register: _prebuilt_model_status
 
 - name: Analyse the logs
   command: >
-    timeout {{ logreduce_max_run_time }}s {{ logreduce_cmd }}
+    timeout {{ logjuicer_max_run_time }}s {{ logjuicer_cmd }}
       --model {{ _model_path }}
-      --report {{ zuul.executor.log_root }}/logreduce.gz
-      {% if logreduce_web_url %}--web-package-url {{ logreduce_web_url }}{% endif %}
-      {% if _has_config %}--config {{ logreduce_tmp_dir }}/logreduce-config.json {% endif %}
+      --report {{ zuul.executor.log_root }}/logjuicer.gz
+      {% if logjuicer_web_url %}--web-package-url {{ logjuicer_web_url }}{% endif %}
+      {% if _has_config %}--config {{ logjuicer_tmp_dir }}/logjuicer-config.json {% endif %}
       zuul-build
-      --api-url {{ logreduce_zuul_web }}
+      --api-url {{ logjuicer_zuul_web }}
       {{ zuul.executor.log_root }}/
-  register: _logreduce_run
+  register: _logjuicer_run
 
 - name: Copy built model
   when:
-    - _logreduce_run.rc == 0
+    - _logjuicer_run.rc == 0
     - "'Good model' not in _prebuilt_model_status.stdout"
   block:
     - name: Move model to executor log
@@ -54,11 +54,11 @@
         dest: "{{ zuul.executor.log_root }}/model.name"
 
 - name: Register the output
-  when: _logreduce_run.rc == 0
+  when: _logjuicer_run.rc == 0
   delegate_to: localhost
   zuul_return:
     data:
       zuul:
         artifacts:
-          - name: "LogReduce report"
-            url: "logreduce.html"
+          - name: "Logjuicer report"
+            url: "logjuicer.html"

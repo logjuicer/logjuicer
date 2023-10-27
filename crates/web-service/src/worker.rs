@@ -6,32 +6,32 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use logreduce_model::env::Env;
-use logreduce_report::report_row::{ReportID, ReportStatus};
-use logreduce_report::Report;
+use logjuicer_model::env::Env;
+use logjuicer_report::report_row::{ReportID, ReportStatus};
+use logjuicer_report::Report;
 
 use crate::database::Db;
 
 #[derive(Clone)]
 pub struct Workers {
-    /// The execution pool to run logreduce model.
+    /// The execution pool to run logjuicer model.
     pool: threadpool::ThreadPool,
     /// The report process monitor to broadcast the status to websocket clients.
     running: Arc<RwLock<BTreeMap<ReportID, ProcessMonitor>>>,
-    /// The logreduce environment.
+    /// The logjuicer environment.
     env: Arc<Env>,
     /// The local database of reports.
     pub db: Db,
 }
 
-const MAX_LOGREDUCE_PROCESS: usize = 2;
+const MAX_LOGJUICER_PROCESS: usize = 2;
 
 impl Workers {
     pub async fn new() -> Self {
         // TODO: requeue pending build
         Workers {
             db: Db::new().await.unwrap(),
-            pool: threadpool::ThreadPool::new(MAX_LOGREDUCE_PROCESS),
+            pool: threadpool::ThreadPool::new(MAX_LOGJUICER_PROCESS),
             env: Arc::new(Env::new()),
             running: Arc::new(RwLock::new(BTreeMap::new())),
         }
@@ -124,42 +124,42 @@ fn process_report(
     monitor: &ProcessMonitor,
 ) -> Result<Report, String> {
     match baseline {
-        None => monitor.emit(format!("Running `logreduce url {}`", target).into()),
+        None => monitor.emit(format!("Running `logjuicer url {}`", target).into()),
         Some(baseline) => {
-            monitor.emit(format!("Running `logreduce diff {} {}`", baseline, target).into())
+            monitor.emit(format!("Running `logjuicer diff {} {}`", baseline, target).into())
         }
     }
 
-    use logreduce_report::Content;
+    use logjuicer_report::Content;
     fn check_content(content: &Content) -> Result<(), String> {
         match content {
-            Content::Zuul(_) | logreduce_report::Content::Prow(_) => Ok(()),
+            Content::Zuul(_) | logjuicer_report::Content::Prow(_) => Ok(()),
             _ => Err("Only zuul or prow build are supported".to_string()),
         }
     }
 
-    let input = logreduce_model::Input::Url(target.into());
+    let input = logjuicer_model::Input::Url(target.into());
     let content =
-        logreduce_model::content_from_input(env, input).map_err(|e| format!("{:?}", e))?;
+        logjuicer_model::content_from_input(env, input).map_err(|e| format!("{:?}", e))?;
 
     monitor.emit(format!("Content resolved: {}", content).into());
     check_content(&content)?;
 
     let baselines = match baseline {
         Some(baseline) => {
-            let input = logreduce_model::Input::Url(baseline.into());
-            vec![logreduce_model::content_from_input(env, input)
+            let input = logjuicer_model::Input::Url(baseline.into());
+            vec![logjuicer_model::content_from_input(env, input)
                 .map_err(|e| format!("baseline: {:?}", e))?]
         }
-        None => logreduce_model::content_discover_baselines(&content, env)
+        None => logjuicer_model::content_discover_baselines(&content, env)
             .map_err(|e| format!("discovery failed: {:?}", e))?,
     };
 
     monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
     baselines.iter().try_for_each(check_content)?;
 
-    let model = logreduce_model::Model::<logreduce_model::FeaturesMatrix>::train::<
-        logreduce_model::FeaturesMatrixBuilder,
+    let model = logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
+        logjuicer_model::FeaturesMatrixBuilder,
     >(env, baselines)
     .map_err(|e| format!("training failed: {:?}", e))?;
 

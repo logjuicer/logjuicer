@@ -1,6 +1,6 @@
 # Build release with: nix -L build .#release
 {
-  description = "The logreduce app";
+  description = "The LogJuicer app";
 
   inputs = {
     # nixpkgs is tracking nixpkgs-unstable
@@ -54,8 +54,8 @@
 
         cli-info = base-info // {
           src = src;
-          pname = "logreduce-cli";
-          cargoExtraArgs = "--package=logreduce-cli";
+          pname = "logjuicer-cli";
+          cargoExtraArgs = "--package=logjuicer-cli";
         };
         exe = craneLib.buildPackage
           (cli-info // { cargoArtifacts = craneLib.buildDepsOnly cli-info; });
@@ -70,26 +70,26 @@
 
         web-info = base-info // {
           src = src;
-          pname = "logreduce-web";
-          cargoExtraArgs = "--package=logreduce-web";
+          pname = "logjuicer-web";
+          cargoExtraArgs = "--package=logjuicer-web";
         };
         web-package = {
-          name = "logreduce-web";
-          description = "Web Interface for logreduce";
+          name = "logjuicer-web";
+          description = "Web Interface for logjuicer";
           license = "Apache-2.0";
-          homepage = "https://github.com/logreduce/logreduce";
+          homepage = "https://github.com/logjuicer/logjuicer";
           repository = {
             type = "git";
-            url = "https://github.com/logreduce/logreduce";
+            url = "https://github.com/logjuicer/logjuicer";
           };
           keywords = [ "anomaly-detection" "machine-learning" "wasm" "yew" ];
           version = web-info.version;
           files = [
             "README.md"
             "LICENSE"
-            "logreduce-web.js"
-            "logreduce-web.wasm"
-            "logreduce-web.css"
+            "logjuicer-web.js"
+            "logjuicer-web.wasm"
+            "logjuicer-web.css"
           ];
         };
         web-package-json = pkgs.writeTextFile {
@@ -112,11 +112,11 @@
             # Fixup the dist output for a publishable package.
             postInstall = ''
               rm $out/index.html
-              mv $out/*.js $out/logreduce-web.js
+              mv $out/*.js $out/logjuicer-web.js
               # remove hash from import url
-              sed -e 's/logreduce.*bg\.wasm/logreduce-web.wasm/' -i $out/logreduce-web.js
-              mv $out/*.wasm $out/logreduce-web.wasm
-              mv $out/*.css $out/logreduce-web.css
+              sed -e 's/logjuicer.*bg\.wasm/logjuicer-web.wasm/' -i $out/logjuicer-web.js
+              mv $out/*.wasm $out/logjuicer-web.wasm
+              mv $out/*.css $out/logjuicer-web.css
               cp ${self}/LICENSE $out
               cp ${self}/crates/web/README.md $out
               cp ${web-package-json} $out/package.json
@@ -127,8 +127,8 @@
 
         api-info = base-info // {
           src = src;
-          pname = "logreduce-api";
-          cargoExtraArgs = "--package=logreduce-web-service";
+          pname = "logjuicer-api";
+          cargoExtraArgs = "--package=logjuicer-web-service";
         };
         api = craneLib.buildPackage (api-info // {
           # Start the build relative to the crate to take the sqlx migrations into account.
@@ -136,7 +136,7 @@
           cargoArtifacts = craneLib.buildDepsOnly api-info;
         });
 
-        container-name = "ghcr.io/logreduce/logreduce";
+        container-name = "ghcr.io/logjuicer/logjuicer";
 
         container = pkgs.dockerTools.streamLayeredImage {
           name = container-name;
@@ -144,11 +144,11 @@
           tag = "latest";
           created = "now";
           extraCommands = "mkdir 1777 data";
-          config.Entrypoint = [ "logreduce-api" ];
-          config.Env = [ "LOGREDUCE_ASSETS=${web}/" ];
+          config.Entrypoint = [ "logjuicer-api" ];
+          config.Env = [ "LOGJUICER_ASSETS=${web}/" ];
           config.Labels = {
             "org.opencontainers.image.source" =
-              "https://github.com/logreduce/logreduce";
+              "https://github.com/logjuicer/logjuicer";
           };
         };
 
@@ -168,15 +168,15 @@
             pkgs.blas
           ]);
 
-        release = pkgs.runCommand "logreduce-release" { } ''
+        release = pkgs.runCommand "logjuicer-release" { } ''
           echo Creating release tarball with ${static-exe}
           cd ${static-exe};
-          tar --owner=0 --group=0 --mode='0755' -cf - bin/logreduce | ${pkgs.bzip2}/bin/bzip2 -9 > $out
-          echo cp $out logreduce-x86_64-linux.tar.bz2
+          tar --owner=0 --group=0 --mode='0755' -cf - bin/logjuicer | ${pkgs.bzip2}/bin/bzip2 -9 > $out
+          echo cp $out logjuicer-x86_64-linux.tar.bz2
         '';
 
         publish-container-release =
-          pkgs.writeShellScriptBin "logreduce-release" ''
+          pkgs.writeShellScriptBin "logjuicer-release" ''
             set -e
             export PATH=$PATH:${pkgs.gzip}/bin:${pkgs.skopeo}/bin
             IMAGE="docker://${container-name}"
@@ -201,7 +201,7 @@
         packages.container = container;
         apps.default = flake-utils.lib.mkApp {
           drv = exe;
-          name = "logreduce";
+          name = "logjuicer";
         };
         apps.publish-container-release =
           flake-utils.lib.mkApp { drv = publish-container-release; };
@@ -216,14 +216,14 @@
             sqlite
             capnproto
           ];
-          LOGREDUCE_CACHE = "1";
+          LOGJUICER_CACHE = "1";
           UPDATE_GOLDENFILES = "1";
           # `cargo sqlx prepare` needs an absolute path (`database create` and `migrate run` don't)
           shellHook = ''
             if test -d crates/web-service/data; then
-              export DATABASE_URL="sqlite://$(pwd)/crates/web-service/data/logreduce.sqlite?mode=rwc";
+              export DATABASE_URL="sqlite://$(pwd)/crates/web-service/data/logjuicer.sqlite?mode=rwc";
             else
-              export DATABASE_URL="sqlite://$(pwd)/data/logreduce.sqlite?mode=rwc";
+              export DATABASE_URL="sqlite://$(pwd)/data/logjuicer.sqlite?mode=rwc";
             fi
           '';
         };

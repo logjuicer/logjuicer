@@ -1,18 +1,18 @@
 [package]
-name = "logreduce-python"
+name = "logjuicer-python"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce-tokenizer"
-documentation = "https://docs.rs/logreduce-tokenizer/"
+repository = "https://github.com/logjuicer/logjuicer-tokenizer"
+documentation = "https://docs.rs/logjuicer-tokenizer/"
 authors = ["TristanCacqueray"]
 
-description = "A python binding for the logreduce project."
+description = "A python binding for the logjuicer project."
 
 edition = "2018"
 
 [lib]
-name = "logreduce_binding"
+name = "logjuicer_binding"
 crate-type = ["cdylib", "rlib"]
 path = "src/bindings.rs"
 
@@ -21,8 +21,8 @@ version = "0.16.4"
 features = ["extension-module"]
 
 [dependencies]
-logreduce-tokenizer = { path = "../tokenizer" }
-logreduce-generate = { path = "../generate" }
-logreduce-index = { path = "../index" }
+logjuicer-tokenizer = { path = "../tokenizer" }
+logjuicer-generate = { path = "../generate" }
+logjuicer-index = { path = "../index" }
 
 [workspace]

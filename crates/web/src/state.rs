@@ -3,8 +3,8 @@
 
 use dominator::routing;
 use futures_signals::signal::Mutable;
-use logreduce_report::report_row::ReportID;
-use logreduce_report::Report;
+use logjuicer_report::report_row::ReportID;
+use logjuicer_report::Report;
 use std::rc::Rc;
 use std::str::FromStr;
 use web_sys::Url;
@@ -116,8 +116,8 @@ impl App {
         let initial_url = binding.lock_ref();
         let initial_route = Route::from_url(&initial_url);
 
-        let base_path = if initial_url.contains("/logreduce/") {
-            "/logreduce/".into()
+        let base_path = if initial_url.contains("/logjuicer/") {
+            "/logjuicer/".into()
         } else {
             "/".into()
         };

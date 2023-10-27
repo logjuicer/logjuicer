@@ -1,6 +1,6 @@
-# logreduce-web
+# logjuicer-web
 
-This crate provides the `logreduce-web` application to render report and access the [logreduce-api](../web-service/).
+This crate provides the `logjuicer-web` application to render report and access the [logjuicer-api](../web-service/).
 
 
 ## Usage
@@ -21,7 +21,7 @@ The application support the following SPA URL:
 ## Contribute
 
 Develop the web interface by first generating a report with:
-`cargo run -p logreduce-cli -- --report logreduce.bin ...`. Then
+`cargo run -p logjuicer-cli -- --report logjuicer.bin ...`. Then
 run the
 
 ```ShellSession

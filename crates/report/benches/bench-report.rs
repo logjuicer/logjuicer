@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use logreduce_generate::gen_lines;
-use logreduce_report::*;
+use logjuicer_generate::gen_lines;
+use logjuicer_report::*;
 
 fn mk_report() -> Report {
     // Create a fake report with 1k anomaly
@@ -59,7 +59,7 @@ fn bench_read(c: &mut Criterion) {
             )
             .unwrap();
             let reader = message_reader
-                .get_root::<logreduce_report::schema_capnp::report::Reader<'_>>()
+                .get_root::<logjuicer_report::schema_capnp::report::Reader<'_>>()
                 .unwrap();
 
             // Traverse the list of log reports

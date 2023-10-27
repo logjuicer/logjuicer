@@ -1,10 +1,10 @@
 [package]
-name = "logreduce-iterator"
+name = "logjuicer-iterator"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce"
-documentation = "https://docs.rs/logreduce-iterator"
+repository = "https://github.com/logjuicer/logjuicer"
+documentation = "https://docs.rs/logjuicer-iterator"
 authors = ["TristanCacqueray"]
 
 description = "A memory efficient logfile iterator"
@@ -12,7 +12,7 @@ description = "A memory efficient logfile iterator"
 edition = "2018"
 
 [lib]
-name = "logreduce_iterator"
+name = "logjuicer_iterator"
 path = "src/iterator.rs"
 
 [dependencies]

@@ -11,7 +11,7 @@ use hyper::Body;
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use logreduce_report::report_row::{ReportID, ReportRow, ReportStatus};
+use logjuicer_report::report_row::{ReportID, ReportRow, ReportStatus};
 
 use crate::worker::Workers;
 
@@ -143,9 +143,9 @@ pub async fn do_report_watch(
 }
 
 pub fn generate_html(url_base_path: &str, version: &str) -> String {
-    let url = format!("{url_base_path}assets/logreduce-web.");
+    let url = format!("{url_base_path}assets/logjuicer-web.");
     format!(
-        r#"<!DOCTYPE html><html><head><meta charset="utf-8"><title>logreduce</title>
+        r#"<!DOCTYPE html><html><head><meta charset="utf-8"><title>logjuicer</title>
 <link rel="stylesheet" href="{url}css?v={version}">
 <link rel="preload" href="{url}wasm?v={version}" as="fetch" type="application/wasm" crossorigin="">
 <link rel="modulepreload" href="{url}js?v={version}">

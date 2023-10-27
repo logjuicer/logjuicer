@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::env::Env;
 use crate::{Baselines, Content, Source};
-use logreduce_report::ProwBuild;
+use logjuicer_report::ProwBuild;
 
 fn is_prow_uid(uid: &str) -> bool {
     !uid.contains(|c: char| !c.is_ascii_digit())

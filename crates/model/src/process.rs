@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module provides the core utilities to use logreduce-index with Read objects.
+//! This module provides the core utilities to use logjuicer-index with Read objects.
 
 use anyhow::Result;
 use std::collections::VecDeque;
@@ -9,11 +9,11 @@ use std::io::Read;
 use std::rc::Rc;
 
 use crate::unordered::KnownLines;
-use logreduce_index::traits::*;
-use logreduce_iterator::LogLine;
-use logreduce_report::{Anomaly, AnomalyContext};
+use logjuicer_index::traits::*;
+use logjuicer_iterator::LogLine;
+use logjuicer_report::{Anomaly, AnomalyContext};
 
-const THRESHOLD: logreduce_index::F = 0.3;
+const THRESHOLD: logjuicer_index::F = 0.3;
 const CTX_DISTANCE: usize = 3;
 const CHUNK_SIZE: usize = 512;
 
@@ -48,13 +48,13 @@ where
     }
 
     pub fn add<R: Read>(&mut self, read: R) -> Result<()> {
-        for line in logreduce_iterator::BytesLines::new(read, self.is_json) {
+        for line in logjuicer_iterator::BytesLines::new(read, self.is_json) {
             let line = line?;
             let raw_str = std::str::from_utf8(&line.0[..])
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             self.line_count += 1;
             self.byte_count += line.0.len();
-            let tokens = logreduce_tokenizer::process(raw_str);
+            let tokens = logjuicer_tokenizer::process(raw_str);
 
             if self.skip_lines.insert(&tokens) {
                 self.builder.add(&tokens);
@@ -72,10 +72,10 @@ where
 /// The goal is to perform the index search on unique lines, while keeping a
 /// buffer of the raw line to manage the surrounding context.
 pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
-    reader: logreduce_iterator::BytesLines<R>,
+    reader: logjuicer_iterator::BytesLines<R>,
     index: &'a IR,
     /// The raw log line with their global position
-    buffer: Vec<(logreduce_iterator::LogLine, usize)>,
+    buffer: Vec<(logjuicer_iterator::LogLine, usize)>,
     /// The target tokenized lines
     targets: Vec<String>,
     /// The target positions
@@ -94,7 +94,7 @@ pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
     pub line_count: usize,
     /// Total bytes count
     pub byte_count: usize,
-    /// Indicate if run-logreduce needs to be checked
+    /// Indicate if run-logjuicer needs to be checked
     is_job_output: bool,
 }
 
@@ -123,7 +123,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         skip_lines: &'a mut KnownLines,
     ) -> ChunkProcessor<'a, IR, R> {
         ChunkProcessor {
-            reader: logreduce_iterator::BytesLines::new(read, is_json),
+            reader: logjuicer_iterator::BytesLines::new(read, is_json),
             index,
             is_job_output,
             buffer: Vec::new(),
@@ -149,12 +149,12 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
             self.coord += 1;
 
             // Special check to break when we are processing ourself
-            if self.is_job_output && raw_str.contains("TASK [run-logreduce") {
+            if self.is_job_output && raw_str.contains("TASK [run-logjuicer") {
                 break;
             }
 
             // Call the static method of the ChunkIndex trait
-            let tokens = logreduce_tokenizer::process(raw_str);
+            let tokens = logjuicer_tokenizer::process(raw_str);
 
             // Keep in the buffer all the lines until we get CHUNK_SIZE unique lines
             self.buffer.push((line, self.coord));
@@ -210,12 +210,12 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
 
                 if distance_found_in_buffer && is_anomaly {
                     // We found the target in the buffer, and it is an anomaly
-                    let raw_str = logreduce_iterator::clone_bytes_to_string(bytes).unwrap();
+                    let raw_str = logjuicer_iterator::clone_bytes_to_string(bytes).unwrap();
                     target_str = Some((raw_str, line_number));
                 } else if let Some(anomaly) = &mut self.current_anomaly {
                     // The buffer head is not anomaly, and we are still processing the last anomaly found.
                     // In that case, we add the log line to the after context.
-                    let raw_str = logreduce_iterator::clone_bytes_to_string(bytes).unwrap();
+                    let raw_str = logjuicer_iterator::clone_bytes_to_string(bytes).unwrap();
                     anomaly.after.push(raw_str);
                     if anomaly.after.len() >= CTX_DISTANCE {
                         // The current anomaly is completed. TODO: try using std::mem::replace
@@ -268,7 +268,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         if let Some(anomaly) = &mut self.current_anomaly {
             if last_context_pos < self.buffer.len() {
                 for ((bytes, _), _) in &self.buffer[last_context_pos..] {
-                    let raw_str = logreduce_iterator::clone_bytes_to_string(bytes).unwrap();
+                    let raw_str = logjuicer_iterator::clone_bytes_to_string(bytes).unwrap();
                     anomaly.after.push(raw_str);
                     if anomaly.after.len() >= CTX_DISTANCE {
                         // The current anomaly is completed. TODO: try using std::mem::replace
@@ -296,7 +296,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         self.left_overs = self.buffer[max_left_overs_pos..]
             .iter()
             // TODO: use direct bytes -> str conversion.
-            .map(|((bytes, _), _)| logreduce_iterator::clone_bytes_to_string(bytes).unwrap())
+            .map(|((bytes, _), _)| logjuicer_iterator::clone_bytes_to_string(bytes).unwrap())
             .collect();
         self.buffer.clear();
     }
@@ -322,7 +322,7 @@ fn collect_before(
     let mut before = buffer[before_context_pos..buffer_pos]
         .iter()
         // TODO: use direct bytes -> str conversion.
-        .map(|((bytes, _), _)| logreduce_iterator::clone_bytes_to_string(bytes).unwrap())
+        .map(|((bytes, _), _)| logjuicer_iterator::clone_bytes_to_string(bytes).unwrap())
         .collect::<Vec<Rc<str>>>();
     if before_context_pos == 0 && before.len() < CTX_DISTANCE {
         // The anomaly happens at the begining of the buffer
@@ -339,7 +339,7 @@ fn collect_before(
 
 #[test]
 fn test_leftovers() {
-    let index = logreduce_index::index_mat(&[]);
+    let index = logjuicer_index::index_mat(&[]);
     let mut skip_lines = KnownLines::new();
     let reader = std::io::Cursor::new("");
     let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines);
@@ -399,7 +399,7 @@ fn test_leftovers() {
 fn test_chunk_processor() {
     let baseline = std::io::Cursor::new(["001: regular log line", "in-between line"].join("\n"));
 
-    let mut trainer = IndexTrainer::new(logreduce_index::FeaturesMatrixBuilder::default(), false);
+    let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default(), false);
     trainer.add(baseline).unwrap();
     let index = trainer.build();
 

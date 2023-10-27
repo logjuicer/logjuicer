@@ -5,9 +5,9 @@ from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
 setup(
-    name="logreduce-rust",
+    name="logjuicer-rust",
     version="1.0",
-    rust_extensions=[RustExtension("logreduce_rust", binding=Binding.PyO3)],
+    rust_extensions=[RustExtension("logjuicer_rust", binding=Binding.PyO3)],
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
 )
