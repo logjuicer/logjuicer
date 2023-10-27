@@ -1,15 +1,15 @@
-# LogJuicer extract anomaly from log files
+# LogJuicer Extracts Anomalies From Log Files
 
-Based on success logs, LogJuicer highlights useful text in failed logs.
-The goal is to save time in finding failures root cause.
+Based on baseline logs, LogJuicer highlights useful texts in target logs.
+The goal is to save time in finding failures' root causes.
 
 
 ## How it works
 
 LogJuicer implements a custom diffing process to compare logs:
 
-* Random words are removed using a tokenizer.
-* Lines are converted into numbers using the hashing trick.
+* A tokenizer removes random words.
+* Lines are converted into feature vectors using the hashing trick.
 * The logs are compared using cosine similarity.
 
 
@@ -65,12 +65,12 @@ To read more about the project:
 
 - Initial presentation [blog post](https://opensource.com/article/18/9/quiet-log-noise-python-and-machine-learning)
 - The command line specification: [./doc/adr/0001-architecture-cli.md](./doc/adr/0001-architecture-cli.md)
-- How the tokenizer works: [Improving logreduce tokenizer](https://www.softwarefactory-project.io/improving-logreduce-with-rust.html)
-- How the nearest neighbor works: [Implementing logreduce nearest neighbors](https://www.softwarefactory-project.io/implementing-logreduce-nearest-neighbors-model-in-rust.html)
-- How the log file iterator works: [Introducing the BytesLines iterator](https://www.softwarefactory-project.io/introducing-the-byteslines-iterator.html)
-- [Completing the first release of logreduce-rust](https://www.softwarefactory-project.io/completing-the-first-release-of-logreduce-rust.html)
+- How the tokenizer works: [Improving LogJuicer Tokenizer](https://www.softwarefactory-project.io/improving-logreduce-with-rust.html)
+- How the nearest neighbor works: [Implementing LogJuicer Nearest Neighbors](https://www.softwarefactory-project.io/implementing-logreduce-nearest-neighbors-model-in-rust.html)
+- How the log file iterator works: [Introducing the BytesLines Iterator](https://www.softwarefactory-project.io/introducing-the-byteslines-iterator.html)
+- [Completing the first release of LogJuicer](https://www.softwarefactory-project.io/completing-the-first-release-of-logreduce-rust.html)
 - How the web interface works: [WASM based web interface](https://www.softwarefactory-project.io/logreduce-wasm-based-web-interface.html)
-- The report file format: [Leveraging Cap'n Proto For Logreduce Reports](https://www.softwarefactory-project.io/leveraging-capn-proto-for-logreduce-reports.html)
+- The report file format: [Leveraging Cap'n Proto For LogJuicer Reports](https://www.softwarefactory-project.io/leveraging-capn-proto-for-logreduce-reports.html)
 
 
 ## Contribute
@@ -78,7 +78,7 @@ To read more about the project:
 Clone the project and run tests:
 
 ```
-git clone https://github.comm/logjuicer/logjuicer && cd logjuicer
+git clone https://github.com/logjuicer/logjuicer && cd logjuicer
 cargo test && cargo fmt && cargo clippy
 ```
 
