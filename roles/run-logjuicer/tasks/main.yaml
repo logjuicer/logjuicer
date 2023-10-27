@@ -1,9 +1,0 @@
----
-- name: Detect anomalies
-  ignore_errors: yes
-  block:
-    - include_tasks: install.yaml
-    - include_tasks: run.yaml
-  when:
-    - not zuul_success | bool
-    - logjuicer_optin | default(False) | bool
