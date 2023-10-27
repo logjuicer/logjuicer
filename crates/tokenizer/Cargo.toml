@@ -1,21 +1,21 @@
 [package]
-name = "logreduce-tokenizer"
+name = "logjuicer-tokenizer"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce-tokenizer"
-documentation = "https://docs.rs/logreduce-tokenizer/"
+repository = "https://github.com/logjuicer/logjuicer-tokenizer"
+documentation = "https://docs.rs/logjuicer-tokenizer/"
 authors = ["TristanCacqueray"]
 
-description = "A tokenizer function for the logreduce project."
+description = "A tokenizer function for the logjuicer project."
 
-keywords = ["parser", "machine-learning", "logreduce"]
+keywords = ["parser", "machine-learning", "logjuicer"]
 categories = ["compression", "development-tools", "parsing", "text-processing"]
 
 edition = "2018"
 
 [lib]
-name = "logreduce_tokenizer"
+name = "logjuicer_tokenizer"
 path = "src/tokenizer.rs"
 
 [dependencies]
@@ -26,7 +26,7 @@ serde = { workspace = true }
 [dev-dependencies]
 criterion = { workspace = true }
 goldenfile = { workspace = true }
-logreduce-generate = { path = "../generate" }
+logjuicer-generate = { path = "../generate" }
 
 [[bench]]
 name = "bench-tokenizer"

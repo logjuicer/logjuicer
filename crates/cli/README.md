@@ -1,4 +1,4 @@
-logreduce-cli
+logjuicer-cli
 =============
 
-This package contains the command line for the logreduce project.
+This package contains the command line for the logjuicer project.

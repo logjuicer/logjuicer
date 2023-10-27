@@ -1,6 +1,6 @@
 [package]
-name = "logreduce-web"
-description = "The WASM based web client for logreduce."
+name = "logjuicer-web"
+description = "The WASM based web client for logjuicer."
 version.workspace = true
 license.workspace = true
 edition.workspace = true
@@ -31,7 +31,7 @@ wasm-bindgen-futures = "0.4"
 gloo-net = "0.4"
 futures = "0.3"
 
-# logreduce
-logreduce-report = { path = "../report" }
+# logjuicer
+logjuicer-report = { path = "../report" }
 chrono = { workspace = true }
 itertools = { workspace = true }

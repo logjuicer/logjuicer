@@ -6,11 +6,11 @@ Add this to your post playbook, before the `upload-logs`, like so:
 
    - hosts: logserver
      roles:
-       - role: upload-logreduce-model
+       - role: upload-logjuicer-model
        - role: upload-logs
 
 **Role Variables**
 
-.. zuul:rolevar:: logreduce_model_root
+.. zuul:rolevar:: logjuicer_model_root
 
-   The location of the logreduce_model_store_url.
+   The location of the logjuicer_model_store_url.

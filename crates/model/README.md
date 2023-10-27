@@ -1,4 +1,4 @@
-logreduce-model
+logjuicer-model
 ===============
 
-This library provides the core logic of the logreduce project.
+This library provides the core logic of the logjuicer project.

@@ -6,7 +6,7 @@
 //! The main function is [gen_lines]:
 //!
 //! ```rust
-//! # use logreduce_generate::{gen_lines};
+//! # use logjuicer_generate::{gen_lines};
 //! assert_eq!(gen_lines().next(), Some("xbWovSpJUTKzox0Pi 5l9xl5uT cREJn spFXCZ wirsrgr 2OCwC pe".to_string()))
 //! ```
 

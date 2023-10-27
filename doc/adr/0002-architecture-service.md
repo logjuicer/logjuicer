@@ -1,16 +1,16 @@
-# 0002. Architecture of the logreduce-service
+# 0002. Architecture of the logjuicer-service
 
 * Status: proposed
 * Date: 2022-03-16
 * Deciders: Fabien Boucher, Tristan de Cacqueray
 
-The goal of this document is to list the main use-cases of the logreduce service.
+The goal of this document is to list the main use-cases of the logjuicer service.
 
 ## Context and Problem Statement
 
 We would like to provide better feedbacks by looking for similarities between reports and correlate the issues.
 In particular for transient issues such as infra failures or broken third-party CI,
-logreduce needs to report links to known issues instead of the full report.
+logjuicer needs to report links to known issues instead of the full report.
 
 For example, in the case of a third party CI, when a breaking change is merged, then further jobs are likely to fail with the same anomaly.
 In that situation, we would like the first failure to have a tracking issue, for example in bugzilla.
@@ -50,7 +50,7 @@ Here is a set of service features to support this use-case:
 
 ### Create tracking issue
 
-When the anomalies reported are unrelated to the build, for example when it's a infra failure, they can be uploaded to the logreduce-service so that a tracking issue is created.
+When the anomalies reported are unrelated to the build, for example when it's a infra failure, they can be uploaded to the logjuicer-service so that a tracking issue is created.
 The recipient may be able to annotate the report with a title:
 
 ```haskell
@@ -84,7 +84,7 @@ listValidatedIssues :: ApiURL -> IO [(BugID, Title)]
 
 ### Query for existing issue
 
-After a report is produced, logreduce-cli may query the service to check if it matches known issues:
+After a report is produced, logjuicer-cli may query the service to check if it matches known issues:
 
 - When a known issue matches, a link to the issue is reported. For example `rhbz#42 - package X is causing segfault`.
 - If the issue is closed, then a comment may be added to the issue to indicate a new occurance.
@@ -96,9 +96,9 @@ checkReport :: Report -> IO (Maybe [BugID])
 
 ### Submit helpful report
 
-Moreover, the service may be used to enrich the logreduce-tests dataset.
-When a report contains helpful anomalies, it can also be uploaded so that it is added to the logreduce-tests dataset.
-The logreduce-tests dataset are used for tokenizer and model implementation to prevent regression.
+Moreover, the service may be used to enrich the logjuicer-tests dataset.
+When a report contains helpful anomalies, it can also be uploaded so that it is added to the logjuicer-tests dataset.
+The logjuicer-tests dataset are used for tokenizer and model implementation to prevent regression.
 
-This logreduce-tests dataset is valuable on its own as it provide test data to implement such service.
+This logjuicer-tests dataset is valuable on its own as it provide test data to implement such service.
 It contains baseline and annotated target.

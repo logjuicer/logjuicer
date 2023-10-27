@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use logreduce_generate::gen_lines;
-use logreduce_index::*;
+use logjuicer_generate::gen_lines;
+use logjuicer_index::*;
 
 pub fn process(c: &mut Criterion) {
     let lines = gen_lines().take(1024).collect::<Vec<String>>();

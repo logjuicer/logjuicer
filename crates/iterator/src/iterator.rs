@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! This library provides a BytesLines iterator for the [logreduce](https://github.com/logreduce/logreduce) project.
+//! This library provides a BytesLines iterator for the [logjuicer](https://github.com/logjuicer/logjuicer) project.
 //!
 //! The goals of this iterator are:
 //!
@@ -13,7 +13,7 @@
 //! Here is an example usage:
 //!
 //! ```rust
-//! use logreduce_iterator::BytesLines;
+//! use logjuicer_iterator::BytesLines;
 //! // Create a test in-memory reader.
 //! let reader = std::io::Cursor::new("first\nsecond\\nextra");
 //!

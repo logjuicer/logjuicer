@@ -1,15 +1,15 @@
-# 0001. Architecture of the logreduce-cli
+# 0001. Architecture of the logjuicer-cli
 
 * Status: accepted
 * Date: 2022-03-16
 * Deciders: Fabien Boucher, Tristan de Cacqueray
 
-The goal of this document is to list the main use-cases of the logreduce
+The goal of this document is to list the main use-cases of the logjuicer
 command line interface.
 
 ## Context and Problem Statement
 
-Logreduce undergoes a re-implementation and we need to define its scope and API.
+LogJuicer undergoes a re-implementation and we need to define its scope and API.
 We would like to use a flexible architecture to support future goals.
 
 ## Considered Options
@@ -34,7 +34,7 @@ We leverage the pain-points of the initial implementation to build a flexible ar
 
 ## Command Line Use Cases
 
-Logreduce prints the anomalies to the console in real time.
+LogJuicer prints the anomalies to the console in real time.
 Or it can be used to produce a report to be analyzed later.
 
 ### Output Format
@@ -62,13 +62,13 @@ can be accessed online.
 The simplest use-cases is to compare two files:
 
 ```ShellSession
-$ logreduce diff /var/log/zuul/scheduler.log.1 /var/log/zuul/scheduler.log
+$ logjuicer diff /var/log/zuul/scheduler.log.1 /var/log/zuul/scheduler.log
 ```
 
 Or using the baseline discovery rules:
 
 ```ShellSession
-$ logreduce file /var/log/zuul/scheduler.log
+$ logjuicer file /var/log/zuul/scheduler.log
 ```
 
 
@@ -78,13 +78,13 @@ Investigate a recent outage using journald logs,
 for example by comparing with the day before:
 
 ```ShellSession
-$ logreduce journald now-3hours
+$ logjuicer journald now-3hours
 ```
 
 Or using a range, past outage can also be analyzed:
 
 ```ShellSession
-$ logreduce journald 2022-03-15T10:15:00 +1hour
+$ logjuicer journald 2022-03-15T10:15:00 +1hour
 ```
 
 
@@ -93,19 +93,19 @@ $ logreduce journald 2022-03-15T10:15:00 +1hour
 Look for anomalies in the current build, by using a pre-defined ansible roles, or github action step that would call:
 
 ```ShellSession
-$ logreduce current-build
+$ logjuicer current-build
 ```
 
 - Open `~/zuul-info/inventory.yaml` to get the job_name of the current build.
-- Lookup pre-existing model, for example in a known location: `${logserver_url}/logreduce-models/${job-name}`.
-- If no model can be found, logreduce query the builds API to download the baselines (e.g. previous successfull runs) and build a new model. The newly built model can be uploaded for re-use.
+- Lookup pre-existing model, for example in a known location: `${logserver_url}/logjuicer-models/${job-name}`.
+- If no model can be found, logjuicer query the builds API to download the baselines (e.g. previous successfull runs) and build a new model. The newly built model can be uploaded for re-use.
 - Search each file group in `~/zuul-output` and collect the anomalies.
 - Create a report and attach it to the build result artifacts.
 
 Similarly, a build can be analyzed using it's url:
 
 ```ShellSession
-$ logreduce url https://build-log-url
+$ logjuicer url https://build-log-url
 ```
 
 
@@ -114,13 +114,13 @@ $ logreduce url https://build-log-url
 Given a baseline sosreport, for example produced in a controlled environment, look for anomaly in a report tarball:
 
 ```ShellSession
-$ logreduce diff baseline-sosreport.tar.gz customer-sosreport.tar.gz
+$ logjuicer diff baseline-sosreport.tar.gz customer-sosreport.tar.gz
 ```
 
 Or given a pre-trained model:
 
 ```ShellSession
-$ logreduce --model ./sosreport.clf file customer-sosreport.tar.gz
+$ logjuicer --model ./sosreport.clf file customer-sosreport.tar.gz
 ```
 
 
@@ -234,7 +234,7 @@ Here are the convertion rules for `sourceToIndexName`:
 
 ### Report
 
-Using a Model and a target Content, logreduce produces this output:
+Using a Model and a target Content, logjuicer produces this output:
 
 ```haskell
 searchAnomaly :: Index -> Source -> IO [Anomaly]
@@ -258,7 +258,7 @@ data Report = Report
 
 ## Report minification
 
-An emergent feature for logreduce is to be able to compare multiple reports to find similarities and extract unique errors:
+An emergent feature for logjuicer is to be able to compare multiple reports to find similarities and extract unique errors:
 
 ```haskell
 minimizeReports :: [Report] -> [(Source, [Anomaly])]
@@ -278,4 +278,4 @@ We may want to tolerate small variation between reports.
 When looking for anomalies, we check every target with every baseline.
 When looking for report similarity, we need to check if every known anomalies are present in the target report.
 
-This feature is a key requirement for the logreduce-service described in the ADR 0002.
+This feature is a key requirement for the logjuicer-service described in the ADR 0002.

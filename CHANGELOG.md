@@ -5,7 +5,7 @@ next-version
 =====
 
 - cli: creating static html reports is no-longer supported.
-- http: add support for LOGREDUCE_CA_EXTRA or /etc/pki/tls/certs/ca-extra.crt to add an extra ca to the default bundle.
+- http: add support for LOGJUICER_CA_EXTRA or /etc/pki/tls/certs/ca-extra.crt to add an extra ca to the default bundle.
 - api: provides a /ready and /metrics endpoint for monitoring.
 - web: minor improvement to the user interface.
 - config: ignore .jar files by default.
@@ -68,7 +68,7 @@ next-version
 
 - Prow build url can now be used to extract anomalies from prow build artifacts.
 - Log files ending with `.log.1.gz` and `.log.txt.gz` are now handled correctly.
-- Reduce logreduce command binary size by replacing the reqwest http client with ureq.
+- Reduce logjuicer command binary size by replacing the reqwest http client with ureq.
 
 0.7.1
 =====

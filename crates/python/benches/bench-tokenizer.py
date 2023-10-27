@@ -10,7 +10,7 @@ tries to tokenize each words, using a recursive algorithm to break down composit
 """
 
 import timeit
-import logreduce_rust
+import logjuicer_rust
 
 # A very simple approximation of the new process
 import re
@@ -40,9 +40,9 @@ def bench(process):
 
 py = bench(native_process)
 print("Python {:>6.1f}ms".format(py))
-rs = bench(logreduce_rust.process)
+rs = bench(logjuicer_rust.process)
 print("Rust   {:>6.1f}ms ({:.1f} times faster)".format(rs, py / rs))
 
-import logreduce.tokenizer
-base = bench(logreduce.tokenizer.Tokenizer.process)
+import logjuicer.tokenizer
+base = bench(logjuicer.tokenizer.Tokenizer.process)
 print("Base   {:>6.1f}ms".format(base))

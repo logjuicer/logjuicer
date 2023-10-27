@@ -3,7 +3,7 @@ name = "zuul-build"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce"
+repository = "https://github.com/logjuicer/logjuicer"
 documentation = "https://docs.rs/zuul-build/"
 authors = ["TristanCacqueray"]
 

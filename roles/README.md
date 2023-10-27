@@ -1,6 +1,6 @@
-# Logreduce zuul-jobs roles
+# LogJuicer zuul-jobs roles
 
-To integrate logreduce into your [zuul-ci](https://zuul-ci.org),
+To integrate logjuicer into your [zuul-ci](https://zuul-ci.org),
 copy the roles to your config repository and update the post playbook
 like this:
 
@@ -9,17 +9,17 @@ like this:
   hosts: localhost
   roles:
     - role: generate-zuul-manifest
-    - role: run-logreduce
-      logreduce_zuul_web: https://zuul.sftests.com/
-      logreduce_model_store_url: https://logserver.sftests.com/logs/classifiers
+    - role: run-logjuicer
+      logjuicer_zuul_web: https://zuul.sftests.com/
+      logjuicer_model_store_url: https://logserver.sftests.com/logs/classifiers
     - role: add-fileserver
       fileserver: "{{ site_sflogs }}"
 
 - name: upload logs
   hosts: logserver-sshd
   roles:
-    - role: upload-logreduce-model
-      logreduce_model_root: rsync/classifiers
+    - role: upload-logjuicer-model
+      logjuicer_model_root: rsync/classifiers
     - role: upload-logs
       zuul_log_compress: true
       zuul_log_url: "https://logserver.sftests.com/logs/"

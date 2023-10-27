@@ -1,4 +1,4 @@
-logreduce-tokenizer
+logjuicer-tokenizer
 ===================
 
-This library provides a tokenizer function for the logreduce project.
+This library provides a tokenizer function for the logjuicer project.

@@ -1,0 +1,31 @@
+# Update from https://github.com/logjuicer/logjuicer/releases
+logjuicer_version: 0.8.4
+
+# Set include/exclude file list
+logjuicer_config: null
+
+_has_config: "{{ logjuicer_config | default(false) }}"
+_model_hash: "{% if _has_config %}-{{ logjuicer_config | hash('md5') }}{% endif %}"
+_model_path: "{{ logjuicer_tmp_dir }}/model.bin"
+
+# Change this to a local location with a folder per web's version.
+logjuicer_web_url: null
+
+# Set this to true to run logjuicer
+logjuicer_optin: false
+
+# How old (in days) can a built model be used
+logjuicer_model_age: 7
+
+# Enable logjuicer debug logs
+logjuicer_debug: false
+
+# Maximum runtime in seconds
+logjuicer_max_run_time: 900
+
+# Zuul API to query for baseline
+logjuicer_zuul_web: https://softwarefactory-project.io/zuul/
+logjuicer_model_store_url: https://softwarefactory-project.io/logs/classifiers
+
+# Local path
+logjuicer_tmp_dir: "{{ ansible_env.HOME }}/.logjuicer"

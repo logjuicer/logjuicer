@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module contains the logreduce-api web client.
+//! This module contains the logjuicer-api web client.
 
 use dominator::{clone, events, html, link, text, with_node, Dom, EventOptions};
 use futures_signals::signal::Mutable;
@@ -11,7 +11,7 @@ use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 
-use logreduce_report::report_row::{ReportID, ReportRow, ReportStatus};
+use logjuicer_report::report_row::{ReportID, ReportRow, ReportStatus};
 
 use crate::dom_utils::*;
 use crate::state::{App, Route};
@@ -92,7 +92,7 @@ fn render_input(state: &Rc<App>) -> Dom {
         }),
         html!("div", {.class(["flex", "justify-center", "mt-2", "gap-2"]).visible_signal(show_submit.signal()).children(&mut [
             html!("button", {.class(["whitespace-nowrap", "rounded", "px-2", "py-1", "text-white", "font-bold", "bg-blue-500", "hover:bg-blue-700"])
-                             .text("Logreduce Search")}),
+                             .text("LogJuicer Search")}),
             html!("input" => HtmlInputElement, {
                 .class(["w-full", "rounded", "border", "pl-1"])
                     .attr("placeholder", "Baseline URL")
@@ -130,7 +130,7 @@ fn render_input(state: &Rc<App>) -> Dom {
 
 pub fn do_render_welcome(state: &Rc<App>) -> Dom {
     html!("div", {.class("px-2").children(&mut [
-        html!("div", {.class(["font-semibold", "mt-2"]).text("Welcome to the logreduce web interface!")}),
+        html!("div", {.class(["font-semibold", "mt-2"]).text("Welcome to the logjuicer web interface!")}),
         render_input(state),
     ])})
 }

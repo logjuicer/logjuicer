@@ -19,10 +19,10 @@ fn collect_vstat() {
             .checked_sub(statvfs.f_bavail)
             .map(|f_bused| (f_bused * statvfs.f_bsize) as f64)
         {
-            metrics::gauge!("logreduce_data_used_bytes", used);
+            metrics::gauge!("logjuicer_data_used_bytes", used);
         }
         metrics::gauge!(
-            "logreduce_data_available_bytes",
+            "logjuicer_data_available_bytes",
             (statvfs.f_bsize * statvfs.f_bavail) as f64
         );
     }
@@ -44,12 +44,12 @@ async fn main() {
     collector.describe();
 
     metrics::describe_gauge!(
-        "logreduce_data_used_bytes",
+        "logjuicer_data_used_bytes",
         metrics::Unit::Bytes,
         "Disk usage in bytes."
     );
     metrics::describe_gauge!(
-        "logreduce_data_available_bytes",
+        "logjuicer_data_available_bytes",
         metrics::Unit::Bytes,
         "Disk usage in bytes."
     );
@@ -79,8 +79,8 @@ async fn main() {
                 .on_response(trace::DefaultOnResponse::new().level(tracing::Level::INFO)),
         );
 
-    if let Ok(assets) = std::env::var("LOGREDUCE_ASSETS") {
-        let mut base_url = std::env::var("LOGREDUCE_BASE_URL").unwrap_or("/".into());
+    if let Ok(assets) = std::env::var("LOGJUICER_ASSETS") {
+        let mut base_url = std::env::var("LOGJUICER_BASE_URL").unwrap_or("/".into());
         if !base_url.ends_with('/') {
             base_url.push('/');
         }

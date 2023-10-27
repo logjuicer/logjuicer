@@ -1,18 +1,18 @@
 [package]
-name = "logreduce-generate"
+name = "logjuicer-generate"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce"
-documentation = "https://docs.rs/logreduce-generate/"
+repository = "https://github.com/logjuicer/logjuicer"
+documentation = "https://docs.rs/logjuicer-generate/"
 authors = ["TristanCacqueray"]
 
-description = "Logfile generator for testing the logreduce project."
+description = "Logfile generator for testing the logjuicer project."
 
 edition = "2018"
 
 [lib]
-name = "logreduce_generate"
+name = "logjuicer_generate"
 path = "src/generate.rs"
 
 [dependencies]

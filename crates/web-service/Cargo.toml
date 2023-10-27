@@ -1,5 +1,5 @@
 [package]
-name = "logreduce-web-service"
+name = "logjuicer-web-service"
 description = "A web-service to extract anomaly from log files."
 version.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ authors.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "logreduce-api"
+name = "logjuicer-api"
 path = "src/api.rs"
 
 [dependencies]
@@ -39,5 +39,5 @@ metrics = "*"
 metrics-exporter-prometheus = "0.12.1"
 metrics-process = "1.0.12"
 
-logreduce-report = { path = "../report" }
-logreduce-model = { path = "../model" }
+logjuicer-report = { path = "../report" }
+logjuicer-model = { path = "../model" }

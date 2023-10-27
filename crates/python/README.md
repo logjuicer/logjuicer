@@ -1,4 +1,4 @@
-logreduce-python
+logjuicer-python
 ================
 
 This library provides a module that can be called from Python.

@@ -1,17 +1,17 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module is the entrypoint of the logreduce command line.
+//! This module is the entrypoint of the logjuicer command line.
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
-use logreduce_model::env::{Env, OutputMode};
-use logreduce_model::{
+use logjuicer_model::env::{Env, OutputMode};
+use logjuicer_model::{
     content_discover_baselines, content_from_input, content_get_sources, group_sources, Content,
     FeaturesMatrix, FeaturesMatrixBuilder, Input, Model, Source,
 };
-use logreduce_report::{bytes_to_mb, Report};
+use logjuicer_report::{bytes_to_mb, Report};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Instant;
@@ -23,7 +23,7 @@ mod dataset;
 #[clap(version, about, long_about = None)]
 #[clap(disable_help_subcommand = true)]
 struct Cli {
-    #[clap(long, help = "Logreduce configuration", value_name = "FILE")]
+    #[clap(long, help = "LogJuicer configuration", value_name = "FILE")]
     config: Option<PathBuf>,
 
     #[clap(long, help = "Create an html report")]
@@ -32,7 +32,7 @@ struct Cli {
     #[clap(
         hide = true,
         long,
-        help = "Base url for web package. The version number will be added to it. Default to 'https://unpkg.com/logreduce-web@'"
+        help = "Base url for web package. The version number will be added to it. Default to 'https://unpkg.com/logjuicer-web@'"
     )]
     web_package_url: Option<String>,
 
@@ -75,7 +75,7 @@ enum Commands {
         baselines: Vec<String>,
     },
 
-    #[clap(about = "Evaluate datasets from the logreduce-tests project")]
+    #[clap(about = "Evaluate datasets from the logjuicer-tests project")]
     Test {
         #[clap(required = true)]
         datasets: Vec<String>,
@@ -218,11 +218,11 @@ impl Cli {
             }
             Commands::DebugGroups { target } => debug_groups(&env, Input::from_string(target)),
             Commands::DebugTokenizer { line } => {
-                println!("{}\n", logreduce_tokenizer::process(&line));
+                println!("{}\n", logjuicer_tokenizer::process(&line));
                 Ok(())
             }
             Commands::DebugIndexname { path } => {
-                println!("{}", logreduce_model::IndexName::from_path(&path));
+                println!("{}", logjuicer_model::IndexName::from_path(&path));
                 Ok(())
             }
             Commands::DebugIterator { path } => {
@@ -233,13 +233,13 @@ impl Cli {
                     Some(source) => {
                         let reader = match source {
                             Source::Local(_, path_buf) => {
-                                logreduce_model::files::file_open(path_buf.as_path())?
+                                logjuicer_model::files::file_open(path_buf.as_path())?
                             }
                             Source::Remote(prefix, url) => {
-                                logreduce_model::urls::url_open(&env, *prefix, url)?
+                                logjuicer_model::urls::url_open(&env, *prefix, url)?
                             }
                         };
-                        for line in logreduce_iterator::BytesLines::new(reader, source.is_json()) {
+                        for line in logjuicer_iterator::BytesLines::new(reader, source.is_json()) {
                             match line {
                                 Ok((bytes, nr)) => match std::str::from_utf8(&bytes) {
                                     Ok(txt) => println!("{} | {}", nr, txt),
@@ -272,7 +272,7 @@ fn main() -> Result<()> {
 
     let logger = tracing_subscriber::Registry::default();
 
-    let (_flush, debug) = match std::env::var("LOGREDUCE_LOG") {
+    let (_flush, debug) = match std::env::var("LOGJUICER_LOG") {
         Err(_) => {
             // Default INFO stdout logger
             logger
@@ -293,7 +293,7 @@ fn main() -> Result<()> {
                     .with_bracketed_fields(true)
                     .with_filter(tracing_subscriber::filter::LevelFilter::from_str(&level)?),
             );
-            let flush = if let Ok(fp) = std::env::var("LOGREDUCE_TRACE") {
+            let flush = if let Ok(fp) = std::env::var("LOGJUICER_TRACE") {
                 let chrome = tracing_chrome::ChromeLayerBuilder::new()
                     .file(fp)
                     .include_args(true)
@@ -324,7 +324,7 @@ fn main() -> Result<()> {
     })
 }
 
-/// process is the logreduce implementation after command line parsing.
+/// process is the logjuicer implementation after command line parsing.
 #[tracing::instrument(level = "debug", skip(env))]
 fn process(
     env: &Env,
@@ -412,11 +412,11 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
     let start_time = Instant::now();
 
     for source in content_get_sources(content, env)? {
-        let index_name = logreduce_model::indexname_from_source(&source);
+        let index_name = logjuicer_model::indexname_from_source(&source);
         match model.get_index(&index_name) {
             Some(index) => {
                 let mut last_pos = None;
-                let mut print_anomaly = |anomaly: logreduce_model::AnomalyContext| {
+                let mut print_anomaly = |anomaly: logjuicer_model::AnomalyContext| {
                     total_anomaly_count += 1;
                     let context_size = 1 + anomaly.before.len();
                     let starting_pos = if anomaly.anomaly.pos > context_size {
@@ -445,7 +445,7 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
                 match index.get_processor(
                     env,
                     &source,
-                    &mut logreduce_model::unordered::KnownLines::new(),
+                    &mut logjuicer_model::unordered::KnownLines::new(),
                 ) {
                     Ok(mut processor) => {
                         for anomaly in processor.by_ref() {
@@ -577,8 +577,8 @@ fn clear_progress(output_mode: OutputMode) {
 fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     let assets_url = match web_package_url {
-        Some(url) => format!("{url}{version}/logreduce-web"),
-        None => format!("https://unpkg.com/logreduce-web@{version}/logreduce-web"),
+        Some(url) => format!("{url}{version}/logjuicer-web"),
+        None => format!("https://unpkg.com/logjuicer-web@{version}/logjuicer-web"),
     };
     let report_file_name = report
         .file_name()
@@ -588,7 +588,7 @@ fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Resu
 
     let index = format!(
         r#"<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>Logreduce</title>
+<title>LogJuicer</title>
 <link rel="stylesheet" href="{assets_url}.css">
 <link rel="preload" href="{assets_url}.wasm" as="fetch" type="application/wasm" crossorigin="">
 <link rel="modulepreload" href="{assets_url}.js"></head>

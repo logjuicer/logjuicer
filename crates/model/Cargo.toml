@@ -1,30 +1,30 @@
 [package]
-name = "logreduce-model"
+name = "logjuicer-model"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce"
-documentation = "https://docs.rs/logreduce-model/"
+repository = "https://github.com/logjuicer/logjuicer"
+documentation = "https://docs.rs/logjuicer-model/"
 authors = ["TristanCacqueray"]
 
-description = "The core logic of the logreduce project."
+description = "The core logic of the logjuicer project."
 
 edition = "2018"
 
 [lib]
-name = "logreduce_model"
+name = "logjuicer_model"
 path = "src/model.rs"
 
 [dependencies]
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 walkdir = { workspace = true }
-logreduce-index = { path = "../index" }
-logreduce-report = { path = "../report" }
-logreduce-tokenizer = { path = "../tokenizer" }
-logreduce-iterator = { path = "../iterator" }
+logjuicer-index = { path = "../index" }
+logjuicer-report = { path = "../report" }
+logjuicer-tokenizer = { path = "../tokenizer" }
+logjuicer-iterator = { path = "../iterator" }
 httpdir = { path = "../httpdir" }
-logreduce-cache = { path = "../cache" }
+logjuicer-cache = { path = "../cache" }
 zuul-build = { path = "../zuul" }
 prow-build = { path = "../prow" }
 url = { workspace = true }
@@ -47,7 +47,7 @@ flate2 = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
-logreduce-generate = { path = "../generate" }
+logjuicer-generate = { path = "../generate" }
 mockito = { workspace = true }
 tempfile = { workspace = true }
 

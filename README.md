@@ -1,12 +1,12 @@
-# logreduce extract anomaly from log files
+# LogJuicer extract anomaly from log files
 
-Based on success logs, logreduce highlights useful text in failed logs.
+Based on success logs, LogJuicer highlights useful text in failed logs.
 The goal is to save time in finding failures root cause.
 
 
 ## How it works
 
-logreduce implements a custom diffing process to compare logs:
+LogJuicer implements a custom diffing process to compare logs:
 
 * Random words are removed using a tokenizer.
 * Lines are converted into numbers using the hashing trick.
@@ -15,15 +15,15 @@ logreduce implements a custom diffing process to compare logs:
 
 ## Install
 
-Install the `logreduce` command line by running:
+Install the `logjuicer` command line by running:
 
 ```
-cargo install --git https://github.com/logreduce/logreduce logreduce-cli
+cargo install --git https://github.com/logjuicer/logjuicer logjuicer-cli
 ```
 
 > If you don't have `cargo`, see this [install rust](https://www.rust-lang.org/tools/install) documentation.
 
-Or grab the latest release assets `logreduce-x86_64-linux.tar.bz2` from https://github.com/logreduce/logreduce/releases
+Or grab the latest release assets `logjuicer-x86_64-linux.tar.bz2` from https://github.com/logjuicer/logjuicer/releases
 
 
 ## Use
@@ -31,19 +31,19 @@ Or grab the latest release assets `logreduce-x86_64-linux.tar.bz2` from https://
 Analyze a local file:
 
 ```ShellSession
-$ logreduce file /var/log/zuul/scheduler.log
+$ logjuicer file /var/log/zuul/scheduler.log
 ```
 
 Analyze a remote url:
 
 ```ShellSession
-$ logreduce url https://zuul/build/uuid
+$ logjuicer url https://zuul/build/uuid
 ```
 
 Compare two inputs (when baseline discovery doesn't work):
 
 ```ShellSession
-$ logreduce diff https://zuul/build/success-build https://zuul/build/failed-build
+$ logjuicer diff https://zuul/build/success-build https://zuul/build/failed-build
 ```
 
 Save and re-use trained model using the `--model file-path` argument.
@@ -51,7 +51,7 @@ Save and re-use trained model using the `--model file-path` argument.
 
 ## Configure
 
-Logreduce supports the [ant's fileset](https://ant.apache.org/manual/Types/fileset.html) configuration to
+Logjuicer supports the [ant's fileset](https://ant.apache.org/manual/Types/fileset.html) configuration to
 filter the processed files:
 
 - *includes*: list of files regex that must be included. Defaults to all files.
@@ -78,17 +78,17 @@ To read more about the project:
 Clone the project and run tests:
 
 ```
-git clone https://github.comm/logreduce/logreduce && cd logreduce
+git clone https://github.comm/logjuicer/logjuicer && cd logjuicer
 cargo test && cargo fmt && cargo clippy
 ```
 
 Run the project:
 
 ```
-cargo run -p logreduce-cli -- --help
+cargo run -p logjuicer-cli -- --help
 ```
 
-Join the project Matrix room: [#logeduce:matrix.org](https://matrix.to/#/#logreduce:matrix.org).
+Join the project Matrix room: [#logeduce:matrix.org](https://matrix.to/#/#logjuicer:matrix.org).
 
 
 ## Roadmap
@@ -97,4 +97,4 @@ Join the project Matrix room: [#logeduce:matrix.org](https://matrix.to/#/#logred
 * Reports minification
 * Web service deployment
 
-[logreduce]: https://github.com/logreduce/logreduce
+[logjuicer]: https://github.com/logjuicer/logjuicer

@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module is the entrypoint of the logreduce web interface.
+//! This module is the entrypoint of the logjuicer web interface.
 
 use dominator::{clone, html, Dom};
 
@@ -40,7 +40,7 @@ use state::Route;
 fn render_app(state: &Rc<App>) -> Dom {
     let about = html!("div", {.class(["tooltip", "top-1"]).children(&mut [
         html!("div", {.class(["hover:bg-slate-400"]).children(&mut [
-            render_link("https://github.com/logreduce/logreduce#readme", "documentation")
+            render_link("https://github.com/logjuicer/logjuicer#readme", "documentation")
         ])}),
         data_attr("Viewer", env!("CARGO_PKG_VERSION")),
         data_attr("License", env!("CARGO_PKG_LICENSE")),
@@ -56,9 +56,9 @@ fn render_app(state: &Rc<App>) -> Dom {
         }));
 
     #[cfg(feature = "api_client")]
-    let backlink = link!(state.base_path.clone(), {.text("logreduce")});
+    let backlink = link!(state.base_path.clone(), {.text("logjuicer")});
     #[cfg(not(feature = "api_client"))]
-    let backlink = html!("span", {.text("logreduce")});
+    let backlink = html!("span", {.text("logjuicer")});
 
     let nav = html!("nav", {.class(["sticky", "top-0", "bg-slate-300", "z-50", "flex", "px-1", "divide-x"]).children(&mut [
         html!("div", {.class("grow").children(&mut [backlink])}),
@@ -90,7 +90,7 @@ fn render_app(state: &Rc<App>) -> Dom {
         .unwrap()
         .get("report")
         .and_then(|obj| obj.as_string())
-        .unwrap_or_else(|| "logreduce.bin".to_string());
+        .unwrap_or_else(|| "logjuicer.bin".to_string());
 
     #[cfg(not(feature = "api_client"))]
     let body = html!("div", {.children(clone!(state => &mut [

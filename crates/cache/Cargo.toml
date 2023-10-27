@@ -1,9 +1,9 @@
 [package]
-name = "logreduce-cache"
+name = "logjuicer-cache"
 version = "0.1.0"
 
 license = "Apache-2.0"
-repository = "https://github.com/logreduce/logreduce"
+repository = "https://github.com/logjuicer/logjuicer"
 authors = ["TristanCacqueray"]
 
 description = "Local compressed cache to avoid network requests."
@@ -11,7 +11,7 @@ description = "Local compressed cache to avoid network requests."
 edition = "2018"
 
 [lib]
-name = "logreduce_cache"
+name = "logjuicer_cache"
 path = "src/cache.rs"
 
 [dependencies]

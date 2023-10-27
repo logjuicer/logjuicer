@@ -1,17 +1,17 @@
-# logreduce-web-service
+# logjuicer-web-service
 
-This crate provides the `logreduce-api` command to provide a web-service for running logreduce.
+This crate provides the `logjuicer-api` command to provide a web-service for running logjuicer.
 
 
 ## Usage
 
 ```ShellSession
-podman run --name logreduce --volume logreduce-data:/data --publish 3000:3000 logreduce
+podman run --name logjuicer --volume logjuicer-data:/data --publish 3000:3000 logjuicer
 ```
 
 ## API
 
-The service is designed to be access with the [logreduce-web](../web) application.
+The service is designed to be access with the [logjuicer-web](../web) application.
 But it can also be used with curl:
 
 

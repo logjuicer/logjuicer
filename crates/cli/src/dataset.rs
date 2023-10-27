@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! This module contains the logic for the test command.
-//! See the <https://github.com/logreduce/logreduce-tests> project
+//! See the <https://github.com/logjuicer/logjuicer-tests> project
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -10,8 +10,8 @@ use std::ffi::OsStr;
 use std::iter::zip;
 use std::path::Path;
 
-use logreduce_model::env::Env;
-use logreduce_model::{content_from_pathbuf, AnomalyContext, IndexName, Model, Source};
+use logjuicer_model::env::Env;
+use logjuicer_model::{content_from_pathbuf, AnomalyContext, IndexName, Model, Source};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct DatasetAnomaly {
@@ -53,15 +53,15 @@ fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
             .find(|p| p.extension() == Some(OsStr::new("fail"))),
     ) {
         (Some(good), Some(fail)) => {
-            let model = Model::<logreduce_model::FeaturesMatrix>::train::<
-                logreduce_model::FeaturesMatrixBuilder,
+            let model = Model::<logjuicer_model::FeaturesMatrix>::train::<
+                logjuicer_model::FeaturesMatrixBuilder,
             >(env, [content_from_pathbuf(good.to_path_buf())].to_vec())?;
             let index = model.get_index(&IndexName::new()).unwrap();
             let anomalies = index
                 .inspect(
                     env,
                     &Source::from_pathbuf(fail.to_path_buf()),
-                    &mut logreduce_model::unordered::KnownLines::new(),
+                    &mut logjuicer_model::unordered::KnownLines::new(),
                 )
                 .collect::<Result<Vec<AnomalyContext>>>()?;
             let anomalies_count = anomalies.len();

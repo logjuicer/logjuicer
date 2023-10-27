@@ -3,9 +3,9 @@
 
 #![warn(missing_docs)]
 
-//! This library provides python bindings for the [logreduce](https://github.com/logreduce/logreduce) project.
+//! This library provides python bindings for the [logjuicer](https://github.com/logjuicer/logjuicer) project.
 
-use logreduce_index::F;
+use logjuicer_index::F;
 use pyo3::prelude::*;
 use pyo3::types::PyCapsule;
 use std::ffi::CString;
@@ -13,13 +13,13 @@ use std::ffi::CString;
 /// Tokenize a line
 #[pyfunction]
 fn process(line: &str) -> String {
-    logreduce_tokenizer::process(line)
+    logjuicer_tokenizer::process(line)
 }
 
 /// Generate random log lines
 #[pyfunction]
 fn generate(size: usize) -> String {
-    logreduce_generate::gen_lines()
+    logjuicer_generate::gen_lines()
         .take(size)
         .collect::<Vec<String>>()
         .join("\n")
@@ -27,7 +27,7 @@ fn generate(size: usize) -> String {
 
 /// The python module
 #[pymodule]
-fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
+fn logjuicer_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(process, m)?)?;
     m.add_function(wrap_pyfunction!(generate, m)?)?;
 
@@ -35,7 +35,7 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m)]
     fn index(py: Python<'_>, baselines: Vec<String>) -> Result<&PyCapsule, PyErr> {
         let name = CString::new("model").unwrap();
-        let model = logreduce_index::index(&mut baselines.into_iter());
+        let model = logjuicer_index::index(&mut baselines.into_iter());
         PyCapsule::new(py, model, &name)
     }
 
@@ -44,16 +44,16 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
         let model = unsafe {
             pymodel
                 .as_ref(py)
-                .reference::<Vec<logreduce_index::Features>>()
+                .reference::<Vec<logjuicer_index::Features>>()
         };
-        logreduce_index::search(model, &target)
+        logjuicer_index::search(model, &target)
     }
 
     /// Return an opaque Capsule with the model
     #[pyfn(m)]
     fn index_mat(py: Python<'_>, baselines: Vec<String>) -> Result<&PyCapsule, PyErr> {
         let name = CString::new("model").unwrap();
-        let model = logreduce_index::index_mat(&baselines);
+        let model = logjuicer_index::index_mat(&baselines);
         PyCapsule::new(py, model, &name)
     }
 
@@ -62,9 +62,9 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
         let model = unsafe {
             pymodel
                 .as_ref(py)
-                .reference::<logreduce_index::FeaturesMatrix>()
+                .reference::<logjuicer_index::FeaturesMatrix>()
         };
-        logreduce_index::search_mat(model, &targets)
+        logjuicer_index::search_mat(model, &targets)
     }
 
     #[pyfn(m)]
@@ -72,15 +72,15 @@ fn logreduce_rust(_py: Python, m: &PyModule) -> PyResult<()> {
         let model = unsafe {
             pymodel
                 .as_ref(py)
-                .reference::<logreduce_index::FeaturesMatrix>()
+                .reference::<logjuicer_index::FeaturesMatrix>()
         };
-        logreduce_index::save_mat(model)
+        logjuicer_index::save_mat(model)
     }
 
     #[pyfn(m)]
     fn load_mat(py: Python<'_>, buf: Vec<u8>) -> Result<&PyCapsule, PyErr> {
         let name = CString::new("model").unwrap();
-        let model = logreduce_index::load_mat(&buf);
+        let model = logjuicer_index::load_mat(&buf);
         PyCapsule::new(py, model, &name)
     }
 

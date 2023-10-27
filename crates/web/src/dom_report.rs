@@ -8,7 +8,7 @@ use gloo_console::log;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
-use logreduce_report::{bytes_to_mb, Content, IndexName, LogReport, Report, Source};
+use logjuicer_report::{bytes_to_mb, Content, IndexName, LogReport, Report, Source};
 
 use crate::dom_utils::{data_attr, data_attr_html, render_link};
 use crate::selection::Selection;
@@ -265,7 +265,7 @@ async fn get_report(path: &str) -> Result<Report, String> {
             .await
             .map_err(|e| format!("Response error: {}", e))?;
         // log!(format!("Loaded report: {:?}", &data[..24]));
-        logreduce_report::Report::load_bytes(&data).map_err(|e| format!("Decode error: {}", e))
+        logjuicer_report::Report::load_bytes(&data).map_err(|e| format!("Decode error: {}", e))
     }
 }
 

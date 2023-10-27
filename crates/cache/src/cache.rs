@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-//! This library provides a content cache for the [logreduce](https://github.com/logreduce/logreduce) project.
+//! This library provides a content cache for the [logjuicer](https://github.com/logjuicer/logjuicer) project.
 
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
@@ -58,7 +58,7 @@ pub struct Cache {
 impl Cache {
     /// Create the cache.
     pub fn new() -> Result<Cache> {
-        xdg::BaseDirectories::with_prefix("logreduce")
+        xdg::BaseDirectories::with_prefix("logjuicer")
             .map(|xdg| Cache { xdg })
             .context("Failed to get xdg cache directory")
     }

@@ -1,5 +1,5 @@
 [package]
-name = "logreduce-cli"
+name = "logjuicer-cli"
 description = "A command line to extract anomaly from log files."
 version.workspace = true
 license.workspace = true
@@ -8,15 +8,15 @@ authors.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "logreduce"
+name = "logjuicer"
 path = "src/main.rs"
 
 [dependencies]
 anyhow = { workspace = true }
 itertools = { workspace = true }
-logreduce-model = { path = "../model" }
-logreduce-iterator = { path = "../iterator" }
-logreduce-report = { path = "../report" }
+logjuicer-model = { path = "../model" }
+logjuicer-iterator = { path = "../iterator" }
+logjuicer-report = { path = "../report" }
 clap = { workspace = true }
 atty = { workspace = true }
 tracing = { workspace = true }
@@ -30,6 +30,6 @@ serde_yaml = { workspace = true }
 serde = { workspace = true }
 
 # debug helper
-logreduce-tokenizer = { path = "../tokenizer" }
+logjuicer-tokenizer = { path = "../tokenizer" }
 url = { workspace = true }
 httpdir = { path = "../httpdir" }
