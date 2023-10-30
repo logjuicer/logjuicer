@@ -1,6 +1,11 @@
 next-version
 ============
 
+0.9.3
+=====
+
+Renamed the project to LogJuicer.
+
 0.9.2
 =====
 
