@@ -25,5 +25,5 @@ Develop the web interface by first generating a report with:
 run the
 
 ```ShellSession
-trunk serve ./dev.html --address 0.0.0.0
+trunk serve ./dev.html --address 0.0.0.0 --no-default-features
 ```

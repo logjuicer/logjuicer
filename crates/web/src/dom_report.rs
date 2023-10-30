@@ -4,6 +4,7 @@
 //! This module contains the logic to render a single report.
 
 use dominator::{clone, html, text, Dom};
+use futures_signals::signal::Mutable;
 use gloo_console::log;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
@@ -16,8 +17,6 @@ use crate::selection::Selection;
 #[cfg(feature = "api_client")]
 use crate::state::App;
 
-#[cfg(not(feature = "api_client"))]
-use futures_signals::signal::Mutable;
 #[cfg(not(feature = "api_client"))]
 pub struct App {
     pub report: Mutable<Option<Result<Report, String>>>,
@@ -126,9 +125,15 @@ fn render_log_report(gl_pos: &mut usize, report: &Report, log_report: &LogReport
         ),
     ));
 
-    let info_btn = html!("div", {.class(["has-tooltip", "px-2"]).children(&mut [
-        html!("div", {.class("tooltip").children(&mut infos)}),
-        html!("div", {.class(["font-bold", "text-slate-500"]).text("?")})
+    let toggle_info = Mutable::new(false);
+    let handler = clone!(toggle_info => move |_: dominator::events::Click| {
+        toggle_info.set(!toggle_info.get());
+    });
+    let info_btn = html!("div", {.class(["has-tooltip", "px-2"]).event(handler).children(&mut [
+        html!("div", {.class("tooltip")
+                      .class_signal("tooltip-visible", toggle_info.signal()).children(&mut infos)}),
+        html!("div", {.class(["font-bold", "text-slate-500"]).text("?")
+                      .class_signal("font-extrabold", toggle_info.signal())})
     ])});
     let header = html!("header", {.class(["header", "bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
         html!("div", {.class(["grow", "flex"]).children(&mut [
@@ -207,7 +212,7 @@ fn render_report(report: &Report) -> Dom {
     html!("div", {.children(&mut childs)})
 }
 
-pub fn render_report_card(report: &Report) -> Dom {
+pub fn render_report_card(report: &Report, toggle_info: &Mutable<bool>) -> Dom {
     let result = format!(
         "{:02.2}% reduction (from {} to {})",
         (100.0 - (report.total_anomaly_count as f32 / report.total_line_count as f32) * 100.0),
@@ -221,7 +226,7 @@ pub fn render_report_card(report: &Report) -> Dom {
         data_attr("Created at", &render_time(&report.created_at)),
         data_attr("Run time",   &format!("{:.2} sec", report.run_time.as_secs_f32())),
         data_attr("Result",     &result),
-    ])})
+    ]).class_signal("tooltip-visible", toggle_info.signal())})
 }
 
 use gloo_timers::future::TimeoutFuture;
