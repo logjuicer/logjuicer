@@ -51,7 +51,7 @@ Save and re-use trained model using the `--model file-path` argument.
 
 ## Configure
 
-Logjuicer supports the [ant's fileset](https://ant.apache.org/manual/Types/fileset.html) configuration to
+LogJuicer supports the [ant's fileset](https://ant.apache.org/manual/Types/fileset.html) configuration to
 filter the processed files:
 
 - *includes*: list of files regex that must be included. Defaults to all files.
@@ -88,7 +88,7 @@ Run the project:
 cargo run -p logjuicer-cli -- --help
 ```
 
-Join the project Matrix room: [#logeduce:matrix.org](https://matrix.to/#/#logjuicer:matrix.org).
+Join the project Matrix room: [#logjuicer:matrix.org](https://matrix.to/#/#logjuicer:matrix.org).
 
 
 ## Roadmap
