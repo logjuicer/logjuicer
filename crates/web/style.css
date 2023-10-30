@@ -17,6 +17,10 @@
   @apply invisible absolute rounded shadow-sm px-2 py-1 mt-5 bg-slate-50 right-0 divide-y divide-gray-100;
 }
 
+.tooltip-visible {
+  visibility: initial !important;
+}
+
 .has-tooltip:hover .tooltip {
   @apply visible z-50;
 }

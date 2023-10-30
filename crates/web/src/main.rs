@@ -60,16 +60,24 @@ fn render_app(state: &Rc<App>) -> Dom {
     #[cfg(not(feature = "api_client"))]
     let backlink = html!("span", {.text("logjuicer")});
 
+    let toggle_info = futures_signals::signal::Mutable::new(false);
+    let handler = clone!(toggle_info => move |_: dominator::events::Click| {
+        toggle_info.set(!toggle_info.get());
+    });
+
     let nav = html!("nav", {.class(["sticky", "top-0", "bg-slate-300", "z-50", "flex", "px-1", "divide-x"]).children(&mut [
         html!("div", {.class("grow").children(&mut [backlink])}),
         html!("div", {.class(["has-tooltip", "flex", "items-center"])
-                      .child_signal(state.report.signal_ref(|data| match data {
+                      .event(handler)
+                      .child_signal(state.report.signal_ref(clone!(toggle_info => move |data| match data {
                           Some(Ok(report)) => Some(html!("div", {.children(&mut [
-                              render_report_card(report),
-                              html!("div", {.class(["px-2", "text-sm"]).text("info")}),
+                              render_report_card(report, &toggle_info),
+                              html!("div", {.class(["px-2", "text-sm"]).text("info")
+                                            .class_signal("font-extrabold", toggle_info.signal())
+                              }),
                           ])})),
                           _ => None
-                      }))}),
+                      })))}),
         html!("div", {.class(["has-tooltip", "px-2", "flex", "items-center"]).children(&mut [
             about,
             html!("div", {.class("text-sm").text("about")}),

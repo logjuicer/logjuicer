@@ -1,6 +1,8 @@
 next-version
 ============
 
+- web: tooltip can be toggled with click event.
+
 0.9.3
 =====
 
