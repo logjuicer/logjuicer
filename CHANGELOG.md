@@ -2,6 +2,7 @@ next-version
 ============
 
 - web: tooltip can be toggled with click event.
+- api: gracefully handle worker thread panic.
 
 0.9.3
 =====

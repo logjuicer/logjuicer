@@ -184,9 +184,7 @@ impl<IR: IndexReader> Index<IR> {
 pub fn content_from_input(env: &Env, input: Input) -> Result<Content> {
     match input {
         Input::Path(path_str) => crate::files::content_from_path(Path::new(&path_str)),
-        Input::Url(url_str) => {
-            crate::urls::content_from_url(env, Url::parse(&url_str).expect("Failed to parse url"))
-        }
+        Input::Url(url_str) => crate::urls::content_from_url(env, Url::parse(&url_str)?),
 
         Input::ZuulBuild(path_buf, url_str) => {
             let url = ApiUrl::parse(&url_str).expect("Failed to parse url");
