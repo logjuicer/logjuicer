@@ -64,7 +64,7 @@ impl Workers {
             // Submit the execution to the thread pool
             self.pool.execute(move || {
                 let baseline = baseline.as_deref();
-                let (status, count) = match process_report(&env, &target, baseline, &monitor) {
+                let (status, count) = match process_report_safe(&env, &target, baseline, &monitor) {
                     Ok(report) => {
                         let count = report.anomaly_count();
                         let fp = format!("data/{}.gz", report_id);
@@ -114,6 +114,23 @@ impl ProcessMonitor {
         println!("Emitting {}", msg);
         self.events.blocking_write().push(msg.clone());
         let _ = self.chan.send(msg);
+    }
+}
+
+fn process_report_safe(
+    env: &Env,
+    target: &str,
+    baseline: Option<&str>,
+    monitor: &ProcessMonitor,
+) -> Result<Report, String> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        process_report(env, target, baseline, monitor)
+    })) {
+        Ok(res) => res,
+        Err(err) => Err(format!(
+            "crashed {}",
+            err.downcast::<&str>().unwrap_or(Box::new("unknown"))
+        )),
     }
 }
 
