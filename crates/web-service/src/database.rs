@@ -15,7 +15,17 @@ impl Db {
         let db_url = "sqlite://data/logjuicer.sqlite?mode=rwc";
         let pool = sqlx::SqlitePool::connect(db_url).await?;
         sqlx::migrate!("./migrations").run(&pool).await?;
-        Ok(Db(pool))
+        let db = Db(pool);
+        db.clean_pending().await?;
+        Ok(db)
+    }
+
+    async fn clean_pending(&self) -> sqlx::Result<()> {
+        let status = ReportStatus::Pending.as_str();
+        sqlx::query!("delete from reports where status = ?", status)
+            .execute(&self.0)
+            .await
+            .map(|_| ())
     }
 
     pub async fn get_reports(&self) -> sqlx::Result<Vec<ReportRow>> {
