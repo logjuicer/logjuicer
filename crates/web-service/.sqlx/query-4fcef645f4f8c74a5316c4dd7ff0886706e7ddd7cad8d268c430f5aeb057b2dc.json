@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "delete from reports where status = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "4fcef645f4f8c74a5316c4dd7ff0886706e7ddd7cad8d268c430f5aeb057b2dc"
+}
