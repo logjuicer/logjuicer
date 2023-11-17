@@ -3,7 +3,7 @@
 
 #[allow(unused_imports)]
 use anyhow::{Context, Result};
-use chrono::{NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use itertools::Itertools;
 use url::Url;
 
@@ -135,20 +135,23 @@ fn baseline_score(build: &ZuulBuild, target: &zuul_build::Build, now: &NaiveDate
     }
 }
 
-fn logs_available(env: &Env, target: &zuul_build::Build) -> bool {
+fn logs_available(oldest_date: &mut DateTime<Utc>, env: &Env, target: &zuul_build::Build) -> bool {
     match target.log_url {
-        None => false,
-        Some(ref url) => match crate::reader::head_url(env, 0, url) {
-            Err(e) => {
-                tracing::info!(
-                    url = url.as_str(),
-                    "Skipping build because logs are not available {}",
-                    e
-                );
-                false
+        Some(ref url) if &target.end_time > oldest_date => {
+            match crate::reader::head_url(env, 0, url) {
+                Err(e) => {
+                    tracing::info!(
+                        url = url.as_str(),
+                        "Skipping build because logs are not available {}",
+                        e
+                    );
+                    *oldest_date = target.end_time;
+                    false
+                }
+                Ok(n) => n,
             }
-            Ok(n) => n,
-        },
+        }
+        _ => false,
     }
 }
 
@@ -156,6 +159,7 @@ pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Baselines> {
     let samples = zuul_build_success_samples(build, env)?;
     let max_builds = 1;
     let now = Utc::now().date_naive();
+    let mut oldest_date = DateTime::<Utc>::MIN_UTC;
     Ok(samples
         .into_iter()
         // Compute a score value
@@ -165,7 +169,7 @@ pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Baselines> {
         // Order by descending score
         .sorted_by(|(score1, _), (score2, _)| score2.cmp(score1))
         // Filter stalled url
-        .filter(|(_, target)| logs_available(env, target))
+        .filter(|(_, target)| logs_available(&mut oldest_date, env, target))
         // .map(|b| dbg!(b))
         // Keep the best
         .take(max_builds)
