@@ -54,6 +54,9 @@ enum Commands {
     #[clap(about = "Analyze a url")]
     Url { url: String },
 
+    #[clap(about = "Compute similarity between build")]
+    Similarity { targets: Vec<String> },
+
     #[clap(
         hide = true,
         about = "Analyze systemd-journal",
@@ -151,6 +154,10 @@ impl Cli {
             Commands::Journald { .. } => todo!(),
 
             // Manual commands
+            Commands::Similarity { targets } => {
+                process_similarity(&env, targets)?;
+                Ok(())
+            }
             Commands::Diff { src, dst } => process(
                 &env,
                 self.report,
@@ -327,6 +334,30 @@ fn main() -> Result<()> {
         }
         e
     })
+}
+
+fn process_similarity(env: &Env, targets: Vec<String>) -> Result<()> {
+    let contents: Vec<Content> = targets
+        .into_iter()
+        .map(|target| content_from_input(env, Input::from_string(target)))
+        .collect::<Result<Vec<_>>>()?;
+    let model = match contents.first() {
+        Some(content) => {
+            let baselines = content_discover_baselines(content, env)?;
+            tracing::debug!("Building model");
+            let model = Model::<FeaturesMatrix>::train::<FeaturesMatrixBuilder>(env, baselines)?;
+            Ok(model)
+        }
+        None => Err(anyhow::anyhow!("No target")),
+    }?;
+    let reports: Vec<Report> = contents
+        .into_iter()
+        .map(|content| model.report(env, content))
+        .collect::<Result<Vec<_>>>()?;
+    let reports: Vec<&Report> = reports.iter().collect();
+    let report = logjuicer_model::similarity::create_similarity_report(&reports);
+    println!("Got similarity report!: {:?}", report);
+    Ok(())
 }
 
 /// process is the logjuicer implementation after command line parsing.
