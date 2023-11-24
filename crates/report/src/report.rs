@@ -22,6 +22,39 @@ pub mod codec;
 pub mod model_row;
 pub mod report_row;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct TargetID(pub usize);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SourceID(pub usize);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimilarityReport {
+    pub targets: Vec<Content>,
+    pub baselines: Vec<Content>,
+    pub similarity_reports: Vec<SimilarityLogReport>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimilaritySource {
+    pub target: TargetID,
+    pub source: Source,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimilarityLogReport {
+    pub sources: Vec<SimilaritySource>,
+    pub anomalies: Vec<SimilarityAnomalyContext>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimilarityAnomalyContext {
+    pub sources: Vec<SourceID>,
+    pub anomaly: AnomalyContext,
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Report {
     pub created_at: SystemTime,
@@ -107,6 +140,9 @@ pub enum Error {
 
     #[error("decode error: {0}")]
     DecodeError(#[from] capnp::Error),
+
+    #[error("bincode error: {0}")]
+    BincodeError(#[from] bincode::Error),
 }
 
 impl Report {
@@ -151,7 +187,46 @@ impl Report {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+// TODO: use capnproto instead of bincode
+impl SimilarityReport {
+    pub fn save(&self, path: &Path) -> Result<(), Error> {
+        let file = std::fs::File::create(path).map_err(Error::IOError)?;
+        if path.to_string_lossy().ends_with(".gz") {
+            let dest = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
+            self.save_writer(dest)
+        } else {
+            self.save_writer(file)
+        }
+    }
+
+    pub fn save_writer(&self, dest: impl std::io::Write) -> Result<(), Error> {
+        Ok(bincode::serialize_into(dest, self)?)
+    }
+
+    pub fn load(path: &Path) -> Result<Self, Error> {
+        let file = std::fs::File::open(path).map_err(Error::IOError)?;
+        if path.to_string_lossy().ends_with(".gz") {
+            let src = flate2::read::GzDecoder::new(file);
+            Self::load_reader(src)
+        } else {
+            Self::load_reader(file)
+        }
+    }
+
+    pub fn load_reader(src: impl std::io::Read) -> Result<Self, Error> {
+        Self::load_bufreader(std::io::BufReader::new(src))
+    }
+
+    pub fn load_bufreader(src: impl std::io::BufRead) -> Result<Self, Error> {
+        Ok(bincode::deserialize_from(src)?)
+    }
+
+    pub fn load_bytes(data: &[u8]) -> Result<Self, Error> {
+        Self::load_reader(data)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ZuulBuild {
     pub api: ApiUrl,
     pub uuid: Box<str>,
@@ -200,7 +275,7 @@ impl ZuulBuild {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ProwBuild {
     pub url: Url,
     pub uid: Box<str>,
@@ -232,7 +307,7 @@ impl ProwBuild {
 }
 
 /// A source of log lines.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Content {
     File(Source),
     Directory(Source),
@@ -421,7 +496,7 @@ pub fn bytes_to_mb(bytes: usize) -> f64 {
 }
 
 /// An url that is guaranteed to be terminated with a slash
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ApiUrl(Url);
 

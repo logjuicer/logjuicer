@@ -33,6 +33,7 @@ pub mod files;
 pub mod process;
 pub mod prow;
 mod reader;
+pub mod similarity;
 pub mod timestamps;
 pub mod unordered;
 pub mod urls;
