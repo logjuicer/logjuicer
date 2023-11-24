@@ -22,6 +22,10 @@ serde = { workspace = true }
 smol_str = { workspace = true }
 itertools = { workspace = true }
 url = { workspace = true, features = ["serde"] }
+
+# Temporary solution for similarity report
+bincode = { workspace = true }
+
 # For IndexName...
 logjuicer-tokenizer = { path = "../tokenizer" }
 
@@ -33,8 +37,8 @@ capnpc = "0.18"
 [dev-dependencies]
 criterion = { workspace = true }
 logjuicer-generate = { path = "../generate" }
-bincode = { workspace = true }
 serde_json = { workspace = true }
+bincode = { workspace = true }
 
 [[bench]]
 name = "bench-report"

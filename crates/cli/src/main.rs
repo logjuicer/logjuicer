@@ -58,6 +58,9 @@ enum Commands {
     #[clap(about = "Analyze a url")]
     Url { url: String },
 
+    #[clap(about = "Compute similarity between build")]
+    Similarity { targets: Vec<String> },
+
     #[clap(
         hide = true,
         about = "Analyze systemd-journal",
@@ -175,6 +178,7 @@ impl Cli {
             Commands::Journald { .. } => todo!(),
 
             // Manual commands
+            Commands::Similarity { targets } => process_similarity(&env, report, targets),
             Commands::Diff { src, dst } => process(
                 &env,
                 report,
@@ -379,6 +383,49 @@ fn main() -> Result<()> {
         }
         e
     })
+}
+
+fn process_similarity(
+    env: &EnvConfig,
+    report: Option<(&PathBuf, bool)>,
+    targets: Vec<String>,
+) -> Result<()> {
+    let total = targets.len();
+    let contents: Vec<Content> = targets
+        .into_iter()
+        .map(|target| content_from_input(&env.gl, Input::from_string(target)))
+        .collect::<Result<Vec<_>>>()?;
+    let (model, env) = match contents.first() {
+        Some(content) => {
+            let baselines = content_discover_baselines(content, &env.gl)?;
+            let env = env.get_target_env(content);
+            tracing::debug!("Building model");
+            let model = Model::<FeaturesMatrix>::train::<FeaturesMatrixBuilder>(&env, baselines)?;
+            Ok((model, env))
+        }
+        None => Err(anyhow::anyhow!("No target")),
+    }?;
+    let reports: Vec<Report> = contents
+        .into_iter()
+        .enumerate()
+        .map(|content| {
+            tracing::info!("Processing {}/{} {}", content.0, total, &content.1);
+            model.report(&env, content.1)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let reports: Vec<&Report> = reports.iter().collect();
+    let similarity_report = logjuicer_model::similarity::create_similarity_report(&reports);
+    match report {
+        None => Ok(println!("Got similarity report!: {:?}", similarity_report)),
+        Some((file, _)) => match file.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("bin") | Some("gz") => similarity_report
+                .save(file)
+                .context("Failed to write the binary report"),
+            Some("json") => serde_json::to_writer(std::fs::File::create(file)?, &similarity_report)
+                .context("Failed to write the json report"),
+            _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
+        },
+    }
 }
 
 /// process is the logjuicer implementation after command line parsing.
