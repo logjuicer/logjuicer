@@ -41,6 +41,8 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "container.builder$",
     // system config
     "/etc/",
+    "/proc/",
+    "/sys/",
     // hidden files
     "/\\.",
 ];
