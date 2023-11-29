@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.9.4
+=====
+
 - web: tooltip can be toggled with click event.
 - api: gracefully handle worker thread panic.
 - api: cleanup pending report when the service (re)start.
