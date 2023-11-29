@@ -195,6 +195,8 @@ impl Crawler {
                         // We decoded some urls.
                         Ok(url) => {
                             if url.path().ends_with("/etc/")
+                                || url.path().ends_with("/proc/")
+                                || url.path().ends_with("/sys/")
                                 || !url.as_str().starts_with(base_url.as_str())
                             {
                                 // Special case to avoid system config directory

@@ -1,6 +1,8 @@
 next-version
 ============
 
+- cli: ignore /proc/ and /sys/ files
+
 0.9.4
 =====
 
