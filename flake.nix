@@ -15,7 +15,7 @@
     };
     rust-overlay = {
       url =
-        "github:oxalica/rust-overlay/679ea0878edc749f23516ea6d7ffa974c6304bf5";
+        "github:oxalica/rust-overlay/4a080e26d55eaedb95ab1bf8eeaeb84149c10f12";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
@@ -31,7 +31,7 @@
           overlays = [ (import rust-overlay) ];
         };
 
-        rustToolchain = pkgs.rust-bin.nightly.latest.default.override {
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           targets = [ "x86_64-unknown-linux-musl" "wasm32-unknown-unknown" ];
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
