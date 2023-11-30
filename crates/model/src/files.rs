@@ -9,7 +9,6 @@ use std::path::Path;
 use crate::env::Env;
 use crate::{Baselines, Content, Input, Source};
 
-#[tracing::instrument(level = "debug")]
 pub fn content_from_path(path: &Path) -> Result<Content> {
     let src = Source::Local(0, path.to_path_buf());
 
@@ -32,7 +31,7 @@ pub fn discover_baselines_from_path(env: &Env, path: &Path) -> Result<Baselines>
 }
 
 pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader> {
-    tracing::debug!(path = path.to_str(), "Reading file");
+    tracing::debug!(path = path.to_str(), "Opening file");
     crate::reader::from_path(path).context("Failed to open file")
 }
 

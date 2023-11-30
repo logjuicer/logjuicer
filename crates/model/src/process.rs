@@ -47,6 +47,7 @@ where
         Ok(trainer.build())
     }
 
+    #[tracing::instrument(level = "debug", name = "Trainer::add", skip_all)]
     pub fn add<R: Read>(&mut self, read: R) -> Result<()> {
         for line in logjuicer_iterator::BytesLines::new(read, self.is_json) {
             let line = line?;
@@ -60,6 +61,7 @@ where
                 self.builder.add(&tokens);
             }
         }
+        tracing::debug!(skip_lines = self.skip_lines.len(), "added one source");
         Ok(())
     }
 

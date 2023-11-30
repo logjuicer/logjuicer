@@ -7,7 +7,6 @@ use url::Url;
 use crate::env::Env;
 use crate::{Content, Source};
 
-#[tracing::instrument(level = "debug", skip(env))]
 pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
     if !url.has_authority() {
         Err(anyhow::anyhow!("Bad url {}", url))
@@ -24,7 +23,7 @@ pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
 
 #[tracing::instrument(level = "debug", skip(env))]
 pub fn url_open(env: &Env, prefix: usize, url: &Url) -> Result<crate::reader::DecompressReader> {
-    tracing::debug!(url = url.as_str(), "Fetching url");
+    tracing::debug!(url = url.as_str(), "Requesting url");
     crate::reader::from_url(env, prefix, url)
 }
 

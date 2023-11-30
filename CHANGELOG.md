@@ -1,6 +1,8 @@
 next-version
 ============
 
+- cli: improved tracing configuration setup
+
 0.9.5
 =====
 
