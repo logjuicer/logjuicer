@@ -1570,7 +1570,7 @@ dependencies = [
 
 [[package]]
 name = "logjuicer-cli"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "anyhow",
  "atty",
@@ -1688,7 +1688,7 @@ dependencies = [
 
 [[package]]
 name = "logjuicer-web"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -1707,7 +1707,7 @@ dependencies = [
 
 [[package]]
 name = "logjuicer-web-service"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "anyhow",
  "axum",
