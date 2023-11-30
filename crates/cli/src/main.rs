@@ -267,13 +267,12 @@ impl Cli {
 }
 
 fn main() -> Result<()> {
-    use std::str::FromStr;
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
     let logger = tracing_subscriber::Registry::default();
 
-    let (_flush, debug) = match std::env::var("LOGJUICER_LOG") {
-        Err(_) => {
+    let (_flush, debug) = match std::env::var_os("LOGJUICER_LOG") {
+        None => {
             // Default INFO stdout logger
             logger
                 .with(
@@ -285,13 +284,15 @@ fn main() -> Result<()> {
                 .init();
             (None, false)
         }
-        Ok(level) => {
+        Some(_level) => {
             // Tracing spans
             let logger = logger.with(
-                tracing_tree::HierarchicalLayer::new(2)
+                tracing_tree::HierarchicalLayer::new(1)
                     .with_targets(true)
                     .with_bracketed_fields(true)
-                    .with_filter(tracing_subscriber::filter::LevelFilter::from_str(&level)?),
+                    .with_filter(tracing_subscriber::filter::EnvFilter::from_env(
+                        "LOGJUICER_LOG",
+                    )),
             );
             let flush = if let Ok(fp) = std::env::var("LOGJUICER_TRACE") {
                 let chrome = tracing_chrome::ChromeLayerBuilder::new()

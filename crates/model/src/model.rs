@@ -145,7 +145,6 @@ impl<IR: IndexReader> Index<IR> {
         source: &Source,
         skip_lines: &'a mut KnownLines,
     ) -> Result<process::ChunkProcessor<IR, crate::reader::DecompressReader>> {
-        env.debug_or_progress(&format!("Inspecting {}", source));
         let fp = match source {
             Source::Local(_, path_buf) => file_open(path_buf.as_path()),
             Source::Remote(prefix, url) => url_open(env, *prefix, url),
@@ -180,7 +179,7 @@ impl<IR: IndexReader> Index<IR> {
 }
 
 /// Apply convertion rules to convert the user Input to Content.
-#[tracing::instrument(level = "debug", skip(env))]
+#[tracing::instrument(level = "debug", skip(env), ret)]
 pub fn content_from_input(env: &Env, input: Input) -> Result<Content> {
     match input {
         Input::Path(path_str) => crate::files::content_from_path(Path::new(&path_str)),
@@ -286,6 +285,27 @@ pub fn group_sources(env: &Env, baselines: &[Content]) -> Result<HashMap<IndexNa
     Ok(groups)
 }
 
+#[derive(Debug)]
+struct LineCounters {
+    line_count: usize,
+    anomaly_count: usize,
+}
+
+impl Default for LineCounters {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LineCounters {
+    fn new() -> Self {
+        LineCounters {
+            line_count: 0,
+            anomaly_count: 0,
+        }
+    }
+}
+
 impl<IR: IndexReader> Model<IR> {
     /// Create a Model from baselines.
     #[tracing::instrument(level = "debug", skip(env))]
@@ -317,6 +337,47 @@ impl<IR: IndexReader> Model<IR> {
         lookup_or_single(&self.indexes, index_name)
     }
 
+    /// Create an individual LogReport.
+    #[tracing::instrument(level = "debug", skip(env, self, index, skip_lines))]
+    pub fn report_source(
+        &self,
+        env: &Env,
+        index: &Index<IR>,
+        index_name: &IndexName,
+        counters: &mut LineCounters,
+        skip_lines: &mut KnownLines,
+        source: &Source,
+    ) -> std::result::Result<Option<LogReport>, String> {
+        let start_time = Instant::now();
+        let mut anomalies = Vec::new();
+        match index.get_processor(env, source, skip_lines) {
+            Ok(mut processor) => {
+                for anomaly in processor.by_ref() {
+                    match anomaly {
+                        Ok(anomaly) => anomalies.push(anomaly),
+                        Err(err) => return Err(format!("{}", err)),
+                    }
+                }
+                counters.line_count += processor.line_count;
+                if !anomalies.is_empty() {
+                    counters.anomaly_count += anomalies.len();
+
+                    Ok(Some(LogReport {
+                        test_time: start_time.elapsed(),
+                        anomalies,
+                        source: source.clone(),
+                        index_name: index_name.clone(),
+                        line_count: processor.line_count,
+                        byte_count: processor.byte_count,
+                    }))
+                } else {
+                    Ok(None)
+                }
+            }
+            Err(err) => Err(format!("{}", err)),
+        }
+    }
+
     /// Create the final report.
     #[tracing::instrument(level = "debug", skip(env, self))]
     pub fn report(&self, env: &Env, target: Content) -> Result<Report> {
@@ -326,51 +387,45 @@ impl<IR: IndexReader> Model<IR> {
         let mut log_reports = Vec::new();
         let mut unknown_files = HashMap::new();
         let mut read_errors = Vec::new();
-        let mut total_line_count = 0;
-        let mut total_anomaly_count = 0;
+        let mut counters = LineCounters::new();
         for (index_name, sources) in group_sources(env, &[target.clone()])?.drain() {
             let mut skip_lines = KnownLines::new();
             match self.get_index(&index_name) {
                 Some(index) => {
+                    env.debug_or_progress(&format!(
+                        "Reporting index {} with {}",
+                        index_name,
+                        sources.iter().take(5).format(", ")
+                    ));
                     for source in sources {
-                        let start_time = Instant::now();
-                        let mut anomalies = Vec::new();
-                        match index.get_processor(env, &source, &mut skip_lines) {
-                            Ok(mut processor) => {
-                                for anomaly in processor.by_ref() {
-                                    match anomaly {
-                                        Ok(anomaly) => anomalies.push(anomaly),
-                                        Err(err) => {
-                                            read_errors
-                                                .push((source.clone(), format!("{}", err).into()));
-                                            break;
-                                        }
-                                    }
-                                }
-                                total_line_count += processor.line_count;
-                                if !anomalies.is_empty() {
-                                    total_anomaly_count += anomalies.len();
-                                    if !index_reports.contains_key(&index_name) {
-                                        index_reports.insert(index_name.clone(), index.to_report());
-                                    }
-                                    log_reports.push(LogReport {
-                                        test_time: start_time.elapsed(),
-                                        anomalies,
-                                        source,
-                                        index_name: index_name.clone(),
-                                        line_count: processor.line_count,
-                                        byte_count: processor.byte_count,
-                                    });
-                                }
+                        match self.report_source(
+                            env,
+                            index,
+                            &index_name,
+                            &mut counters,
+                            &mut skip_lines,
+                            &source,
+                        ) {
+                            Ok(Some(lr)) => {
+                                if !index_reports.contains_key(&index_name) {
+                                    index_reports.insert(index_name.clone(), index.to_report());
+                                };
+                                log_reports.push(lr)
                             }
+                            Ok(None) => {}
                             Err(err) => {
-                                read_errors.push((source.clone(), format!("{}", err).into()));
-                                break;
+                                read_errors.push((source.clone(), err.into()));
                             }
                         }
                     }
+                    tracing::debug!(skip_lines = skip_lines.len(), "reported one source");
                 }
                 None => {
+                    env.debug_or_progress(&format!(
+                        "Unknown index index {} for {} sources",
+                        index_name,
+                        sources.len()
+                    ));
                     let _ = unknown_files.insert(index_name, sources);
                 }
             }
@@ -384,8 +439,8 @@ impl<IR: IndexReader> Model<IR> {
             index_reports,
             unknown_files,
             read_errors,
-            total_line_count,
-            total_anomaly_count,
+            total_line_count: counters.line_count,
+            total_anomaly_count: counters.anomaly_count,
         })
     }
 }

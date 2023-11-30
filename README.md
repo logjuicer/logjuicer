@@ -88,6 +88,14 @@ Run the project:
 cargo run -p logjuicer-cli -- --help
 ```
 
+Activate tracing debug:
+
+```
+export LOGJUICER_LOG="logjuicer_model=debug,logjuicer_cli=debug"
+# Create a chrome trace that can be viewed in web browser with `chrome://tracing`
+export LOGJUICER_TRACE=./chrome.trace
+```
+
 Join the project Matrix room: [#logjuicer:matrix.org](https://matrix.to/#/#logjuicer:matrix.org).
 
 
