@@ -29,7 +29,9 @@
 
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::sync::atomic::AtomicU16;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -44,6 +46,10 @@ pub enum Error {
     /// Process failure.
     #[error("httpdir process panic")]
     ProcessPanic,
+
+    /// Reach the requests limit
+    #[error("reached maximum request count")]
+    TooManyFolders,
 
     /// Unusable url found.
     #[error("bad httpdir url: {0}")]
@@ -64,8 +70,8 @@ pub fn list(url: Url) -> Vec<Result<Url, Error>> {
 }
 
 /// The list function, but using the provided ureq client.
-pub fn list_with_client(client: Agent, url: Url) -> Vec<Result<Url, Error>> {
-    Crawler::new_with_client(client).list(url)
+pub fn list_with_client(client: Agent, request_max: u16, url: Url) -> Vec<Result<Url, Error>> {
+    Crawler::new_with_client(client, request_max).list(url)
 }
 
 /// Helper struct to prevent infinit loop.
@@ -88,7 +94,7 @@ impl Visitor {
         if min_len > self.min_len && self.visited.lock().unwrap().insert(url) {
             Some(Visitor {
                 min_len,
-                visited: self.visited.clone(),
+                visited: Arc::clone(&self.visited),
             })
         } else {
             None
@@ -104,29 +110,40 @@ type Message = Option<Result<Arc<Url>, Error>>;
 
 /// The state of the crawler, created calling `Crawler::new()`.
 pub struct Crawler {
-    client: Agent,
-    // A worker pool.
-    workers: ThreadPool,
     // The mpsc channel.
     rx: Receiver<Message>,
+    worker: CrawlerWorker,
+}
+
+struct CrawlerWorker {
+    client: Agent,
+    // A worker pool.
+    pool: ThreadPool,
     tx: Sender<Message>,
+    // request limit.
+    request_count: Arc<AtomicU16>,
+    request_max: u16,
 }
 
 impl Crawler {
     /// Initialize the Crawler state.
     pub fn new() -> Crawler {
-        Crawler::new_with_client(Agent::new())
+        Crawler::new_with_client(Agent::new(), 2500)
     }
 
     /// Initialize the Crawler state with the ureq client.
-    pub fn new_with_client(client: Agent) -> Crawler {
-        let workers = ThreadPool::new(4);
+    pub fn new_with_client(client: Agent, request_max: u16) -> Crawler {
+        let pool = ThreadPool::new(4);
         let (tx, rx) = channel();
         Crawler {
-            workers,
-            client,
-            tx,
             rx,
+            worker: CrawlerWorker {
+                pool,
+                client,
+                tx,
+                request_count: Arc::new(AtomicU16::new(0)),
+                request_max,
+            },
         }
     }
 
@@ -135,9 +152,9 @@ impl Crawler {
         // Submit the initial task.
         self.start(url);
         // Wait for all the workers to complete.
-        self.workers.join();
+        self.worker.pool.join();
         // Collect the results.
-        if self.workers.panic_count() > 0 {
+        if self.worker.pool.panic_count() > 0 {
             vec![Err(Error::ProcessPanic)]
         } else {
             self.rx
@@ -156,68 +173,79 @@ impl Crawler {
         self.start(url);
         // Create the iterator state.
         CrawlerIter {
-            workers: self.workers,
+            pool: self.worker.pool,
             abort: false,
             rx: self.rx,
         }
     }
 
     fn start(&self, url: Url) {
-        // Here we pass all the requirements by reference to avoid lifetime issues.
-        Crawler::process(
-            &Visitor::new(),
-            &self.client,
-            &self.workers,
-            &self.tx,
-            url.into(),
-        );
+        self.worker.process(&Visitor::new(), url.into());
+    }
+}
+
+impl CrawlerWorker {
+    fn clone(&self) -> Self {
+        Self {
+            pool: self.pool.clone(),
+            tx: self.tx.clone(),
+            client: self.client.clone(),
+            request_count: self.request_count.clone(),
+            request_max: self.request_max,
+        }
     }
 
     // Helper function to handle a single url.
-    fn process(
-        visitor: &Visitor,
-        client: &Agent,
-        pool: &ThreadPool,
-        tx: &Sender<Message>,
-        url: Arc<Url>,
-    ) {
-        let base_url = Arc::clone(&url);
+    #[tracing::instrument(level = "debug", skip(self, visitor))]
+    fn process(&self, visitor: &Visitor, url: Arc<Url>) {
         if let Some(visitor) = visitor.visit(url.clone()) {
-            // Increase reference counts.
-            let tx = tx.clone();
-            let sub_pool = pool.clone();
-            let client = client.clone();
-
-            // Submit the work.
-            pool.execute(move || {
-                for url in http_list(&client, &url) {
-                    match url {
-                        // We decoded some urls.
-                        Ok(url) => {
-                            if url.path().ends_with("/etc/")
-                                || url.path().ends_with("/proc/")
-                                || url.path().ends_with("/sys/")
-                                || !url.as_str().starts_with(base_url.as_str())
-                            {
-                                // Special case to avoid system config directory
-                                continue;
-                            } else if let Some(url) = path_dir(&url) {
-                                // Recursively call the handler on sub directory.
-                                Crawler::process(&visitor, &client, &sub_pool, &tx, url.into())
-                            } else {
-                                // Send file location to the mpsc channel.
-                                tx.send(Some(Ok(url.into()))).unwrap()
-                            }
-                        }
-
-                        // An error happened, propagates it.
-                        Err(e) => tx.send(Some(Err(e))).unwrap(),
-                    }
+            let req_count = self
+                .request_count
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            match req_count.cmp(&self.request_max) {
+                Ordering::Greater => {} // already reached the limit
+                Ordering::Equal => {
+                    let _ = self.tx.send(Some(Err(Error::TooManyFolders)));
                 }
-                // Indicate we are done.
-                tx.send(None).unwrap()
-            });
+                Ordering::Less => self.do_process(visitor, url),
+            }
         }
+    }
+
+    fn do_process(&self, visitor: Visitor, url: Arc<Url>) {
+        // Increase reference counts.
+        let worker = self.clone();
+        let base_url = Arc::clone(&url);
+
+        // Submit the work.
+        self.pool.execute(move || {
+            for url in http_list(&worker.client, &url) {
+                match url {
+                    // We decoded some urls.
+                    Ok(url) => {
+                        if url.path().ends_with("/etc/")
+                            || url.path().ends_with("/proc/")
+                            || url.path().ends_with("/sys/")
+                            || !url.as_str().starts_with(base_url.as_str())
+                        {
+                            // Special case to avoid system config directory
+                            continue;
+                        } else if let Some(url) = path_dir(&url) {
+                            // Recursively call the handler on sub directory.
+                            worker.process(&visitor, url.into())
+                        } else {
+                            // Send file location to the mpsc channel.
+                            worker.tx.send(Some(Ok(url.into()))).unwrap()
+                        }
+                    }
+
+                    // An error happened, propagates it.
+                    Err(e) => worker.tx.send(Some(Err(e))).unwrap(),
+                }
+            }
+            // Indicate we are done.
+            worker.tx.send(None).unwrap()
+        });
     }
 }
 
@@ -229,7 +257,7 @@ impl Default for Crawler {
 
 // The state of the iterator.
 struct CrawlerIter {
-    workers: ThreadPool,
+    pool: ThreadPool,
     abort: bool,
     rx: Receiver<Message>,
 }
@@ -238,9 +266,9 @@ impl CrawlerIter {
     // We are done when all the work is completed: no worker are active or queued.
     fn is_done(&self) -> bool {
         self.abort
-            || (self.workers.active_count() + self.workers.queued_count() == 0
+            || (self.pool.active_count() + self.pool.queued_count() == 0
                 // ensure that when there is a panic, we propagate the error.
-                && self.workers.panic_count() == 0)
+                && self.pool.panic_count() == 0)
     }
 }
 
@@ -259,7 +287,7 @@ impl Iterator for CrawlerIter {
             Err(_) if self.is_done() => None,
 
             // There was a panic
-            Err(_) if self.workers.panic_count() > 0 => {
+            Err(_) if self.pool.panic_count() > 0 => {
                 self.abort = true;
                 Some(Err(Error::ProcessPanic))
             }
