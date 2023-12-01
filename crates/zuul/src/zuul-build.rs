@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 pub mod zuul_inventory;
+pub mod zuul_manifest;
 
 /// A Build result.
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
