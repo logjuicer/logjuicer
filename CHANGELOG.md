@@ -3,6 +3,7 @@ next-version
 
 - cli: improved tracing configuration setup
 - httpdir: add maximum request limit to prevent infinit folder loop
+- zuul: use zuul-manifest.json to download logs when available
 
 0.9.5
 =====
