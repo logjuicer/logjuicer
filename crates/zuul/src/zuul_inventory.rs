@@ -47,7 +47,7 @@ pub struct InventoryProject {
 }
 
 #[test]
-fn test_decodes_manifest() {
+fn test_decodes_inventory() {
     let data = r#"
 all:
   hosts:
