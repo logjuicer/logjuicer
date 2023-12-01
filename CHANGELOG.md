@@ -2,6 +2,7 @@ next-version
 ============
 
 - cli: improved tracing configuration setup
+- httpdir: add maximum request limit to prevent infinit folder loop
 
 0.9.5
 =====

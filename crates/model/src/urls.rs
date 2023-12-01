@@ -39,7 +39,8 @@ pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Sour
     let urls = if let Some(cached) = maybe_cached {
         cached
     } else {
-        let urls = httpdir::list_with_client(env.client.clone(), url.clone())
+        let request_max = 2500;
+        let urls = httpdir::list_with_client(env.client.clone(), request_max, url.clone())
             .into_iter()
             // Convert httpdir error into cachable error
             .map(|url_result| url_result.map_err(|e| format!("{:?}", e).into()))
