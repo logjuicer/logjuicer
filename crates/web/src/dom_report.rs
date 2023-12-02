@@ -200,15 +200,26 @@ fn render_report(report: &Report) -> Dom {
     for lr in &report.log_reports {
         childs.push(render_log_report(&mut gl_pos, report, lr))
     }
-    for (source, err) in &report.read_errors {
-        childs.push(render_log_error(&report.target, source, err));
-    }
-    for (index, sources) in &report.unknown_files {
-        for source in sources {
-            childs.push(render_unknown(&report.target, source, index));
-        }
-    }
 
+    if !report.read_errors.is_empty() || !report.unknown_files.is_empty() {
+        let toggle_info = Mutable::new(false);
+        let handler = clone!(toggle_info => move |_: dominator::events::Click| {
+            toggle_info.set(!toggle_info.get());
+        });
+        childs.push(html!("div", {.class(["pl-1", "pt-2", "bg-red-50", "max-w-full", "cursor-pointer"])
+                                  .event(handler)
+                                  .text("× Click to show the files that were not processed. They were likely not found in the baseline. ×")}));
+        let mut errors = vec![];
+        for (source, err) in &report.read_errors {
+            errors.push(render_log_error(&report.target, source, err));
+        }
+        for (index, sources) in &report.unknown_files {
+            for source in sources {
+                errors.push(render_unknown(&report.target, source, index));
+            }
+        }
+        childs.push(html!("div", {.visible_signal(toggle_info.signal()).children(&mut errors)}));
+    }
     html!("div", {.children(&mut childs)})
 }
 
