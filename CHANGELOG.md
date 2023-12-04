@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.9.6
+=====
+
 - web: hide unknown files by default
 - cli: improved tracing configuration setup
 - httpdir: add maximum request limit to prevent infinit folder loop

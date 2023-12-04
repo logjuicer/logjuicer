@@ -17,7 +17,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.9.5"
+version = "0.9.6"
 license = "Apache-2.0"
 repository = "https://github.com/logjuicer/logjuicer"
 documentation = "https://docs.rs/logjuicer/"
