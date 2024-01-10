@@ -15,7 +15,9 @@ use std::collections::HashMap;
 pub mod traits;
 
 pub type F = f32;
+/// Vector index are the word hash, and the value is 1.0 or -1.0
 type SparseVec = CsVecBase<Vec<usize>, Vec<F>, F>;
+/// Matrix index are log line number
 pub type FeaturesMatrix = CsMatBase<F, usize, Vec<usize>, Vec<usize>, Vec<F>>;
 pub type FeaturesMatrixView<'a> = CsMatView<'a, F>;
 
@@ -81,6 +83,8 @@ pub fn search_mat_chunk(baselines: &FeaturesMatrixView, lines: &[String]) -> Vec
     cosine_distance_chunk(baselines, &targets)
 }
 
+const CHUNK_SIZE: usize = 2048;
+
 fn cosine_distance_chunk(
     baselines_chunks: &FeaturesMatrixView,
     targets: &FeaturesMatrix,
@@ -91,8 +95,8 @@ fn cosine_distance_chunk(
     let max = baselines_chunks.rows();
     let mut start = 0;
     while start < max {
-        let range = start..(start + 512).min(max);
-        start += 512;
+        let range = start..(start + CHUNK_SIZE).min(max);
+        start += CHUNK_SIZE;
 
         let baselines = baselines_chunks.slice_outer(range);
         cosine_distance(&baselines, targets, &mut result)

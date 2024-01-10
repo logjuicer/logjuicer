@@ -6,9 +6,9 @@ use logjuicer_generate::gen_lines;
 use logjuicer_index::*;
 
 pub fn process(c: &mut Criterion) {
-    let lines = gen_lines().take(1024).collect::<Vec<String>>();
-    let baselines = &lines[0..512];
-    let targets = &lines[512..(512 + 64)];
+    let lines = gen_lines().take(4096).collect::<Vec<String>>();
+    let baselines = &lines[0..2048];
+    let targets = &lines;
 
     let model = index_mat(baselines);
     let model = model.view();
@@ -28,7 +28,7 @@ pub fn process(c: &mut Criterion) {
     */
     c.bench_function("search_chunk", |b| {
         b.iter(|| {
-            search_mat(black_box(&model), black_box(targets));
+            search_mat_chunk(black_box(&model), black_box(targets));
         })
     });
 }
