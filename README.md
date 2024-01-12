@@ -18,12 +18,12 @@ LogJuicer implements a custom diffing process to compare logs:
 Install the `logjuicer` command line by running:
 
 ```
-cargo install --git https://github.com/logjuicer/logjuicer logjuicer-cli
+$ cargo install --git https://github.com/logjuicer/logjuicer logjuicer-cli
 ```
 
 > If you don't have `cargo`, see this [install rust](https://www.rust-lang.org/tools/install) documentation.
 
-Or grab the latest release assets `logjuicer-x86_64-linux.tar.bz2` from https://github.com/logjuicer/logjuicer/releases
+Or grab the latest release assets `logjuicer-x86_64-linux.tar.bz2` from <https://github.com/logjuicer/logjuicer/releases>
 
 
 ## Use
