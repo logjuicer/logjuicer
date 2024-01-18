@@ -1,6 +1,8 @@
 next-version
 ============
 
+- api: add http_request and http_request_error metrics counter
+
 0.9.6
 =====
 
