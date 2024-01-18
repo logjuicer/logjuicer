@@ -81,6 +81,3 @@ lto = true
 opt-level = 's'
 # Perform optimizations on all codegen units.
 codegen-units = 1
-
-[lints.rust]
-unsafe_code = "forbid"
