@@ -4,6 +4,7 @@
 //! This module contains the HTTP logic.
 
 use axum::routing::{get, put};
+use axum::{middleware::Next, response::IntoResponse};
 use std::str::FromStr;
 use tower_http::services::ServeDir;
 use tower_http::trace::{self, TraceLayer};
@@ -53,6 +54,8 @@ async fn main() {
         metrics::Unit::Bytes,
         "Disk usage in bytes."
     );
+    metrics::describe_counter!("http_request", "HTTP request count");
+    metrics::describe_counter!("http_request_error", "HTTP request error count");
 
     let workers = worker::Workers::new().await;
 
@@ -72,6 +75,7 @@ async fn main() {
             }),
         )
         .with_state(workers)
+        .layer(axum::middleware::from_fn(track_metrics))
         .layer(tower_http::compression::CompressionLayer::new())
         .layer(
             TraceLayer::new_for_http()
@@ -101,4 +105,18 @@ async fn main() {
         })
         .await
         .unwrap();
+}
+
+async fn track_metrics<T>(req: hyper::Request<T>, next: Next<T>) -> impl IntoResponse {
+    let is_api = req.uri().path().starts_with("/api");
+    let response = next.run(req).await;
+    let status = response.status().as_u16();
+    if is_api {
+        if (200..300).contains(&status) {
+            metrics::increment_counter!("http_requests");
+        } else {
+            metrics::increment_counter!("http_requests_error");
+        }
+    }
+    response
 }
