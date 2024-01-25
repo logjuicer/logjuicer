@@ -18,12 +18,12 @@ tokio = { version = "1", features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-tokio-util = { version = "0.7", features = ["codec"] }
-hyper = "0"
-axum = { version = "0.6", features = ["ws"] }
-tower-http = { version = "0.4", features = ["trace", "compression-deflate", "compression-gzip", "fs"] }
+tokio-util = { version = "0", features = ["codec"] }
+hyper = "1"
+axum = { version = "0", features = ["ws"] }
+tower-http = { version = "0", features = ["trace", "compression-deflate", "compression-gzip", "fs"] }
 
-http = "0.2"
+http = "1"
 base64 = "0"
 futures = "0.3"
 sqlx = { version = "0", features = ["sqlite", "runtime-tokio", "chrono"] }
@@ -36,8 +36,8 @@ serde_json = { workspace = true }
 
 rustix = { version = "*", features = ["fs"] }
 metrics = "*"
-metrics-exporter-prometheus = "0.12.1"
-metrics-process = "1.0.12"
+metrics-exporter-prometheus = { version = "0", default-features = false }
+metrics-process = "1"
 
 logjuicer-report = { path = "../report" }
 logjuicer-model = { path = "../model" }
