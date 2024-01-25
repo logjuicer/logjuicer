@@ -7,9 +7,7 @@ use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::Json;
 use futures::TryFutureExt;
-use hyper::Body;
 use tokio::fs::File;
-use tokio_util::codec::{BytesCodec, FramedRead};
 
 use logjuicer_report::report_row::{ReportID, ReportRow, ReportStatus};
 
@@ -34,15 +32,17 @@ pub async fn reports_list(State(workers): State<Workers>) -> Result<Json<Vec<Rep
 pub async fn report_get(
     State(workers): State<Workers>,
     Path(report_id): Path<ReportID>,
-) -> Result<hyper::Response<Body>> {
+) -> Result<axum::response::Response> {
     let fp = format!("data/{}.gz", report_id);
     if let Ok(file) = File::open(&fp).await {
         // The file exists, stream its content...
-        let stream = FramedRead::new(file, BytesCodec::new());
-        let body = Body::wrap_stream(stream);
-        Ok(hyper::Response::builder()
+
+        // Wrap to a tokio_util::io::ReaderStream
+        let reader_stream = tokio_util::io::ReaderStream::new(file);
+
+        Ok(axum::response::Response::builder()
             .header("Content-Encoding", "gzip")
-            .body(body)
+            .body(axum::body::Body::from_stream(reader_stream))
             .unwrap())
     } else if let Some(status) = workers
         .db

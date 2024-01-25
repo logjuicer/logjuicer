@@ -5,7 +5,6 @@
 
 use axum::routing::{get, put};
 use axum::{middleware::Next, response::IntoResponse};
-use std::str::FromStr;
 use tower_http::services::ServeDir;
 use tower_http::trace::{self, TraceLayer};
 
@@ -20,12 +19,10 @@ fn collect_vstat() {
             .checked_sub(statvfs.f_bavail)
             .map(|f_bused| (f_bused * statvfs.f_bsize) as f64)
         {
-            metrics::gauge!("logjuicer_data_used_bytes", used);
+            metrics::gauge!("logjuicer_data_used_bytes").set(used);
         }
-        metrics::gauge!(
-            "logjuicer_data_available_bytes",
-            (statvfs.f_bsize * statvfs.f_bavail) as f64
-        );
+        metrics::gauge!("logjuicer_data_available_bytes")
+            .set((statvfs.f_bsize * statvfs.f_bavail) as f64);
     }
 }
 
@@ -95,10 +92,10 @@ async fn main() {
             .fallback(get(|| std::future::ready(index)))
     }
 
-    let addr = std::net::SocketAddr::from_str("0.0.0.0:3000").unwrap();
-    tracing::info!("listening on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let local_addr = listener.local_addr().expect("local addr");
+    tracing::info!("listening on {}", local_addr);
+    axum::serve(listener, app)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
             tracing::info!("shuting down");
@@ -107,15 +104,18 @@ async fn main() {
         .unwrap();
 }
 
-async fn track_metrics<T>(req: hyper::Request<T>, next: Next<T>) -> impl IntoResponse {
+async fn track_metrics(
+    req: http::request::Request<axum::body::Body>,
+    next: Next,
+) -> impl IntoResponse {
     let is_api = req.uri().path().starts_with("/api");
     let response = next.run(req).await;
     let status = response.status().as_u16();
     if is_api {
         if (200..300).contains(&status) {
-            metrics::increment_counter!("http_requests");
+            metrics::counter!("http_requests").increment(1);
         } else {
-            metrics::increment_counter!("http_requests_error");
+            metrics::counter!("http_requests_error").increment(1);
         }
     }
     response

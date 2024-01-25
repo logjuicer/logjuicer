@@ -3,19 +3,16 @@
   description = "The LogJuicer app";
 
   inputs = {
-    # nixpkgs is tracking nixpkgs-unstable
-    nixpkgs.url =
-      "github:NixOS/nixpkgs/b11ced7a9c1fc44392358e337c0d8f58efc97c89";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     flake-utils.url = "github:numtide/flake-utils";
 
     crane = {
-      url = "github:ipetkov/crane/bc5fa8cd53ef32b9b827f24b993c42a8c4dd913b";
+      url = "github:ipetkov/crane";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rust-overlay = {
-      url =
-        "github:oxalica/rust-overlay/4a080e26d55eaedb95ab1bf8eeaeb84149c10f12";
+      url = "github:oxalica/rust-overlay";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
@@ -102,6 +99,11 @@
         });
         mk-web = api_client:
           craneLib.buildTrunkPackage (web-info // {
+            wasm-bindgen-cli = pkgs.wasm-bindgen-cli.override {
+              version = "0.2.90";
+              hash = "sha256-X8+DVX7dmKh7BgXqP7Fp0smhup5OO8eWEhn26ODYbkQ=";
+              cargoHash = "sha256-ckJxAR20GuVGstzXzIj1M0WBFj5eJjrO2/DRMUK5dwM=";
+            };
             cargoArtifacts = cargoArtifactsWasm;
             trunkIndexPath = "./index.html";
             # Start the build relative to the crate to take the tailwind.config.js into account.
