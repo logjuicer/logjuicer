@@ -1,3 +1,5 @@
+<img align="right" height="150px" src="./doc/LogJuicer.svg" />
+
 # LogJuicer Extracts Anomalies From Log Files
 
 Based on baseline logs, LogJuicer highlights useful texts in target logs.
