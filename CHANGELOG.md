@@ -2,6 +2,7 @@ next-version
 ============
 
 - api: add http_request and http_request_error metrics counter
+- web: add favicon logo
 
 0.9.6
 =====

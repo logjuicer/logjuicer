@@ -87,6 +87,7 @@
           files = [
             "README.md"
             "LICENSE"
+            "LogJuicer.svg"
             "logjuicer-web.js"
             "logjuicer-web.wasm"
             "logjuicer-web.css"
@@ -117,6 +118,7 @@
               sed -e 's/logjuicer.*bg\.wasm/logjuicer-web.wasm/' -i $out/logjuicer-web.js
               mv $out/*.wasm $out/logjuicer-web.wasm
               mv $out/*.css $out/logjuicer-web.css
+              cp ${self}/doc/LogJuicer.svg $out
               cp ${self}/LICENSE $out
               cp ${self}/crates/web/README.md $out
               cp ${web-package-json} $out/package.json
