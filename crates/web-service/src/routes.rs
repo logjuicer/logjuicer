@@ -145,7 +145,8 @@ pub async fn do_report_watch(
 pub fn generate_html(url_base_path: &str, version: &str) -> String {
     let url = format!("{url_base_path}assets/logjuicer-web.");
     format!(
-        r#"<!DOCTYPE html><html><head><meta charset="utf-8"><title>logjuicer</title>
+        r#"<!DOCTYPE html><html><head><meta charset="utf-8"><title>LogJuicer</title>
+<link rel="icon" href="{url_base_path}assets/LogJuicer.svg" />
 <link rel="stylesheet" href="{url}css?v={version}">
 <link rel="preload" href="{url}wasm?v={version}" as="fetch" type="application/wasm" crossorigin="">
 <link rel="modulepreload" href="{url}js?v={version}">
