@@ -31,7 +31,7 @@ Or grab the latest release assets `logjuicer-x86_64-linux.tar.bz2` from <https:/
 Analyze a local file:
 
 ```ShellSession
-$ logjuicer file /var/log/zuul/scheduler.log
+$ logjuicer path /var/log/zuul/scheduler.log
 ```
 
 Analyze a remote url:
