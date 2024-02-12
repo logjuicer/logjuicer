@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.9.7
+=====
+
 - api: add http_request and http_request_error metrics counter
 - web: add favicon logo
 - cli: add support for json report
