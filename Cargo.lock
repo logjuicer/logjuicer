@@ -1635,6 +1635,7 @@ dependencies = [
  "logjuicer-report",
  "logjuicer-tokenizer",
  "serde",
+ "serde_json",
  "serde_yaml",
  "time-humanize",
  "tracing",

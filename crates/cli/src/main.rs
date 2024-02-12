@@ -391,6 +391,8 @@ fn process(
                     write_html(&file, web_package_url)
                 }
                 .context("Failed to write the report"),
+                Some("json") => serde_json::to_writer(std::fs::File::create(&file)?, &report)
+                    .context("Failted to write the json report"),
                 _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
             }?;
             tracing::info!("Wrote report {:?}", file);

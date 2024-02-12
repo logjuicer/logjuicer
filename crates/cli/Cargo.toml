@@ -26,6 +26,7 @@ tracing-chrome = { workspace = true }
 time-humanize = { workspace = true }
 
 # dataset eval
+serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 serde = { workspace = true }
 

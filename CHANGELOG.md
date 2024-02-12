@@ -3,6 +3,7 @@ next-version
 
 - api: add http_request and http_request_error metrics counter
 - web: add favicon logo
+- cli: add support for json report
 
 0.9.6
 =====
