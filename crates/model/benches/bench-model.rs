@@ -20,7 +20,7 @@ pub fn model_process(c: &mut Criterion) {
     c.bench_function("anomalies_from_reader", |b| {
         b.iter(|| {
             let data = std::io::Cursor::new(&target);
-            let mut skip_lines = logjuicer_model::unordered::KnownLines::new();
+            let mut skip_lines = Some(logjuicer_model::unordered::KnownLines::new());
             let processor = logjuicer_model::process::ChunkProcessor::new(
                 black_box(data),
                 black_box(&index),

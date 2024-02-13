@@ -61,7 +61,7 @@ fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
                 .inspect(
                     env,
                     &Source::from_pathbuf(fail.to_path_buf()),
-                    &mut logjuicer_model::unordered::KnownLines::new(),
+                    &mut Some(logjuicer_model::unordered::KnownLines::new()),
                 )
                 .collect::<Result<Vec<AnomalyContext>>>()?;
             let anomalies_count = anomalies.len();

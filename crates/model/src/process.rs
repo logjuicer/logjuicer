@@ -94,7 +94,7 @@ pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
     /// The list of anomalies recently found.
     anomalies: VecDeque<AnomalyContext>,
     /// The list of unique log lines, to avoid searching a line twice.
-    skip_lines: &'a mut KnownLines,
+    skip_lines: &'a mut Option<KnownLines>,
     /// The current line coordinate.
     coord: usize,
     /// Total lines count
@@ -127,7 +127,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         index: &'a IR,
         is_json: bool,
         is_job_output: bool,
-        skip_lines: &'a mut KnownLines,
+        skip_lines: &'a mut Option<KnownLines>,
     ) -> ChunkProcessor<'a, IR, R> {
         ChunkProcessor {
             reader: logjuicer_iterator::BytesLines::new(read, is_json),
@@ -166,7 +166,16 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
             // Keep in the buffer all the lines until we get CHUNK_SIZE unique lines
             self.buffer.push((line, self.coord));
 
-            if self.skip_lines.insert(&tokens) {
+            let process_line = if let Some(skip_lines) = self.skip_lines {
+                skip_lines.insert(&tokens)
+            } else {
+                // TODO: this is not great because we are re-computing the same distance,
+                // instead we should keep a record and re-use known value.
+                // though, it's probably a lot of work...
+                true
+            };
+
+            if process_line {
                 self.targets.push(tokens);
                 self.targets_coord.push(self.coord);
 
@@ -353,7 +362,7 @@ fn collect_before(
 #[test]
 fn test_leftovers() {
     let index = logjuicer_index::index_mat(&[]);
-    let mut skip_lines = KnownLines::new();
+    let mut skip_lines = Some(KnownLines::new());
     let reader = std::io::Cursor::new("");
     let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines);
 
@@ -429,7 +438,7 @@ fn test_chunk_processor() {
         .join("\n"),
     );
     let mut anomalies = Vec::new();
-    let mut skip_lines = KnownLines::new();
+    let mut skip_lines = Some(KnownLines::new());
     let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
@@ -506,7 +515,7 @@ fn test_extended_context() {
         .join("\n"),
     );
     let mut anomalies = Vec::new();
-    let mut skip_lines = KnownLines::new();
+    let mut skip_lines = Some(KnownLines::new());
     let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();

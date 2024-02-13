@@ -448,7 +448,7 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
                 match index.get_processor(
                     env,
                     &source,
-                    &mut logjuicer_model::unordered::KnownLines::new(),
+                    &mut Some(logjuicer_model::unordered::KnownLines::new()),
                 ) {
                     Ok(mut processor) => {
                         for anomaly in processor.by_ref() {

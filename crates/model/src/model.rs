@@ -143,7 +143,7 @@ impl<IR: IndexReader> Index<IR> {
         &'a self,
         env: &Env,
         source: &Source,
-        skip_lines: &'a mut KnownLines,
+        skip_lines: &'a mut Option<KnownLines>,
     ) -> Result<process::ChunkProcessor<IR, crate::reader::DecompressReader>> {
         let fp = match source {
             Source::Local(_, path_buf) => file_open(path_buf.as_path()),
@@ -168,7 +168,7 @@ impl<IR: IndexReader> Index<IR> {
         &'a self,
         env: &Env,
         source: &Source,
-        skip_lines: &'a mut KnownLines,
+        skip_lines: &'a mut Option<KnownLines>,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
         match self.get_processor(env, source, skip_lines) {
             Ok(processor) => Box::new(processor),
@@ -345,7 +345,7 @@ impl<IR: IndexReader> Model<IR> {
         index: &Index<IR>,
         index_name: &IndexName,
         counters: &mut LineCounters,
-        skip_lines: &mut KnownLines,
+        skip_lines: &mut Option<KnownLines>,
         source: &Source,
     ) -> std::result::Result<Option<LogReport>, String> {
         let start_time = Instant::now();
@@ -389,7 +389,7 @@ impl<IR: IndexReader> Model<IR> {
         let mut read_errors = Vec::new();
         let mut counters = LineCounters::new();
         for (index_name, sources) in group_sources(env, &[target.clone()])?.drain() {
-            let mut skip_lines = KnownLines::new();
+            let mut skip_lines = Some(KnownLines::new());
             match self.get_index(&index_name) {
                 Some(index) => {
                     env.debug_or_progress(&format!(
@@ -418,7 +418,10 @@ impl<IR: IndexReader> Model<IR> {
                             }
                         }
                     }
-                    tracing::debug!(skip_lines = skip_lines.len(), "reported one source");
+                    tracing::debug!(
+                        skip_lines = skip_lines.as_ref().map_or(0, |s| s.len()),
+                        "reported one source"
+                    );
                 }
                 None => {
                     env.debug_or_progress(&format!(
