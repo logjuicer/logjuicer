@@ -2,6 +2,7 @@ next-version
 ============
 
 - process: increase context distance when anomalies are close enough
+- config: keep duplicated anomalies when the `LOGJUICER_KEEP_DUPLICATE` environment is set.
 
 0.9.7
 =====

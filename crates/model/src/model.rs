@@ -389,7 +389,7 @@ impl<IR: IndexReader> Model<IR> {
         let mut read_errors = Vec::new();
         let mut counters = LineCounters::new();
         for (index_name, sources) in group_sources(env, &[target.clone()])?.drain() {
-            let mut skip_lines = Some(KnownLines::new());
+            let mut skip_lines = env.config.new_skip_lines();
             match self.get_index(&index_name) {
                 Some(index) => {
                     env.debug_or_progress(&format!(
