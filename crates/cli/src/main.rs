@@ -445,11 +445,7 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 };
                 progress_sep_shown = false;
-                match index.get_processor(
-                    env,
-                    &source,
-                    &mut Some(logjuicer_model::unordered::KnownLines::new()),
-                ) {
+                match index.get_processor(env, &source, &mut env.config.new_skip_lines()) {
                     Ok(mut processor) => {
                         for anomaly in processor.by_ref() {
                             if env.output.inlined() && !progress_sep_shown {

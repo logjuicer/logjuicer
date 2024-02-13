@@ -14,6 +14,7 @@ mod default_excludes;
 pub struct Config {
     includes: Option<RegexSet>,
     excludes: RegexSet,
+    skip_duplicate: bool,
 }
 
 #[derive(Error, Debug)]
@@ -69,7 +70,16 @@ impl Config {
         } else {
             RegexSet::new(&cf.excludes)
         }?;
-        Ok(Config { includes, excludes })
+        let skip_duplicate = if std::env::var("LOGJUICER_KEEP_DUPLICATE").is_ok() {
+            false
+        } else {
+            cf.skip_duplicate
+        };
+        Ok(Config {
+            includes,
+            excludes,
+            skip_duplicate,
+        })
     }
 
     pub fn is_source_valid(&self, source: &Source) -> bool {
@@ -80,6 +90,14 @@ impl Config {
             }
         }
         !self.excludes.is_match(fp)
+    }
+
+    pub fn new_skip_lines(&self) -> Option<crate::unordered::KnownLines> {
+        if self.skip_duplicate {
+            Some(crate::unordered::KnownLines::new())
+        } else {
+            None
+        }
     }
 }
 
@@ -98,6 +116,8 @@ struct ConfigFile {
     excludes: Vec<String>,
     #[serde(default = "default_default_excludes")]
     default_excludes: bool,
+    #[serde(default = "default_default_excludes")]
+    skip_duplicate: bool,
 }
 
 fn default_default_excludes() -> bool {
@@ -110,6 +130,7 @@ impl Default for ConfigFile {
             includes: Vec::new(),
             excludes: Vec::new(),
             default_excludes: true,
+            skip_duplicate: true,
         }
     }
 }
