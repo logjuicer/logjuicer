@@ -44,5 +44,5 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "/proc/",
     "/sys/",
     // hidden files
-    "/\\.",
+    "/\\.[a-zA-Z0-9]",
 ];
