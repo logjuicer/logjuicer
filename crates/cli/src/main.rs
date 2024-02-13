@@ -489,14 +489,37 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
     let total_mb_count = (total_byte_count as f64) / (1024.0 * 1024.0);
     let speed: f64 = total_mb_count / process_time.as_secs_f64();
     env.debug_or_progress(&format!(
-        "Completed {}: Reduced from {} to {} {} at {:.2} MB/s\n",
+        "Completed {}: Reduced from {} to {} in {} at {:.2} MB/s\n",
         content,
         total_line_count,
         total_anomaly_count,
-        HumanTime::from(process_time),
+        human_duration(process_time),
         speed,
     ));
     Ok(())
+}
+
+#[test]
+fn test_human_duration() {
+    use std::time::Duration;
+    let ms = Duration::from_millis(1);
+    assert_eq!("320ms", &human_duration(320 * ms));
+    assert_eq!("2.30s", &human_duration(2300 * ms));
+    assert_eq!("1m30s", &human_duration(90000 * ms));
+    assert_eq!("42h00m", &human_duration(42 * 3600 * 1000 * ms + 2000 * ms));
+}
+
+fn human_duration(elapsed: std::time::Duration) -> String {
+    let secs = elapsed.as_secs();
+    if secs < 1 {
+        format!("{:.03}ms", elapsed.subsec_millis())
+    } else if secs < 60 {
+        format!("{:.02}s", elapsed.as_secs_f32())
+    } else if secs < 3600 {
+        format!("{}m{:02}s", secs / 60, secs % 60)
+    } else {
+        format!("{}h{:02}m", secs / 3600, (secs % 3600) / 60)
+    }
 }
 
 fn debug_groups(env: &Env, input: Input) -> Result<()> {
