@@ -414,8 +414,9 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
     let mut total_anomaly_count = 0;
     let start_time = Instant::now();
 
-    for source in content_get_sources(content, env)? {
-        let index_name = logjuicer_model::indexname_from_source(&source);
+    let sources = content_get_sources(content, env)?;
+    for source in &sources {
+        let index_name = logjuicer_model::indexname_from_source(source);
         match model.get_index(&index_name) {
             Some(index) => {
                 let mut last_pos = None;
@@ -445,12 +446,16 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 };
                 progress_sep_shown = false;
-                match index.get_processor(env, &source, &mut env.config.new_skip_lines()) {
+                match index.get_processor(env, source, &mut env.config.new_skip_lines()) {
                     Ok(mut processor) => {
                         for anomaly in processor.by_ref() {
                             if env.output.inlined() && !progress_sep_shown {
                                 // Show a progress separator for the first anomaly.
-                                println!();
+                                if sources.len() > 1 {
+                                    println!("\n[{}]", source.get_relative());
+                                } else {
+                                    println!();
+                                }
                                 progress_sep_shown = true;
                             }
                             match anomaly {
