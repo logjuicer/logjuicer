@@ -1,6 +1,8 @@
 next-version
 ============
 
+- process: increase context distance when anomalies are close enough
+
 0.9.7
 =====
 
