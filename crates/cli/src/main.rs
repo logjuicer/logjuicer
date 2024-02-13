@@ -26,7 +26,7 @@ struct Cli {
     #[clap(long, help = "LogJuicer configuration", value_name = "FILE")]
     config: Option<PathBuf>,
 
-    #[clap(long, help = "Create an html report")]
+    #[clap(long, help = "Save the report")]
     report: Option<PathBuf>,
 
     #[clap(
@@ -54,13 +54,17 @@ enum Commands {
     #[clap(about = "Analyze a url")]
     Url { url: String },
 
-    #[clap(about = "Analyze systemd-journal", allow_missing_positional = true)]
+    #[clap(
+        hide = true,
+        about = "Analyze systemd-journal",
+        allow_missing_positional = true
+    )]
     Journald {
         start: Option<String>,
         range: String,
     },
 
-    #[clap(about = "When running in CI, analyze the current build")]
+    #[clap(hide = true, about = "When running in CI, analyze the current build")]
     ZuulBuild {
         #[clap(long, help = "Zuul API url to fetch baselines", value_name = "URL")]
         api_url: String,
@@ -75,19 +79,19 @@ enum Commands {
         baselines: Vec<String>,
     },
 
-    #[clap(about = "Evaluate datasets from the logjuicer-tests project")]
-    Test {
-        #[clap(required = true)]
-        datasets: Vec<String>,
-    },
-
     #[clap(about = "Check a pre-built model")]
     CheckModel {
         #[clap(long, help = "Validate model age", value_name = "DAYS")]
         max_age: Option<usize>,
     },
 
-    #[clap(about = "Read a report")]
+    #[clap(about = "Evaluate datasets")]
+    Test {
+        #[clap(required = true)]
+        datasets: Vec<String>,
+    },
+
+    #[clap(hide = true, about = "Read a report")]
     ReadReport,
 
     // Secret options to debug specific part of the process
