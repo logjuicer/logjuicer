@@ -13,8 +13,13 @@ use logjuicer_index::traits::*;
 use logjuicer_iterator::LogLine;
 use logjuicer_report::{Anomaly, AnomalyContext};
 
+// The minimum distance for a line to be considered anomalous
 const THRESHOLD: logjuicer_index::F = 0.3;
+// The size of the before/after context to include
 const CTX_DISTANCE: usize = 3;
+// The maximum size of the before context, when it touches the previous anomaly
+const CTX_MAX_DISTANCE: usize = 12;
+// The matrix size to compute distances in batch
 const CHUNK_SIZE: usize = 512;
 
 /// Helper struct to manage indexing multiples readers.
@@ -289,10 +294,10 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         self.targets_coord.clear();
 
         // Keep the buffer left over as potential prev context for the next anomaly.
-        let min_left_overs_pos = if self.buffer.len() < CTX_DISTANCE {
+        let min_left_overs_pos = if self.buffer.len() < CTX_MAX_DISTANCE {
             0
         } else {
-            self.buffer.len() - CTX_DISTANCE
+            self.buffer.len() - CTX_MAX_DISTANCE
         };
         let max_left_overs_pos = left_overs_pos.max(min_left_overs_pos);
         self.left_overs = self.buffer[max_left_overs_pos..]
@@ -314,10 +319,16 @@ fn collect_before(
     buffer: &[(LogLine, usize)],
     left_overs: &[Rc<str>],
 ) -> Vec<Rc<str>> {
-    let min_pos = if buffer_pos < CTX_DISTANCE {
+    // extend the CTX_DISTANCE when the last contex falls under the MAX_DISTANCE
+    let ctx_distance = if buffer_pos - last_context_pos < CTX_MAX_DISTANCE {
+        CTX_MAX_DISTANCE
+    } else {
+        CTX_DISTANCE
+    };
+    let min_pos = if buffer_pos < ctx_distance {
         0
     } else {
-        buffer_pos - CTX_DISTANCE
+        buffer_pos - ctx_distance
     };
     // The before context starts either at the last context pos, or the min pos.
     let before_context_pos = last_context_pos.max(min_pos);
@@ -326,9 +337,9 @@ fn collect_before(
         // TODO: use direct bytes -> str conversion.
         .map(|((bytes, _), _)| logjuicer_iterator::clone_bytes_to_string(bytes).unwrap())
         .collect::<Vec<Rc<str>>>();
-    if before_context_pos == 0 && before.len() < CTX_DISTANCE {
+    if before_context_pos == 0 && before.len() < ctx_distance {
         // The anomaly happens at the begining of the buffer
-        let need = CTX_DISTANCE - before.len();
+        let need = ctx_distance - before.len();
         let available = left_overs.len();
         let want = need.min(available);
         let mut before_extra: Vec<Rc<str>> = left_overs[(available - want)..].to_vec();
@@ -372,6 +383,7 @@ fn test_leftovers() {
     assert_eq!(
         collect_before(4, 0, &cp.buffer, &cp.left_overs),
         vec![
+            "001 log line".into(),
             "002 log line".into(),
             "003 log line".into(),
             "004 log line".into()
@@ -444,6 +456,89 @@ fn test_chunk_processor() {
             anomaly: Anomaly {
                 distance: 1.0,
                 pos: 5,
+                line: "another Traceback".into(),
+            },
+        },
+    ];
+    assert_eq!(anomalies.len(), expected.len());
+    anomalies
+        .iter()
+        .zip(expected.iter())
+        .for_each(|(got, expected)| {
+            assert_eq!(got.anomaly.line, expected.anomaly.line);
+            assert_eq!(got.anomaly.pos, expected.anomaly.pos);
+            assert!((got.anomaly.distance - expected.anomaly.distance).abs() < 0.001);
+            assert_eq!(got.before, expected.before);
+            assert_eq!(got.after, expected.after);
+        });
+}
+
+#[test]
+fn test_extended_context() {
+    let baseline = std::io::Cursor::new(
+        [
+            "001: regular log line",
+            "in-between line",
+            "extra context line",
+        ]
+        .join("\n"),
+    );
+
+    let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default(), false);
+    trainer.add(baseline).unwrap();
+    let index = trainer.build();
+
+    let data = std::io::Cursor::new(
+        [
+            "001: regular log line",
+            "Traceback oops",
+            "in-between line",
+            "in-between line",
+            "in-between line",
+            // The extra context shall be included because it falls in the CTX_MAX_DISTANCE
+            "extra context line",
+            "in-between line",
+            "in-between line",
+            "in-between line",
+            "another Traceback",
+            "003: regular log line",
+        ]
+        .join("\n"),
+    );
+    let mut anomalies = Vec::new();
+    let mut skip_lines = KnownLines::new();
+    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines);
+    for anomaly in processor {
+        let anomaly = anomaly.unwrap();
+        println!("anomalies: {:?}", anomaly);
+        anomalies.push(anomaly);
+        assert!(anomalies.len() <= 2)
+    }
+    let expected = vec![
+        AnomalyContext {
+            before: vec!["001: regular log line".into()],
+            after: vec![
+                "in-between line".into(),
+                "in-between line".into(),
+                "in-between line".into(),
+            ],
+            anomaly: Anomaly {
+                distance: 1.0,
+                pos: 2,
+                line: "Traceback oops".into(),
+            },
+        },
+        AnomalyContext {
+            before: vec![
+                "extra context line".into(),
+                "in-between line".into(),
+                "in-between line".into(),
+                "in-between line".into(),
+            ],
+            after: vec!["003: regular log line".into()],
+            anomaly: Anomaly {
+                distance: 1.0,
+                pos: 10,
                 line: "another Traceback".into(),
             },
         },
