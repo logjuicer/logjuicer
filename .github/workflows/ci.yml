@@ -14,6 +14,32 @@ env:
   CARGO_NET_RETRY: 10
 
 jobs:
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v1
+
+      - name: Build
+        run: cargo run --release -p logjuicer-cli -- --help
+
+      - name: Checkout logjuicer-tests
+        uses: actions/checkout@v4
+        with:
+          repository: logjuicer/logjuicer-tests
+          path: logjuicer-tests
+
+      - name: Test
+        run: cargo run --release -p logjuicer-cli -- test logjuicer-tests/datasets/*
+
   test:
     name: Test
     runs-on: ubuntu-latest
