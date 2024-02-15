@@ -211,7 +211,7 @@ impl Cli {
                 Ok(())
             }
 
-            Commands::Test { datasets } => dataset::test_datasets(&env, &datasets),
+            Commands::Test { datasets } => dataset::test_datasets(env, &datasets),
 
             // Debug handlers
             Commands::HttpLs { url } => {
