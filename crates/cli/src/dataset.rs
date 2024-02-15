@@ -10,7 +10,7 @@ use std::ffi::OsStr;
 use std::iter::zip;
 use std::path::Path;
 
-use logjuicer_model::env::Env;
+use logjuicer_model::env::{Env, OutputMode};
 use logjuicer_model::{content_from_pathbuf, AnomalyContext, IndexName, Model, Source};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -21,21 +21,53 @@ struct DatasetAnomaly {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct Dataset {
     anomalies: Vec<DatasetAnomaly>,
+    #[serde(default = "default_false")]
+    skip: bool,
+}
+
+fn default_false() -> bool {
+    false
 }
 
 fn load_inf(path: &Path) -> Result<Dataset> {
     let inf_path = path.join("inf.yaml");
-    println!("Validating: {:?}", inf_path);
     let file = std::fs::File::open(inf_path)?;
     Ok(serde_yaml::from_reader(file)?)
 }
 
-pub fn test_datasets(env: &Env, paths: &[String]) -> Result<()> {
+pub fn test_datasets(base_env: Env, paths: &[String]) -> Result<()> {
+    let env = Env {
+        output: OutputMode::Quiet,
+        ..base_env
+    };
+    let mut fail_count = 0;
+    let mut success_count = 0;
     for path_str in paths {
         let path = Path::new(&path_str);
-        let inf = load_inf(path)?;
-        process(env, path, inf)?
+        println!("[+] Validating: {:?}", path);
+        match load_inf(path) {
+            Ok(inf) if inf.skip => println!("-> Skipped"),
+            Ok(inf) => match process(&env, path, inf) {
+                Ok(()) => {
+                    println!("-> OK");
+                    success_count += 1
+                }
+                Err(e) => {
+                    println!("{}", e);
+                    fail_count += 1
+                }
+            },
+            Err(e) => {
+                println!("-> Failed to read inf.yaml: {e}");
+                fail_count += 1
+            }
+        }
     }
+    if fail_count > 0 {
+        println!("{fail_count}/{} tests failed", fail_count + success_count);
+        std::process::exit(1)
+    }
+    println!("{success_count} tests succeeded");
     Ok(())
 }
 
