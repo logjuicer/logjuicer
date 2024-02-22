@@ -16,6 +16,7 @@ fn mk_report() -> Report {
             anomaly: Anomaly {
                 distance: 0.42,
                 pos,
+                timestamp: None,
                 line: line.as_str().into(),
             },
             after: vec!["after".into()],

@@ -263,12 +263,16 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
 
                 last_context_pos = buffer_pos;
 
+                // TODO: parse timestamp from current line
+                let timestamp = None;
+
                 self.current_anomaly = Some(AnomalyContext {
                     before,
                     after: Vec::new(),
                     anomaly: Anomaly {
                         distance: *distance,
                         pos: *log_pos,
+                        timestamp,
                         line: log_line,
                     },
                 });
@@ -456,6 +460,7 @@ fn test_chunk_processor() {
             anomaly: Anomaly {
                 distance: 1.0,
                 pos: 3,
+                timestamp: None,
                 line: "Traceback oops".into(),
             },
         },
@@ -465,6 +470,7 @@ fn test_chunk_processor() {
             anomaly: Anomaly {
                 distance: 1.0,
                 pos: 5,
+                timestamp: None,
                 line: "another Traceback".into(),
             },
         },
@@ -534,6 +540,7 @@ fn test_extended_context() {
             anomaly: Anomaly {
                 distance: 1.0,
                 pos: 2,
+                timestamp: None,
                 line: "Traceback oops".into(),
             },
         },
@@ -548,6 +555,7 @@ fn test_extended_context() {
             anomaly: Anomaly {
                 distance: 1.0,
                 pos: 10,
+                timestamp: None,
                 line: "another Traceback".into(),
             },
         },
