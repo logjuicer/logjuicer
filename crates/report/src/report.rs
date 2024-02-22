@@ -69,6 +69,7 @@ impl Report {
                     anomaly: Anomaly {
                         distance: 0.5,
                         pos: 1,
+                        timestamp: None,
                         line: "anomaly".into(),
                     },
                     after: vec![],
@@ -302,6 +303,7 @@ impl std::fmt::Display for Source {
 pub struct Anomaly {
     pub distance: f32,
     pub pos: usize,
+    pub timestamp: Option<u64>,
     pub line: Rc<str>,
 }
 
@@ -361,6 +363,7 @@ fn test_report_sort() {
             anomaly: Anomaly {
                 distance: if name == "failure.log" { 0.5 } else { 0.2 },
                 pos: 0,
+                timestamp: None,
                 line: "line".into(),
             },
             before: Vec::new(),

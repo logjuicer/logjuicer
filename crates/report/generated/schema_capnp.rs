@@ -484,7 +484,7 @@ pub mod report {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(1), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_baselines(&mut self, value: ::capnp::struct_list::Reader<'a,crate::schema_capnp::content::Owned>) -> ::capnp::Result<()> {
+    pub fn set_baselines(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::content::Owned>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
     }
     #[inline]
@@ -500,7 +500,7 @@ pub mod report {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(2), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_log_reports(&mut self, value: ::capnp::struct_list::Reader<'a,crate::schema_capnp::log_report::Owned>) -> ::capnp::Result<()> {
+    pub fn set_log_reports(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::log_report::Owned>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false)
     }
     #[inline]
@@ -516,7 +516,7 @@ pub mod report {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(3), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_index_reports(&mut self, value: ::capnp::struct_list::Reader<'a,crate::schema_capnp::property::Owned<crate::schema_capnp::index_report::Owned>>) -> ::capnp::Result<()> {
+    pub fn set_index_reports(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::property::Owned<crate::schema_capnp::index_report::Owned>>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(3), value, false)
     }
     #[inline]
@@ -532,7 +532,7 @@ pub mod report {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(4), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_unknown_files(&mut self, value: ::capnp::struct_list::Reader<'a,crate::schema_capnp::property::Owned<::capnp::struct_list::Owned<crate::schema_capnp::source::Owned>>>) -> ::capnp::Result<()> {
+    pub fn set_unknown_files(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::property::Owned<::capnp::struct_list::Owned<crate::schema_capnp::source::Owned>>>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(4), value, false)
     }
     #[inline]
@@ -548,7 +548,7 @@ pub mod report {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(5), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_read_errors(&mut self, value: ::capnp::struct_list::Reader<'a,crate::schema_capnp::read_error::Owned>) -> ::capnp::Result<()> {
+    pub fn set_read_errors(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::read_error::Owned>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(5), value, false)
     }
     #[inline]
@@ -3225,7 +3225,7 @@ pub mod log_report {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_anomalies(&mut self, value: ::capnp::struct_list::Reader<'a,crate::schema_capnp::anomaly_context::Owned>) -> ::capnp::Result<()> {
+    pub fn set_anomalies(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::anomaly_context::Owned>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
@@ -3569,7 +3569,7 @@ pub mod anomaly_context {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_before(&mut self, value: ::capnp::text_list::Reader<'a>) -> ::capnp::Result<()> {
+    pub fn set_before(&mut self, value: ::capnp::text_list::Reader<'_>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
@@ -3601,7 +3601,7 @@ pub mod anomaly_context {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(2), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_after(&mut self, value: ::capnp::text_list::Reader<'a>) -> ::capnp::Result<()> {
+    pub fn set_after(&mut self, value: ::capnp::text_list::Reader<'_>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false)
     }
     #[inline]
@@ -3798,11 +3798,15 @@ pub mod anomaly {
     pub fn has_line(&self) -> bool {
       !self.reader.get_pointer_field(0).is_null()
     }
+    #[inline]
+    pub fn get_timestamp(self) -> u64 {
+      self.reader.get_data_field::<u64>(1)
+    }
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
   impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
-    const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 1, pointers: 1 };
+    const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 2, pointers: 1 };
   }
   impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
@@ -3884,6 +3888,14 @@ pub mod anomaly {
     pub fn has_line(&self) -> bool {
       !self.builder.is_pointer_field_null(0)
     }
+    #[inline]
+    pub fn get_timestamp(self) -> u64 {
+      self.builder.get_data_field::<u64>(1)
+    }
+    #[inline]
+    pub fn set_timestamp(&mut self, value: u64)  {
+      self.builder.set_data_field::<u64>(1, value);
+    }
   }
 
   pub struct Pipeline { _typeless: ::capnp::any_pointer::Pipeline }
@@ -3895,45 +3907,52 @@ pub mod anomaly {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 63] = [
+    pub static ENCODED_NODE: [::capnp::Word; 79] = [
       ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
       ::capnp::word(138, 6, 206, 1, 232, 24, 86, 227),
-      ::capnp::word(13, 0, 0, 0, 1, 0, 1, 0),
+      ::capnp::word(13, 0, 0, 0, 1, 0, 2, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(1, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(21, 0, 0, 0, 170, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(25, 0, 0, 0, 175, 0, 0, 0),
+      ::capnp::word(25, 0, 0, 0, 231, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(115, 99, 104, 101, 109, 97, 46, 99),
       ::capnp::word(97, 112, 110, 112, 58, 65, 110, 111),
       ::capnp::word(109, 97, 108, 121, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 1, 0, 1, 0),
-      ::capnp::word(12, 0, 0, 0, 3, 0, 4, 0),
+      ::capnp::word(16, 0, 0, 0, 3, 0, 4, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 1, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(69, 0, 0, 0, 74, 0, 0, 0),
+      ::capnp::word(97, 0, 0, 0, 74, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(68, 0, 0, 0, 3, 0, 1, 0),
-      ::capnp::word(80, 0, 0, 0, 2, 0, 1, 0),
+      ::capnp::word(96, 0, 0, 0, 3, 0, 1, 0),
+      ::capnp::word(108, 0, 0, 0, 2, 0, 1, 0),
       ::capnp::word(1, 0, 0, 0, 1, 0, 0, 0),
       ::capnp::word(0, 0, 1, 0, 1, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(77, 0, 0, 0, 34, 0, 0, 0),
+      ::capnp::word(105, 0, 0, 0, 34, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(72, 0, 0, 0, 3, 0, 1, 0),
-      ::capnp::word(84, 0, 0, 0, 2, 0, 1, 0),
-      ::capnp::word(2, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(100, 0, 0, 0, 3, 0, 1, 0),
+      ::capnp::word(112, 0, 0, 0, 2, 0, 1, 0),
+      ::capnp::word(3, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 1, 0, 2, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(81, 0, 0, 0, 42, 0, 0, 0),
+      ::capnp::word(109, 0, 0, 0, 42, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(76, 0, 0, 0, 3, 0, 1, 0),
-      ::capnp::word(88, 0, 0, 0, 2, 0, 1, 0),
+      ::capnp::word(104, 0, 0, 0, 3, 0, 1, 0),
+      ::capnp::word(116, 0, 0, 0, 2, 0, 1, 0),
+      ::capnp::word(2, 0, 0, 0, 1, 0, 0, 0),
+      ::capnp::word(0, 0, 1, 0, 3, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(113, 0, 0, 0, 82, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(112, 0, 0, 0, 3, 0, 1, 0),
+      ::capnp::word(124, 0, 0, 0, 2, 0, 1, 0),
       ::capnp::word(100, 105, 115, 116, 97, 110, 99, 101),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(10, 0, 0, 0, 0, 0, 0, 0),
@@ -3959,12 +3978,22 @@ pub mod anomaly {
       ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(116, 105, 109, 101, 115, 116, 97, 109),
+      ::capnp::word(112, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(9, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(9, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
     ];
     pub fn get_field_types(index: u16) -> ::capnp::introspect::Type {
       match index {
         0 => <f32 as ::capnp::introspect::Introspect>::introspect(),
         1 => <u32 as ::capnp::introspect::Introspect>::introspect(),
         2 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
+        3 => <u64 as ::capnp::introspect::Introspect>::introspect(),
         _ => panic!("invalid field index {}", index),
       }
     }
@@ -3976,7 +4005,7 @@ pub mod anomaly {
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
     };
-    pub static NONUNION_MEMBERS : &[u16] = &[0,1,2];
+    pub static NONUNION_MEMBERS : &[u16] = &[0,1,2,3];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
     pub const TYPE_ID: u64 = 0xe356_18e8_01ce_068a;
   }
@@ -4122,7 +4151,7 @@ pub mod index_report {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_sources(&mut self, value: ::capnp::struct_list::Reader<'a,crate::schema_capnp::source::Owned>) -> ::capnp::Result<()> {
+    pub fn set_sources(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::source::Owned>) -> ::capnp::Result<()> {
       ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]

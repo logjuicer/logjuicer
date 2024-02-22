@@ -87,6 +87,7 @@ struct AnomalyContext {
 struct Anomaly {
   distance   @0 :Float32;
   pos        @1 :UInt32;
+  timestamp  @3 :UInt64;
   line       @2 :Text;
 }
 
