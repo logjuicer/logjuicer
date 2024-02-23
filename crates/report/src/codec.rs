@@ -141,7 +141,7 @@ impl ReportEncoder {
         builder.set_distance(anomaly.distance);
         builder.set_pos(anomaly.pos as u32);
         builder.set_line(anomaly.line.as_ref().into());
-        builder.set_timestamp(anomaly.timestamp.unwrap_or(0));
+        builder.set_timestamp(anomaly.timestamp.unwrap_or(Epoch(0)).0);
         Ok(())
     }
 
@@ -371,7 +371,7 @@ impl ReportDecoder {
     fn read_anomaly(&self, reader: &schema_capnp::anomaly::Reader) -> Result<Anomaly> {
         let timestamp = match reader.get_timestamp() {
             0 => None,
-            n => Some(n),
+            n => Some(Epoch(n)),
         };
         Ok(Anomaly {
             // distance: (1.0 / 255.0) * reader.get_distance() as f32,

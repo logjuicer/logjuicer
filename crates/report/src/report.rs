@@ -299,11 +299,16 @@ impl std::fmt::Display for Source {
     }
 }
 
+/// A timestamp in ms since epoch
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Epoch(pub u64);
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Anomaly {
     pub distance: f32,
     pub pos: usize,
-    pub timestamp: Option<u64>,
+    pub timestamp: Option<Epoch>,
     pub line: Rc<str>,
 }
 
@@ -349,6 +354,12 @@ impl LogReport {
             .sorted_by(|a, b| b.1.total_cmp(&a.1))
             .map(|(lr, _mean)| lr)
             .collect()
+    }
+
+    pub fn timed(&self) -> impl Iterator<Item = (Epoch, &AnomalyContext)> {
+        self.anomalies
+            .iter()
+            .filter_map(|ac| ac.anomaly.timestamp.map(|ts| (ts, ac)))
     }
 }
 
