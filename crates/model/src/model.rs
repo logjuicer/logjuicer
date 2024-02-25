@@ -7,6 +7,7 @@
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
+use logjuicer_report::Epoch;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Read;
@@ -145,6 +146,7 @@ impl<IR: IndexReader> Index<IR> {
         env: &Env,
         source: &Source,
         skip_lines: &'a mut Option<KnownLines>,
+        gl_date: Option<Epoch>,
     ) -> Result<process::ChunkProcessor<IR, crate::reader::DecompressReader>> {
         let fp = match source {
             Source::Local(_, path_buf) => file_open(path_buf.as_path()),
@@ -161,17 +163,23 @@ impl<IR: IndexReader> Index<IR> {
             source.is_json(),
             is_job_output,
             skip_lines,
+            gl_date,
         ))
     }
 
-    #[tracing::instrument(level = "debug", name = "Index::inspect", skip(self, env))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "Index::inspect",
+        skip(self, env, skip_lines, gl_date)
+    )]
     pub fn inspect<'a>(
         &'a self,
         env: &Env,
         source: &Source,
         skip_lines: &'a mut Option<KnownLines>,
+        gl_date: Option<Epoch>,
     ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
-        match self.get_processor(env, source, skip_lines) {
+        match self.get_processor(env, source, skip_lines, gl_date) {
             Ok(processor) => Box::new(processor),
             // If the file can't be open, the first iterator result will be the error.
             Err(e) => Box::new(std::iter::once(Err(e))),
@@ -339,19 +347,19 @@ impl<IR: IndexReader> Model<IR> {
     }
 
     /// Create an individual LogReport.
-    #[tracing::instrument(level = "debug", skip(env, self, index, skip_lines))]
+    #[tracing::instrument(level = "debug", skip(env, self, index, skip_lines, gl_date))]
     pub fn report_source(
         &self,
         env: &Env,
-        index: &Index<IR>,
-        index_name: &IndexName,
+        index: (&Index<IR>, &IndexName),
         counters: &mut LineCounters,
         skip_lines: &mut Option<KnownLines>,
         source: &Source,
+        gl_date: Option<Epoch>,
     ) -> std::result::Result<Option<LogReport>, String> {
         let start_time = Instant::now();
         let mut anomalies = Vec::new();
-        match index.get_processor(env, source, skip_lines) {
+        match index.0.get_processor(env, source, skip_lines, gl_date) {
             Ok(mut processor) => {
                 for anomaly in processor.by_ref() {
                     match anomaly {
@@ -367,7 +375,7 @@ impl<IR: IndexReader> Model<IR> {
                         test_time: start_time.elapsed(),
                         anomalies,
                         source: source.clone(),
-                        index_name: index_name.clone(),
+                        index_name: index.1.clone(),
                         line_count: processor.line_count,
                         byte_count: processor.byte_count,
                     }))
@@ -389,6 +397,7 @@ impl<IR: IndexReader> Model<IR> {
         let mut unknown_files = HashMap::new();
         let mut read_errors = Vec::new();
         let mut counters = LineCounters::new();
+        let mut gl_date = None;
         for (index_name, sources) in group_sources(env, &[target.clone()])?.drain() {
             let mut skip_lines = env.config.new_skip_lines();
             match self.get_index(&index_name) {
@@ -401,15 +410,19 @@ impl<IR: IndexReader> Model<IR> {
                     for source in sources {
                         match self.report_source(
                             env,
-                            index,
-                            &index_name,
+                            (index, &index_name),
                             &mut counters,
                             &mut skip_lines,
                             &source,
+                            gl_date,
                         ) {
                             Ok(Some(lr)) => {
                                 if !index_reports.contains_key(&index_name) {
                                     index_reports.insert(index_name.clone(), index.to_report());
+                                };
+                                if gl_date.is_none() {
+                                    // Record the global date if it is unknown
+                                    gl_date = lr.timed().next().map(|ea| ea.0)
                                 };
                                 log_reports.push(lr)
                             }
