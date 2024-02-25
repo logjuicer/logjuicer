@@ -8,10 +8,10 @@ use std::collections::VecDeque;
 use std::io::Read;
 use std::rc::Rc;
 
-use crate::unordered::KnownLines;
+use crate::{timestamps::TS, unordered::KnownLines};
 use logjuicer_index::traits::*;
 use logjuicer_iterator::LogLine;
-use logjuicer_report::{Anomaly, AnomalyContext};
+use logjuicer_report::{Anomaly, AnomalyContext, Epoch};
 
 // The minimum distance for a line to be considered anomalous
 const THRESHOLD: logjuicer_index::F = 0.3;
@@ -103,6 +103,16 @@ pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
     pub byte_count: usize,
     /// Indicate if run-logjuicer needs to be checked
     is_job_output: bool,
+    /// Global full date time to adjust logline which only has the time
+    gl_date: Option<Epoch>,
+    /// Keep track of the last known timestamp for searching backward when timestamp is missing
+    last_ts: LastTS,
+}
+
+#[derive(Copy, Clone)]
+enum LastTS {
+    Missing,
+    KnownTS(Option<Epoch>, usize),
 }
 
 impl<'a, IR: IndexReader, R: Read> Iterator for ChunkProcessor<'a, IR, R> {
@@ -128,6 +138,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         is_json: bool,
         is_job_output: bool,
         skip_lines: &'a mut Option<KnownLines>,
+        gl_date: Option<Epoch>,
     ) -> ChunkProcessor<'a, IR, R> {
         ChunkProcessor {
             reader: logjuicer_iterator::BytesLines::new(read, is_json),
@@ -143,6 +154,64 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
             coord: 0,
             line_count: 0,
             byte_count: 0,
+            gl_date,
+            last_ts: LastTS::KnownTS(None, 0),
+        }
+    }
+
+    fn get_timestamp(&self, log_line: &str, buffer_pos: usize) -> Option<Epoch> {
+        match self.last_ts {
+            // This source does not contain timestamp, so don't bother trying to decode further lines
+            LastTS::Missing => None,
+
+            LastTS::KnownTS(last_ts, last_ts_pos) => {
+                self.get_timestamp_with(log_line, buffer_pos, last_ts_pos, last_ts)
+            }
+        }
+    }
+
+    fn get_timestamp_with(
+        &self,
+        log_line: &str,
+        buffer_pos: usize,
+        last_ts_pos: usize,
+        last_ts: Option<Epoch>,
+    ) -> Option<Epoch> {
+        match crate::timestamps::parse_timestamp(log_line)
+            .or_else(|| self.get_closest_timestamp(0, buffer_pos, last_ts_pos))
+        {
+            None => last_ts,
+            Some(crate::timestamps::TS::Full(ts)) => {
+                // self.last_ts = Some(ts);
+                Some(ts)
+            }
+            Some(crate::timestamps::TS::Time(time)) => {
+                self.gl_date.map(|ts| crate::timestamps::set_date(ts, time))
+            }
+        }
+    }
+    fn get_closest_timestamp(
+        &self,
+        count: usize,
+        buffer_pos: usize,
+        last_ts_pos: usize,
+    ) -> Option<TS> {
+        if count > 32 {
+            // We couldn't find a timestamp close enough
+            None
+        } else if let Some(prev_pos) = buffer_pos.checked_sub(1) {
+            let ((bytes, line_number), _) = &self.buffer[prev_pos];
+            if *line_number <= last_ts_pos {
+                // We reach the previously known timestamp
+                None
+            } else {
+                let raw_str = logjuicer_iterator::clone_bytes_to_string(bytes).unwrap();
+                crate::timestamps::parse_timestamp(&raw_str)
+                    .or_else(|| self.get_closest_timestamp(count + 1, prev_pos, last_ts_pos))
+            }
+        } else {
+            // TODO: look in the left-overs
+            None
         }
     }
 
@@ -253,6 +322,14 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
                     self.current_anomaly = None;
                 }
 
+                // Parse timestamp from current line
+                let timestamp = self.get_timestamp(&log_line, buffer_pos);
+                self.last_ts = match timestamp {
+                    // It looks like this source has no timestamps
+                    None if *log_pos > 42 => LastTS::Missing,
+                    ts => LastTS::KnownTS(ts, *log_pos),
+                };
+
                 // Grab before context
                 let before = collect_before(
                     buffer_pos - 1,
@@ -262,9 +339,6 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
                 );
 
                 last_context_pos = buffer_pos;
-
-                // TODO: parse timestamp from current line
-                let timestamp = None;
 
                 self.current_anomaly = Some(AnomalyContext {
                     before,
@@ -368,7 +442,7 @@ fn test_leftovers() {
     let index = logjuicer_index::index_mat(&[]);
     let mut skip_lines = Some(KnownLines::new());
     let reader = std::io::Cursor::new("");
-    let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines);
+    let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines, None);
 
     cp.buffer.push((("001 log line".into(), 0), 0));
     cp.buffer.push((("002 log line".into(), 1), 1));
@@ -443,7 +517,7 @@ fn test_chunk_processor() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
-    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines);
+    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, None);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         println!("anomalies: {:?}", anomaly);
@@ -522,7 +596,7 @@ fn test_extended_context() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
-    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines);
+    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, None);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         println!("anomalies: {:?}", anomaly);

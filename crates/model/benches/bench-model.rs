@@ -27,6 +27,7 @@ pub fn model_process(c: &mut Criterion) {
                 false,
                 false,
                 &mut skip_lines,
+                None,
             );
             let _anomalies = processor.collect::<Result<Vec<_>, _>>().unwrap();
         })

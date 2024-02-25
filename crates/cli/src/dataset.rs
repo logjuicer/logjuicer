@@ -94,6 +94,7 @@ fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
                     env,
                     &Source::from_pathbuf(fail.to_path_buf()),
                     &mut Some(logjuicer_model::unordered::KnownLines::new()),
+                    None,
                 )
                 .collect::<Result<Vec<AnomalyContext>>>()?;
             let anomalies_count = anomalies.len();

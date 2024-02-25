@@ -416,6 +416,7 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
     let mut total_line_count = 0;
     let mut total_byte_count = 0;
     let mut total_anomaly_count = 0;
+    let mut gl_date = None;
     let start_time = Instant::now();
 
     let sources = content_get_sources(content, env)?;
@@ -450,7 +451,7 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 };
                 progress_sep_shown = false;
-                match index.get_processor(env, source, &mut env.config.new_skip_lines()) {
+                match index.get_processor(env, source, &mut env.config.new_skip_lines(), gl_date) {
                     Ok(mut processor) => {
                         for anomaly in processor.by_ref() {
                             if env.output.inlined() && !progress_sep_shown {
@@ -463,7 +464,12 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
                                 progress_sep_shown = true;
                             }
                             match anomaly {
-                                Ok(anomaly) => print_anomaly(anomaly),
+                                Ok(anomaly) => {
+                                    if gl_date.is_none() {
+                                        gl_date = anomaly.anomaly.timestamp;
+                                    }
+                                    print_anomaly(anomaly)
+                                }
                                 Err(err) => {
                                     println!("Could not read {}: {}", &source, err);
                                     break;
