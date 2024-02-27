@@ -30,6 +30,10 @@
 use bytes::{Buf, Bytes, BytesMut};
 use std::io::{Read, Result};
 
+// TODO: handle json line spread accross multiple line like:
+// {"date":1709049714.812167,"log":"2024-02-27 ....
+// ..., "podname":"zuul-scheduler-0","labels_run":"zuul-scheduler"}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Sep {
     // A line return: '\n'
