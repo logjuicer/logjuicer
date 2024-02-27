@@ -300,7 +300,7 @@ impl std::fmt::Display for Source {
 }
 
 /// A timestamp in ms since epoch
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Epoch(pub u64);
 

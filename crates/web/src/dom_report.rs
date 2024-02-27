@@ -6,10 +6,13 @@
 use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
 use gloo_console::log;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
-use logjuicer_report::{bytes_to_mb, Content, IndexName, LogReport, Report, Source};
+use logjuicer_report::{
+    bytes_to_mb, AnomalyContext, Content, Epoch, IndexName, LogReport, Report, Source,
+};
 
 use crate::dom_utils::{data_attr, data_attr_html, render_link};
 use crate::selection::Selection;
@@ -198,10 +201,73 @@ fn render_unknown(target: &Content, source: &Source, index: &IndexName) -> Dom {
     )
 }
 
+fn render_timeline(
+    gl_pos: &mut usize,
+    timeline: BTreeMap<Epoch, (&LogReport, &AnomalyContext)>,
+) -> Dom {
+    let mut lines = Vec::with_capacity(timeline.len() * 2);
+    let mut current_source = None;
+    for (lr, anomaly) in timeline.into_values() {
+        if Some(&lr.source) != current_source {
+            current_source = Some(&lr.source);
+            lines.push(html!("tr", {.children(&mut [
+                html!("td", {.class(["bg-slate-50", "text-end", "px-3"]).attr("colspan", "2")
+                             .text(lr.source.get_relative())})
+            ])}))
+        }
+        render_anomaly_context(gl_pos, &mut lines, anomaly);
+    }
+    let header = html!("header", {.class(["header", "bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
+        html!("div", {.class(["grow", "flex"]).text(
+            "Timeline"
+        )}),
+    ])});
+
+    html!("div", {.class(["content", "pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
+        header,
+        html!("table", {.class("font-mono").children(&mut [
+            html!("thead", {.children(&mut [
+                html!("tr", {.children(&mut [html!("th", {.class(["w-12", "min-w-[3rem]"])}), html!("th")])})
+            ])}),
+            html!("tbody", {.children(&mut lines)})
+        ])})
+    ])})
+}
+
 fn render_report(report: &Report) -> Dom {
     let mut childs = Vec::new();
-
     let mut gl_pos = 0;
+
+    if report.log_reports.len() > 1 {
+        let mut timeline = BTreeMap::new();
+        let mut lr_count = 0;
+        for lr in &report.log_reports {
+            let mut first = true;
+            for (mut ts, anomaly) in lr.timed() {
+                // Increase timeline resolution
+                ts.0 *= 1_000_000;
+
+                // Count the number of LogReport with timestamp
+                if first {
+                    lr_count += 1;
+                    first = false;
+                }
+
+                // Find a free slot
+                let mut attempts = 1;
+                while timeline.contains_key(&ts) && attempts < 4096 && ts.0 < u64::MAX {
+                    attempts += 1;
+                    ts.0 += 1;
+                }
+
+                timeline.insert(ts, (lr, anomaly));
+            }
+        }
+        if lr_count > 1 {
+            childs.push(render_timeline(&mut gl_pos, timeline));
+        }
+    }
+
     for lr in &report.log_reports {
         childs.push(render_log_report(&mut gl_pos, report, lr))
     }

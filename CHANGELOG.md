@@ -1,6 +1,9 @@
 next-version
 ============
 
+- report: add optional log timestamp to the anomaly context.
+- web: render unified timeline view.
+
 0.9.8
 =====
 
