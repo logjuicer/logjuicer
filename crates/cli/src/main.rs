@@ -597,9 +597,13 @@ fn print_report(report: Report) {
             bytes_to_mb(log_report.byte_count)
         );
         log_report.anomalies.iter().for_each(|anomaly_context| {
+            let ts = match anomaly_context.anomaly.timestamp {
+                Some(logjuicer_report::Epoch(ts)) => format!("{ts} "),
+                None => "".to_string(),
+            };
             println!(
-                "  {}: {}",
-                anomaly_context.anomaly.pos, anomaly_context.anomaly.line
+                "  {}: {}{}",
+                anomaly_context.anomaly.pos, ts, anomaly_context.anomaly.line
             );
         })
     })
