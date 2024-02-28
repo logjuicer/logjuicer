@@ -32,13 +32,14 @@ impl Manifest {
 }
 
 fn go_tree(tree: &Tree, res: &mut Vec<Url>, url: &Url) {
+    let path = urlencoding::encode(&tree.name);
     if tree.mimetype.as_ref() == "application/directory" {
-        let dir_url = url.join(&format!("{}/", tree.name)).expect("good url");
+        let dir_url = url.join(&format!("{}/", path)).expect("good dir url");
         for child in tree.children.iter() {
             go_tree(child, res, &dir_url)
         }
     } else {
-        res.push(url.join(&tree.name).expect("good url"))
+        res.push(url.join(&path).expect("good file url"))
     }
 }
 
@@ -67,6 +68,20 @@ fn test_decodes_manifest() {
       "encoding": null,
       "last_modified": 1701427579,
       "size": 33375
+    },
+    {
+      "name": "LNXSYSTM:00",
+      "mimetype": "application/directory",
+      "encoding": null,
+      "children": [
+        {
+          "name": "test",
+          "mimetype": "text/plain",
+          "encoding": null,
+          "last_modified": 1701427487,
+          "size": 14195
+        }
+      ]
     }
   ],
   "index_links": false
@@ -81,7 +96,8 @@ fn test_decodes_manifest() {
             .collect::<Vec<&str>>(),
         vec![
             "http://localhost/build/zuul-info/host-info.controller.yaml",
-            "http://localhost/build/job-output.txt"
+            "http://localhost/build/job-output.txt",
+            "http://localhost/build/LNXSYSTM%3A00/test"
         ]
     );
 }
