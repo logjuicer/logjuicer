@@ -82,6 +82,26 @@ fn render_line(gl_pos: &mut usize, pos: usize, distance: f32, line: &str) -> Dom
     ])})
 }
 
+fn render_anomaly_context(gl_pos: &mut usize, lines: &mut Vec<Dom>, anomaly: &AnomalyContext) {
+    for (pos, line) in anomaly.before.iter().enumerate() {
+        let prev_pos = anomaly
+            .anomaly
+            .pos
+            .saturating_sub(anomaly.before.len() - pos);
+        lines.push(render_line(gl_pos, prev_pos, 0.0, line));
+    }
+    lines.push(render_line(
+        gl_pos,
+        anomaly.anomaly.pos,
+        anomaly.anomaly.distance,
+        &anomaly.anomaly.line,
+    ));
+    for (pos, line) in anomaly.after.iter().enumerate() {
+        let after_pos = anomaly.anomaly.pos + 1 + pos;
+        lines.push(render_line(gl_pos, after_pos, 0.0, line));
+    }
+}
+
 fn log_name(path: &str) -> &str {
     match path.rsplit_once('/') {
         Some((_, name)) => name,
@@ -143,25 +163,10 @@ fn render_log_report(gl_pos: &mut usize, report: &Report, log_report: &LogReport
     ])});
 
     let mut lines = Vec::with_capacity(log_report.anomalies.len() * 2);
-    for anomaly in &log_report.anomalies {
-        for (pos, line) in anomaly.before.iter().enumerate() {
-            let prev_pos = anomaly
-                .anomaly
-                .pos
-                .saturating_sub(anomaly.before.len() - pos);
-            lines.push(render_line(gl_pos, prev_pos, 0.0, line));
-        }
-        lines.push(render_line(
-            gl_pos,
-            anomaly.anomaly.pos,
-            anomaly.anomaly.distance,
-            &anomaly.anomaly.line,
-        ));
-        for (pos, line) in anomaly.after.iter().enumerate() {
-            let after_pos = anomaly.anomaly.pos + 1 + pos;
-            lines.push(render_line(gl_pos, after_pos, 0.0, line));
-        }
-    }
+    log_report
+        .anomalies
+        .iter()
+        .for_each(|anomaly| render_anomaly_context(gl_pos, &mut lines, anomaly));
 
     html!("div", {.class(["content", "pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
         header,
