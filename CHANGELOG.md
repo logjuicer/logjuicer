@@ -3,6 +3,7 @@ next-version
 
 - process: increase context distance when anomalies are close enough
 - config: keep duplicated anomalies when the `LOGJUICER_KEEP_DUPLICATE` environment is set.
+- zuul: fix url encoding when processing zuul-manifest containing files with `:`.
 
 0.9.7
 =====
