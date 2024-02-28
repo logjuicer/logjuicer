@@ -1,12 +1,12 @@
 # logjuicer-web-service
 
-This crate provides the `logjuicer-api` command to provide a web-service for running logjuicer.
+This crate features the `logjuicer-api` command to provide a web-service for running logjuicer.
 
 
 ## Usage
 
 ```ShellSession
-podman run --name logjuicer --volume logjuicer-data:/data --publish 3000:3000 logjuicer
+podman run --name logjuicer --volume logjuicer-data:/data --publish 3000:3000 ghcr.io/logjuicer/logjuicer
 ```
 
 ## API

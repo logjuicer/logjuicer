@@ -98,6 +98,8 @@ export LOGJUICER_LOG="logjuicer_model=debug,logjuicer_cli=debug"
 export LOGJUICER_TRACE=./chrome.trace
 ```
 
+Checkout the [web crate](./crates/web#contribute) to develop the web interface.
+
 Join the project Matrix room: [#logjuicer:matrix.org](https://matrix.to/#/#logjuicer:matrix.org).
 
 
