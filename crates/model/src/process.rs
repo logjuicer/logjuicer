@@ -164,50 +164,30 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
             // This source does not contain timestamp, so don't bother trying to decode further lines
             LastTS::Missing => None,
 
-            LastTS::KnownTS(last_ts, last_ts_pos) => {
-                self.get_timestamp_with(log_line, buffer_pos, last_ts_pos, last_ts)
-            }
+            LastTS::KnownTS(_, last_ts_pos) => crate::timestamps::parse_timestamp(log_line)
+                .or_else(|| self.get_closest_timestamp(0, buffer_pos, last_ts_pos))
+                .and_then(|ts| match ts {
+                    crate::timestamps::TS::Full(ts) => Some(ts),
+                    crate::timestamps::TS::Time(time) => {
+                        self.gl_date.map(|ts| crate::timestamps::set_date(ts, time))
+                    }
+                }),
         }
     }
 
-    fn get_timestamp_with(
-        &self,
-        log_line: &str,
-        buffer_pos: usize,
-        last_ts_pos: usize,
-        last_ts: Option<Epoch>,
-    ) -> Option<Epoch> {
-        match crate::timestamps::parse_timestamp(log_line)
-            .or_else(|| self.get_closest_timestamp(0, buffer_pos, last_ts_pos))
-        {
-            None => last_ts,
-            Some(crate::timestamps::TS::Full(ts)) => {
-                // self.last_ts = Some(ts);
-                Some(ts)
-            }
-            Some(crate::timestamps::TS::Time(time)) => {
-                self.gl_date.map(|ts| crate::timestamps::set_date(ts, time))
-            }
-        }
-    }
-    fn get_closest_timestamp(
-        &self,
-        count: usize,
-        buffer_pos: usize,
-        last_ts_pos: usize,
-    ) -> Option<TS> {
+    fn get_closest_timestamp(&self, count: usize, buffer_pos: usize, last_ts: usize) -> Option<TS> {
         if count > 32 {
             // We couldn't find a timestamp close enough
             None
         } else if let Some(prev_pos) = buffer_pos.checked_sub(1) {
             let ((bytes, line_number), _) = &self.buffer[prev_pos];
-            if *line_number <= last_ts_pos {
+            if *line_number <= last_ts {
                 // We reach the previously known timestamp
                 None
             } else {
                 let raw_str = logjuicer_iterator::clone_bytes_to_string(bytes).unwrap();
                 crate::timestamps::parse_timestamp(&raw_str)
-                    .or_else(|| self.get_closest_timestamp(count + 1, prev_pos, last_ts_pos))
+                    .or_else(|| self.get_closest_timestamp(count + 1, prev_pos, last_ts))
             }
         } else {
             // TODO: look in the left-overs
@@ -324,10 +304,10 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
 
                 // Parse timestamp from current line
                 let timestamp = self.get_timestamp(&log_line, buffer_pos);
-                self.last_ts = match timestamp {
+                self.last_ts = match (self.last_ts, timestamp) {
                     // It looks like this source has no timestamps
-                    None if *log_pos > 42 => LastTS::Missing,
-                    ts => LastTS::KnownTS(ts, *log_pos),
+                    (LastTS::KnownTS(None, _), None) if *log_pos > 42 => LastTS::Missing,
+                    (_, ts) => LastTS::KnownTS(ts, *log_pos),
                 };
 
                 // Grab before context

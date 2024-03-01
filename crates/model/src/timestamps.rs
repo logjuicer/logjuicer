@@ -13,6 +13,12 @@ pub enum TS {
 use logjuicer_report::Epoch;
 use TS::*;
 
+impl From<Epoch> for TS {
+    fn from(value: Epoch) -> Self {
+        Full(value)
+    }
+}
+
 pub fn parse_timestamp(line: &str) -> Option<TS> {
     if let Some(stripped) = line.strip_prefix("{\"date\":") {
         NaiveDateTime::parse_and_remainder(stripped, "%s.%3f")
