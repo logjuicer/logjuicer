@@ -39,3 +39,9 @@
   position: sticky;
   top: 24px;
 }
+
+.content .header2 {
+  width: 100%;
+  position: sticky;
+  top: 44px;
+}

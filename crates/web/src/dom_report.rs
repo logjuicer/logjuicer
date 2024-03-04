@@ -6,7 +6,7 @@
 use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
 use gloo_console::log;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
@@ -112,7 +112,12 @@ fn log_name(path: &str) -> &str {
     }
 }
 
-fn render_log_report(gl_pos: &mut usize, report: &Report, log_report: &LogReport) -> Dom {
+fn render_log_report(
+    gl_pos: &mut usize,
+    anchor: &str,
+    report: &Report,
+    log_report: &LogReport,
+) -> Dom {
     let index_name = &format!("{}", log_report.index_name);
     let mut infos = Vec::new();
     match report.index_reports.get(&log_report.index_name) {
@@ -159,7 +164,7 @@ fn render_log_report(gl_pos: &mut usize, report: &Report, log_report: &LogReport
                       .class_signal("font-extrabold", toggle_info.signal())})
     ])});
     let header = html!("header", {.class(["header", "bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
-        html!("div", {.class(["grow", "flex"]).children(&mut [
+        html!("div", {.class(["grow", "flex"]).attr("id", anchor).children(&mut [
             render_link(log_report.source.get_href(&report.target), log_report.source.get_relative())
         ])}),
         info_btn
@@ -203,6 +208,7 @@ fn render_unknown(target: &Content, source: &Source, index: &IndexName) -> Dom {
 
 fn render_timeline(
     gl_pos: &mut usize,
+    anchors: &ReportAnchors<'_>,
     timeline: BTreeMap<Epoch, (&LogReport, &AnomalyContext)>,
 ) -> Dom {
     let mut lines = Vec::with_capacity(timeline.len() * 2);
@@ -210,9 +216,14 @@ fn render_timeline(
     for (lr, anomaly) in timeline.into_values() {
         if Some(&lr.source) != current_source {
             current_source = Some(&lr.source);
+            let link = anchors.get(&lr.source).expect("known source anchor");
             lines.push(html!("tr", {.children(&mut [
-                html!("td", {.class(["bg-slate-50", "text-end", "px-3"]).attr("colspan", "2")
-                             .text(lr.source.get_relative())})
+                html!("td", {.class(["header2", "text-end", "bg-slate-50", "px-2", "pb-1"])
+                             .attr("colspan", "2")
+                             .children(&mut [
+                                 html!("a", {.class("cursor-pointer").attr("href", &link.1)
+                                             .text(lr.source.get_relative())})
+                             ])})
             ])}))
         }
         render_anomaly_context(gl_pos, &mut lines, anomaly);
@@ -234,9 +245,19 @@ fn render_timeline(
     ])})
 }
 
-fn render_report(report: &Report) -> Dom {
+type ReportAnchors<'a> = HashMap<&'a Source, (String, String)>;
+
+fn render_report<'a>(report: &'a Report) -> Dom {
     let mut childs = Vec::new();
     let mut gl_pos = 0;
+
+    let anchors: ReportAnchors<'a> =
+        HashMap::from_iter(report.log_reports.iter().enumerate().map(|lr| {
+            (
+                &lr.1.source,
+                (format!("lr-{}", lr.0), format!("#lr-{}", lr.0)),
+            )
+        }));
 
     if report.log_reports.len() > 1 {
         let mut timeline = BTreeMap::new();
@@ -264,12 +285,13 @@ fn render_report(report: &Report) -> Dom {
             }
         }
         if lr_count > 1 {
-            childs.push(render_timeline(&mut gl_pos, timeline));
+            childs.push(render_timeline(&mut gl_pos, &anchors, timeline));
         }
     }
 
     for lr in &report.log_reports {
-        childs.push(render_log_report(&mut gl_pos, report, lr))
+        let anchor = anchors.get(&lr.source).expect("Known source anchor");
+        childs.push(render_log_report(&mut gl_pos, &anchor.0, report, lr))
     }
 
     if !report.read_errors.is_empty() || !report.unknown_files.is_empty() {
