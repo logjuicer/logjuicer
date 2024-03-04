@@ -18,6 +18,7 @@ use std::time::Instant;
 use time_humanize::{Accuracy, HumanTime, Tense};
 
 mod dataset;
+mod serve;
 
 #[derive(Parser)]
 #[clap(version, about, long_about = None)]
@@ -28,6 +29,9 @@ struct Cli {
 
     #[clap(long, help = "Save the report")]
     report: Option<PathBuf>,
+
+    #[clap(long, help = "Open the report", default_value = "false")]
+    open: bool,
 
     #[clap(
         hide = true,
@@ -122,11 +126,15 @@ enum Commands {
 impl Cli {
     fn run(self, output: OutputMode) -> Result<()> {
         let env = Env::new_with_settings(self.config, output)?;
+        if self.report.is_none() && self.open {
+            return Err(anyhow::anyhow!("--open needs a --report"));
+        }
+        let report = self.report.as_ref().map(|r| (r, self.open));
         match self.command {
             // Discovery commands
             Commands::Path { path } => process(
                 &env,
-                self.report,
+                report,
                 self.web_package_url,
                 self.model,
                 None,
@@ -134,7 +142,7 @@ impl Cli {
             ),
             Commands::Url { url } => process(
                 &env,
-                self.report,
+                report,
                 self.web_package_url,
                 self.model,
                 None,
@@ -142,7 +150,7 @@ impl Cli {
             ),
             Commands::ZuulBuild { log_root, api_url } => process(
                 &env,
-                self.report,
+                report,
                 self.web_package_url,
                 self.model,
                 None,
@@ -153,7 +161,7 @@ impl Cli {
             // Manual commands
             Commands::Diff { src, dst } => process(
                 &env,
-                self.report,
+                report,
                 self.web_package_url,
                 self.model,
                 Some(src.into_iter().map(Input::from_string).collect()),
@@ -333,7 +341,7 @@ fn main() -> Result<()> {
 #[tracing::instrument(level = "debug", skip(env))]
 fn process(
     env: &Env,
-    report: Option<PathBuf>,
+    report: Option<(&PathBuf, bool)>,
     web_package_url: Option<String>,
     model_path: Option<PathBuf>,
     baselines: Option<Vec<Input>>,
@@ -384,18 +392,27 @@ fn process(
     tracing::debug!("Inspecting");
     match report {
         None => process_live(env, &content, &model),
-        Some(file) => {
+        Some((file, open)) => {
             let report = model.report(env, content)?;
 
             match file.extension().and_then(std::ffi::OsStr::to_str) {
                 Some("bin") | Some("gz") => {
                     report
-                        .save(&file)
+                        .save(file)
                         .context("Failed to write the binary report")?;
-                    write_html(&file, web_package_url)
+                    let index = write_html(file, web_package_url)?;
+                    if open {
+                        let name = file
+                            .file_stem()
+                            .and_then(std::ffi::OsStr::to_str)
+                            .unwrap_or("");
+                        serve::serve(name, &index, &report)
+                    } else {
+                        Ok(())
+                    }
                 }
                 .context("Failed to write the report"),
-                Some("json") => serde_json::to_writer(std::fs::File::create(&file)?, &report)
+                Some("json") => serde_json::to_writer(std::fs::File::create(file)?, &report)
                     .context("Failted to write the json report"),
                 _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
             }?;
@@ -615,7 +632,7 @@ fn clear_progress(output_mode: OutputMode) {
     }
 }
 
-fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Result<()> {
+fn render_html(report: &std::path::Path, web_package_url: Option<String>) -> Result<String> {
     let version = env!("CARGO_PKG_VERSION");
     let base_assets_url = match web_package_url {
         Some(url) => format!("{url}{version}"),
@@ -628,7 +645,7 @@ fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Resu
         .ok_or(anyhow::anyhow!("Invalid path {:?}", report))?;
     let report_script = format!("window.report = '{report_file_name}';");
 
-    let index = format!(
+    Ok(format!(
         r#"<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>LogJuicer</title>
 <link rel="stylesheet" href="{assets_url}.css">
@@ -636,6 +653,12 @@ fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Resu
 <link rel="preload" href="{assets_url}.wasm" as="fetch" type="application/wasm" crossorigin="">
 <link rel="modulepreload" href="{assets_url}.js"></head>
 <body><script type="module">{report_script}import init from '{assets_url}.js';init();</script></body></html>"#
-    );
-    std::fs::write(report.with_extension("html"), index).context("Failed to write the html file")
+    ))
+}
+
+fn write_html(report: &std::path::Path, web_package_url: Option<String>) -> Result<String> {
+    let index = render_html(report, web_package_url)?;
+    std::fs::write(report.with_extension("html"), &index)
+        .context("Failed to write the html file")?;
+    Ok(index)
 }

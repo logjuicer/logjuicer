@@ -50,6 +50,18 @@ $ logjuicer diff https://zuul/build/success-build https://zuul/build/failed-buil
 
 Save and re-use trained model using the `--model file-path` argument.
 
+### Report
+
+LogJuicer can create a static report for archival purpose using the `--report` argument:
+
+- `.bin` or `.gz` files are created along with a `.html` viewer to be displayed in a web browser. Add the `--open` argument to load the report with xdg-open.
+- `.json` are regular json export.
+
+For example, run the following command to visualize the differences between two directories:
+
+```ShellSession
+$ logjuicer --open --report report-case-01.bin.gz diff sosreport-success/ sosreport-failled/
+```
 
 ## Configure
 
