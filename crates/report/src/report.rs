@@ -255,7 +255,7 @@ impl std::fmt::Display for Content {
 }
 
 /// The location of the log lines, and the relative prefix length.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash, PartialOrd, Ord)]
 pub enum Source {
     Local(usize, PathBuf),
     Remote(usize, Url),
