@@ -47,10 +47,10 @@ impl Report {
         Report {
             created_at: SystemTime::UNIX_EPOCH.add(Duration::from_secs(42 * 24 * 3600)),
             run_time: Duration::from_secs(42),
-            target: Content::File(Source::Local(4, "/proc/status".into())),
+            target: Content::File(Source::Local(5, "/proc/status".into())),
             baselines: vec![
                 Content::File(Source::Remote(
-                    4,
+                    0,
                     "http://localhost/status".try_into().unwrap(),
                 )),
                 Content::Zuul(Box::new(ZuulBuild::sample("zuul-demo"))),
@@ -87,11 +87,11 @@ impl Report {
             unknown_files: HashMap::from([(
                 IndexName("j".into()),
                 vec![Source::Remote(
-                    4,
+                    0,
                     url::Url::parse("http://local/hosts").unwrap(),
                 )],
             )]),
-            read_errors: vec![(Source::Local(1, "".into()), "oops".into())],
+            read_errors: vec![(Source::Local(0, "bad".into()), "oops".into())],
             total_line_count: 42,
             total_anomaly_count: 23,
         }
