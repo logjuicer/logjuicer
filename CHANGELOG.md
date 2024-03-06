@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.9.9
+=====
+
 - report: add optional log timestamp to the anomaly context.
 - web: render unified timeline view.
 - cli: add a new `--open` argument to load web report with browser through xdg-open.
