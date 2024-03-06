@@ -5,6 +5,7 @@ next-version
 - web: render unified timeline view.
 - cli: add a new `--open` argument to load web report with browser through xdg-open.
 - api: add support for LOGJUICER_LOG environment.
+- model: consider url with 3xx status code as valid.
 
 0.9.8
 =====
