@@ -9,6 +9,8 @@ This crate features the `logjuicer-api` command to provide a web-service for run
 podman run --name logjuicer --volume logjuicer-data:/data --publish 3000:3000 ghcr.io/logjuicer/logjuicer
 ```
 
+Activate debug log using this environment variable: `LOGJUICER_LOG="logjuicer_model=debug,logjuicer_cli=debug,logjuicer_api=debug"`.
+
 ## API
 
 The service is designed to be access with the [logjuicer-web](../web) application.

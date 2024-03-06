@@ -26,12 +26,26 @@ fn collect_vstat() {
     }
 }
 
+fn setup_logging() {
+    use tracing_subscriber::layer::SubscriberExt as _;
+    use tracing_subscriber::util::SubscriberInitExt as _;
+
+    let filter = match std::env::var_os("LOGJUICER_LOG") {
+        None => tracing_subscriber::filter::EnvFilter::from_default_env()
+            .add_directive("logjuicer_api=info".parse().unwrap()),
+        Some(_) => tracing_subscriber::filter::EnvFilter::from_env("LOGJUICER_LOG"),
+    };
+
+    let fmt = tracing_subscriber::fmt::layer()
+        .with_target(false)
+        .compact();
+
+    tracing_subscriber::registry().with(filter).with(fmt).init();
+}
+
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_target(false)
-        .compact()
-        .init();
+    setup_logging();
 
     let builder = metrics_exporter_prometheus::PrometheusBuilder::new();
     let handle = builder
