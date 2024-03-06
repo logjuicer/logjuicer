@@ -1,6 +1,8 @@
 next-version
 ============
 
+- model: improve tracing instrument output and show network failure root cause.
+
 0.9.9
 =====
 

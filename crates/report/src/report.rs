@@ -184,15 +184,15 @@ impl ZuulBuild {
     }
     pub fn sample(name: &str) -> Self {
         Self {
-            api: ApiUrl::parse(&format!("http://localhost/{name}-api")).unwrap(),
+            api: ApiUrl::parse(&format!("http://localhost:8000/{name}-api")).unwrap(),
             uuid: format!("{name}-uuid").into(),
             job_name: format!("{name}-job").into(),
             project: format!("{name}-project").into(),
             branch: format!("{name}-branch").into(),
             result: format!("{name}-result").into(),
             pipeline: format!("{name}-pipeline").into(),
-            log_url: Url::parse(&format!("http://localhost/{name}-log")).unwrap(),
-            ref_url: Url::parse(&format!("http://localhost/{name}-ref")).unwrap(),
+            log_url: Url::parse(&format!("http://localhost:8000/{name}-log")).unwrap(),
+            ref_url: Url::parse(&format!("http://localhost:8000/{name}-ref")).unwrap(),
             end_time: codec::read_datetime(name.len() as u64).unwrap(),
             change: name.len() as u64,
         }

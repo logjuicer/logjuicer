@@ -5,6 +5,7 @@
 use anyhow::{Context, Result};
 use chrono::{NaiveDate, Utc};
 use itertools::Itertools;
+use std::io::Read;
 use url::Url;
 
 use crate::env::Env;
@@ -177,12 +178,19 @@ pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Baselines> {
 pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     let prefix = build.log_url.as_str().trim_end_matches('/').len() + 1;
     let manifest_url = build.log_url.join("zuul-manifest.json").expect("good url");
-    if let Ok(reader) = crate::url_open(env, prefix, &manifest_url) {
-        match serde_json::from_reader::<_, zuul_build::zuul_manifest::Manifest>(reader) {
+    if let Ok(mut reader) = crate::url_open(env, prefix, &manifest_url) {
+        let mut manifest = Vec::new();
+        match reader.read_to_end(&mut manifest).and_then(|_| {
+            Ok(serde_json::from_reader::<
+                _,
+                zuul_build::zuul_manifest::Manifest,
+            >(manifest.as_slice())?)
+        }) {
             Err(err) => Box::new(std::iter::once(Err(anyhow::anyhow!(
-                "zuul-manifest decode error: {} {}",
+                "zuul-manifest decode error: {} {}, got '{}'",
                 manifest_url.as_str(),
-                err
+                err,
+                String::from_utf8_lossy(&manifest.as_slice()[..32.min(manifest.len())])
             )))),
             Ok(manifest) => Box::new(
                 manifest
