@@ -21,13 +21,13 @@ pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
     }
 }
 
-#[tracing::instrument(level = "debug", skip(env))]
+#[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
 pub fn url_open(env: &Env, prefix: usize, url: &Url) -> Result<crate::reader::DecompressReader> {
     tracing::debug!(url = url.as_str(), "Requesting url");
     crate::reader::from_url(env, prefix, url)
 }
 
-#[tracing::instrument(level = "debug", skip(env))]
+#[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
 pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     let base_len = url.as_str().trim_end_matches('/').len() + 1;
     // TODO: fix the httpdir cache to work with iterator
