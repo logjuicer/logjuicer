@@ -176,14 +176,12 @@ pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Baselines> {
 
 pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     let prefix = build.log_url.as_str().trim_end_matches('/').len() + 1;
-    if let Ok(reader) = crate::url_open(
-        env,
-        prefix,
-        &build.log_url.join("zuul-manifest.json").expect("good url"),
-    ) {
+    let manifest_url = build.log_url.join("zuul-manifest.json").expect("good url");
+    if let Ok(reader) = crate::url_open(env, prefix, &manifest_url) {
         match serde_json::from_reader::<_, zuul_build::zuul_manifest::Manifest>(reader) {
             Err(err) => Box::new(std::iter::once(Err(anyhow::anyhow!(
-                "zuul-manifest decode error: {}",
+                "zuul-manifest decode error: {} {}",
+                manifest_url.as_str(),
                 err
             )))),
             Ok(manifest) => Box::new(
