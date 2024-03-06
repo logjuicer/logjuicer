@@ -3,7 +3,7 @@
 
 //! This module provides a transparent decompression reader.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::io::Read;
 use std::path::Path;
 use url::Url;
@@ -19,17 +19,11 @@ mod remote {
     use super::*;
 
     pub fn get_url(client: &Agent, url: &Url) -> Result<Response> {
-        client
-            .request_url("GET", url)
-            .call()
-            .context("Can't get url")
+        Ok(client.request_url("GET", url).call()?)
     }
 
     pub fn head(client: &Agent, url: &Url) -> Result<bool> {
-        let resp = client
-            .request_url("HEAD", url)
-            .call()
-            .context("Can't head url")?;
+        let resp = client.request_url("HEAD", url).call()?;
         Ok(is_success(resp.status()))
     }
 }
