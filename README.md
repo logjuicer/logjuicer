@@ -20,7 +20,7 @@ LogJuicer implements a custom diffing process to compare logs:
 Install the `logjuicer` command line by running:
 
 ```
-$ cargo install --git https://github.com/logjuicer/logjuicer logjuicer-cli
+$ cargo install --locked --git https://github.com/logjuicer/logjuicer logjuicer-cli
 ```
 
 > If you don't have `cargo`, see this [install rust](https://www.rust-lang.org/tools/install) documentation.
