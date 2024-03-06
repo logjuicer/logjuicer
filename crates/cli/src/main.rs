@@ -126,6 +126,14 @@ enum Commands {
 impl Cli {
     fn run(self, output: OutputMode) -> Result<()> {
         let env = Env::new_with_settings(self.config, output)?;
+
+        /* Uncomment to debug a single function using the regular env
+        let mut res =
+            logjuicer_model::zuul::sources_iter(&logjuicer_report::ZuulBuild::sample("test"), &env);
+        println!("{:?}", res.next());
+        panic!("stop");
+        */
+
         if self.report.is_none() && self.open {
             return Err(anyhow::anyhow!("--open needs a --report"));
         }
