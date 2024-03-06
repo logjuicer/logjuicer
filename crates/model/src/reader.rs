@@ -35,7 +35,7 @@ mod remote {
 }
 
 fn is_success(code: u16) -> bool {
-    (200..300).contains(&code)
+    (200..400).contains(&code)
 }
 
 // allow large enum for gzdecoder, which are the most used
