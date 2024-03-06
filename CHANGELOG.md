@@ -4,6 +4,7 @@ next-version
 - report: add optional log timestamp to the anomaly context.
 - web: render unified timeline view.
 - cli: add a new `--open` argument to load web report with browser through xdg-open.
+- api: add support for LOGJUICER_LOG environment.
 
 0.9.8
 =====

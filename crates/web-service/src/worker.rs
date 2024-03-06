@@ -48,7 +48,7 @@ impl Workers {
         let mut running_init_write = self.running.write().unwrap();
         // Check if the report is being processed
         if !running_init_write.contains_key(&report_id) {
-            println!("Submiting");
+            tracing::info!("Submiting new url {}", target);
             let monitor = ProcessMonitor::new();
             running_init_write.insert(report_id, monitor.clone());
             std::mem::drop(running_init_write);
@@ -69,9 +69,11 @@ impl Workers {
                         let count = report.anomaly_count();
                         let fp = format!("data/{}.gz", report_id);
                         let status = if let Err(err) = report.save(std::path::Path::new(&fp)) {
+                            tracing::error!("{}: failed to save report: {}", fp, err);
                             monitor.emit(format!("Error: saving failed: {}", err).into());
                             ReportStatus::Error(format!("Save error: {}", err))
                         } else {
+                            tracing::info!("{}: saved report", fp);
                             monitor.emit("Done".into());
                             ReportStatus::Completed
                         };
@@ -90,7 +92,7 @@ impl Workers {
                 );
             })
         } else {
-            println!("Already submitted");
+            tracing::info!("Url already submitted {}", target);
         }
     }
 }
@@ -111,7 +113,7 @@ impl ProcessMonitor {
     }
 
     fn emit(&self, msg: Arc<str>) {
-        println!("Emitting {}", msg);
+        // println!("Emitting {}", msg);
         self.events.blocking_write().push(msg.clone());
         let _ = self.chan.send(msg);
     }
