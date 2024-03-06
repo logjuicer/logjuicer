@@ -23,7 +23,7 @@ mod filename {
 
     fn new_base(prefix: usize, url: &Url) -> String {
         let default_prefix = if prefix == 0 { 23 } else { prefix };
-        new('1', &url.as_str()[..default_prefix])
+        new('1', &url.as_str()[..default_prefix.min(url.as_str().len())])
     }
 
     pub fn httpdir(url: &Url) -> String {

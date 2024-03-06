@@ -167,11 +167,7 @@ impl<IR: IndexReader> Index<IR> {
         ))
     }
 
-    #[tracing::instrument(
-        level = "debug",
-        name = "Index::inspect",
-        skip(self, env, skip_lines, gl_date)
-    )]
+    #[tracing::instrument(level = "debug", name = "Index::inspect", skip_all, fields(source))]
     pub fn inspect<'a>(
         &'a self,
         env: &Env,
@@ -347,7 +343,7 @@ impl<IR: IndexReader> Model<IR> {
     }
 
     /// Create an individual LogReport.
-    #[tracing::instrument(level = "debug", skip(env, self, index, skip_lines, gl_date))]
+    #[tracing::instrument(level = "debug", skip_all, fields(source))]
     pub fn report_source(
         &self,
         env: &Env,

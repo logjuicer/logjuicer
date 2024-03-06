@@ -196,7 +196,7 @@ impl CrawlerWorker {
     }
 
     // Helper function to handle a single url.
-    #[tracing::instrument(level = "debug", skip(self, visitor))]
+    #[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
     fn process(&self, visitor: &Visitor, url: Arc<Url>) {
         if let Some(visitor) = visitor.visit(url.clone()) {
             let req_count = self
