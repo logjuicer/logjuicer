@@ -85,14 +85,36 @@ fn render_line(gl_pos: &mut usize, pos: usize, distance: f32, line: &str) -> Dom
     ])})
 }
 
-fn render_anomaly_context(gl_pos: &mut usize, lines: &mut Vec<Dom>, anomaly: &AnomalyContext) {
+fn render_sep() -> Dom {
+    html!("tr", {.children(&mut [html!("td", {.class(["bg-slate-100", "h-3"]).attr("colspan", "2")})])})
+}
+
+fn render_anomaly_context(
+    gl_pos: &mut usize,
+    last_pos: &mut Option<usize>,
+    lines: &mut Vec<Dom>,
+    anomaly: &AnomalyContext,
+) {
+    let last = last_pos.unwrap_or(usize::MAX);
     for (pos, line) in anomaly.before.iter().enumerate() {
         let prev_pos = anomaly
             .anomaly
             .pos
             .saturating_sub(anomaly.before.len() - pos);
+
+        if pos == 0 && last < prev_pos {
+            // Add separator
+            lines.push(render_sep());
+        }
+
         lines.push(render_line(gl_pos, prev_pos, 0.0, line));
     }
+
+    if anomaly.before.is_empty() && last < anomaly.anomaly.pos {
+        // Add seperator when there was no before context.
+        lines.push(render_sep());
+    }
+
     lines.push(render_line(
         gl_pos,
         anomaly.anomaly.pos,
@@ -103,6 +125,7 @@ fn render_anomaly_context(gl_pos: &mut usize, lines: &mut Vec<Dom>, anomaly: &An
         let after_pos = anomaly.anomaly.pos + 1 + pos;
         lines.push(render_line(gl_pos, after_pos, 0.0, line));
     }
+    *last_pos = Some(anomaly.anomaly.pos + anomaly.after.len() + 1);
 }
 
 fn log_name(path: &str) -> &str {
@@ -171,10 +194,11 @@ fn render_log_report(
     ])});
 
     let mut lines = Vec::with_capacity(log_report.anomalies.len() * 2);
+    let mut last_pos = None;
     log_report
         .anomalies
         .iter()
-        .for_each(|anomaly| render_anomaly_context(gl_pos, &mut lines, anomaly));
+        .for_each(|anomaly| render_anomaly_context(gl_pos, &mut last_pos, &mut lines, anomaly));
 
     html!("div", {.class(["content", "pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
         header,
@@ -213,10 +237,12 @@ fn render_timeline(
 ) -> Dom {
     let mut lines = Vec::with_capacity(timeline.len() * 2);
     let mut current_source = None;
+    let mut last_pos = None;
     for (lr, anomaly) in timeline.into_values() {
         if Some(&lr.source) != current_source {
             current_source = Some(&lr.source);
             let link = anchors.get(&lr.source).expect("known source anchor");
+            last_pos = None;
             lines.push(html!("tr", {.children(&mut [
                 html!("td", {.class(["header2", "text-end", "bg-slate-50", "px-2", "pb-1"])
                              .attr("colspan", "2")
@@ -226,7 +252,7 @@ fn render_timeline(
                              ])})
             ])}))
         }
-        render_anomaly_context(gl_pos, &mut lines, anomaly);
+        render_anomaly_context(gl_pos, &mut last_pos, &mut lines, anomaly);
     }
     let header = html!("header", {.class(["header", "bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
         html!("div", {.class(["grow", "flex"]).text(
