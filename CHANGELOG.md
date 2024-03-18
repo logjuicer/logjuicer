@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.9.10
+======
+
 - model: improve tracing instrument output and show network failure root cause.
 - web: add separator between anomaly contexts.
 
