@@ -15,6 +15,7 @@ pub struct Config {
     includes: Option<RegexSet>,
     excludes: RegexSet,
     skip_duplicate: bool,
+    pub ignore_patterns: RegexSet,
 }
 
 #[derive(Error, Debug)]
@@ -70,6 +71,7 @@ impl Config {
         } else {
             RegexSet::new(&cf.excludes)
         }?;
+        let ignore_patterns = RegexSet::new(&cf.ignore_patterns)?;
         let skip_duplicate = if std::env::var("LOGJUICER_KEEP_DUPLICATE").is_ok() {
             false
         } else {
@@ -79,6 +81,7 @@ impl Config {
             includes,
             excludes,
             skip_duplicate,
+            ignore_patterns,
         })
     }
 
@@ -118,6 +121,8 @@ struct ConfigFile {
     default_excludes: bool,
     #[serde(default = "default_default_excludes")]
     skip_duplicate: bool,
+    #[serde(default)]
+    ignore_patterns: Vec<String>,
 }
 
 fn default_default_excludes() -> bool {
@@ -131,6 +136,7 @@ impl Default for ConfigFile {
             excludes: Vec::new(),
             default_excludes: true,
             skip_duplicate: true,
+            ignore_patterns: Vec::new(),
         }
     }
 }
