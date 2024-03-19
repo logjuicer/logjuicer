@@ -6,6 +6,7 @@
 //! This module dispatch the abstract Content and Source to their implementationm e.g. the files module.
 
 use anyhow::{Context, Result};
+use env::TargetEnv;
 use itertools::Itertools;
 use logjuicer_report::Epoch;
 use serde::{Deserialize, Serialize};
@@ -105,7 +106,7 @@ impl<IR: IndexReader> Index<IR> {
 
 impl<IR: IndexReader> Index<IR> {
     #[tracing::instrument(level = "debug", name = "Index::train", skip(env, builder))]
-    pub fn train<IB>(env: &Env, builder: IB, sources: &[Source]) -> Result<Index<IR>>
+    pub fn train<IB>(env: &TargetEnv, builder: IB, sources: &[Source]) -> Result<Index<IR>>
     where
         IB: IndexBuilder<Reader = IR>,
     {
@@ -120,9 +121,9 @@ impl<IR: IndexReader> Index<IR> {
         for source in sources {
             let reader = match source {
                 Source::Local(_, path_buf) => file_open(path_buf.as_path())?,
-                Source::Remote(prefix, url) => url_open(env, *prefix, url)?,
+                Source::Remote(prefix, url) => url_open(env.gl, *prefix, url)?,
             };
-            if let Err(e) = trainer.add(&env.config.ignore_patterns, reader) {
+            if let Err(e) = trainer.add(env.config, reader) {
                 tracing::error!("{}: failed to load: {}", source, e)
             }
         }
@@ -143,14 +144,14 @@ impl<IR: IndexReader> Index<IR> {
 
     pub fn get_processor<'a>(
         &'a self,
-        env: &'a Env,
+        env: &'a TargetEnv,
         source: &Source,
         skip_lines: &'a mut Option<KnownLines>,
         gl_date: Option<Epoch>,
     ) -> Result<process::ChunkProcessor<IR, crate::reader::DecompressReader>> {
         let fp = match source {
             Source::Local(_, path_buf) => file_open(path_buf.as_path()),
-            Source::Remote(prefix, url) => url_open(env, *prefix, url),
+            Source::Remote(prefix, url) => url_open(env.gl, *prefix, url),
         }?;
         let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
             file_name.starts_with("job-output")
@@ -163,7 +164,7 @@ impl<IR: IndexReader> Index<IR> {
             source.is_json(),
             is_job_output,
             skip_lines,
-            &env.config.ignore_patterns,
+            env.config,
             gl_date,
         ))
     }
@@ -171,7 +172,7 @@ impl<IR: IndexReader> Index<IR> {
     #[tracing::instrument(level = "debug", name = "Index::inspect", skip_all, fields(source))]
     pub fn inspect<'a>(
         &'a self,
-        env: &'a Env,
+        env: &'a TargetEnv,
         source: &Source,
         skip_lines: &'a mut Option<KnownLines>,
         gl_date: Option<Epoch>,
@@ -246,12 +247,12 @@ pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Baseli
 
 /// Get the sources of log lines for this Content.
 #[tracing::instrument(level = "debug", skip(env))]
-pub fn content_get_sources(content: &Content, env: &Env) -> Result<Vec<Source>> {
-    content_get_sources_iter(content, env)
+pub fn content_get_sources(env: &TargetEnv, content: &Content) -> Result<Vec<Source>> {
+    content_get_sources_iter(content, env.gl)
         .filter(|source| {
             source
                 .as_ref()
-                .map(|src| env.config.is_source_valid(src))
+                .map(|src| env.config.map(|tc| tc.is_source_valid(src)).unwrap_or(true))
                 .unwrap_or(true)
         })
         // FIXME: extract errors and emit them separately to avoid abort on a single error
@@ -278,10 +279,13 @@ pub fn content_get_sources_iter(
     }
 }
 
-pub fn group_sources(env: &Env, baselines: &[Content]) -> Result<HashMap<IndexName, Vec<Source>>> {
+pub fn group_sources(
+    env: &TargetEnv,
+    baselines: &[Content],
+) -> Result<HashMap<IndexName, Vec<Source>>> {
     let mut groups = HashMap::new();
     for baseline in baselines {
-        for source in content_get_sources(baseline, env)? {
+        for source in content_get_sources(env, baseline)? {
             groups
                 .entry(indexname_from_source(&source))
                 .or_insert_with(Vec::new)
@@ -316,13 +320,13 @@ impl<IR: IndexReader> Model<IR> {
     /// Create a Model from baselines.
     #[tracing::instrument(level = "debug", skip(env))]
     pub fn train<IB: Default + IndexBuilder<Reader = IR>>(
-        env: &Env,
+        env: &TargetEnv,
         baselines: Baselines,
     ) -> Result<Model<IR>> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
         for (index_name, sources) in group_sources(env, &baselines)?.drain() {
-            env.debug_or_progress(&format!(
+            env.gl.debug_or_progress(&format!(
                 "Loading index {} with {}",
                 index_name,
                 sources.iter().format(", ")
@@ -347,7 +351,7 @@ impl<IR: IndexReader> Model<IR> {
     #[tracing::instrument(level = "debug", skip_all, fields(source))]
     pub fn report_source(
         &self,
-        env: &Env,
+        env: &TargetEnv,
         index: (&Index<IR>, &IndexName),
         counters: &mut LineCounters,
         skip_lines: &mut Option<KnownLines>,
@@ -386,7 +390,7 @@ impl<IR: IndexReader> Model<IR> {
 
     /// Create the final report.
     #[tracing::instrument(level = "debug", skip(env, self))]
-    pub fn report(&self, env: &Env, target: Content) -> Result<Report> {
+    pub fn report(&self, env: &TargetEnv, target: Content) -> Result<Report> {
         let start_time = Instant::now();
         let created_at = SystemTime::now();
         let mut index_reports = HashMap::new();
@@ -396,10 +400,10 @@ impl<IR: IndexReader> Model<IR> {
         let mut counters = LineCounters::new();
         let mut gl_date = None;
         for (index_name, sources) in group_sources(env, &[target.clone()])?.drain() {
-            let mut skip_lines = env.config.new_skip_lines();
+            let mut skip_lines = env.new_skip_lines();
             match self.get_index(&index_name) {
                 Some(index) => {
-                    env.debug_or_progress(&format!(
+                    env.gl.debug_or_progress(&format!(
                         "Reporting index {} with {}",
                         index_name,
                         sources.iter().take(5).format(", ")
@@ -435,7 +439,7 @@ impl<IR: IndexReader> Model<IR> {
                     );
                 }
                 None => {
-                    env.debug_or_progress(&format!(
+                    env.gl.debug_or_progress(&format!(
                         "Unknown index index {} for {} sources",
                         index_name,
                         sources.len()

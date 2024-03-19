@@ -3,9 +3,28 @@
 
 //! This module provides a global environment.
 
-use crate::config::Config;
+use crate::{
+    config::{Config, TargetConfig},
+    unordered::KnownLines,
+};
 use anyhow::Result;
+use logjuicer_report::Content;
 
+/// The environment to process a target
+pub struct TargetEnv<'a> {
+    pub config: Option<&'a TargetConfig>,
+    pub gl: &'a Env,
+}
+
+impl<'a> TargetEnv<'a> {
+    pub fn new_skip_lines(&self) -> Option<KnownLines> {
+        self.config
+            .map(|c| c.new_skip_lines())
+            .unwrap_or_else(|| Some(KnownLines::new()))
+    }
+}
+
+/// The global environment
 pub struct Env {
     pub cache: Option<logjuicer_cache::Cache>,
     pub client: ureq::Agent,
@@ -36,6 +55,13 @@ impl Env {
             output,
             config,
         })
+    }
+
+    pub fn get_target_env<'a>(&'a self, target: &Content) -> TargetEnv<'a> {
+        TargetEnv {
+            config: self.config.get_target_config(target),
+            gl: self,
+        }
     }
 
     /// Helper function to debug

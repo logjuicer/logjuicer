@@ -1,6 +1,8 @@
 next-version
 ============
 
+- config: support per target config using job matcher.
+- config: add ignore_patterns option.
 - api: add support for LOGJUICER_CONFIG environment.
 
 0.9.10
