@@ -4,6 +4,7 @@
 //! This module provides the core utilities to use logjuicer-index with Read objects.
 
 use anyhow::Result;
+use regex::RegexSet;
 use std::collections::VecDeque;
 use std::io::Read;
 use std::rc::Rc;
@@ -46,20 +47,29 @@ where
     }
 
     /// Index a single reader
-    pub fn single<R: Read>(builder: IB, is_json: bool, read: R) -> Result<IB::Reader> {
+    pub fn single<R: Read>(
+        builder: IB,
+        is_json: bool,
+        ignore_patterns: &RegexSet,
+        read: R,
+    ) -> Result<IB::Reader> {
         let mut trainer = IndexTrainer::new(builder, is_json);
-        trainer.add(read)?;
+        trainer.add(ignore_patterns, read)?;
         Ok(trainer.build())
     }
 
     #[tracing::instrument(level = "debug", name = "Trainer::add", skip_all)]
-    pub fn add<R: Read>(&mut self, read: R) -> Result<()> {
+    pub fn add<R: Read>(&mut self, ignore_patterns: &RegexSet, read: R) -> Result<()> {
         for line in logjuicer_iterator::BytesLines::new(read, self.is_json) {
             let line = line?;
             let raw_str = std::str::from_utf8(&line.0[..])
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             self.line_count += 1;
             self.byte_count += line.0.len();
+
+            if ignore_patterns.is_match(raw_str) {
+                continue;
+            }
             let tokens = logjuicer_tokenizer::process(raw_str);
 
             if self.skip_lines.insert(&tokens) {
@@ -107,6 +117,8 @@ pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
     gl_date: Option<Epoch>,
     /// Keep track of the last known timestamp for searching backward when timestamp is missing
     last_ts: LastTS,
+    /// The list of patterns to ignore
+    ignore_patterns: &'a RegexSet,
 }
 
 #[derive(Copy, Clone)]
@@ -138,6 +150,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         is_json: bool,
         is_job_output: bool,
         skip_lines: &'a mut Option<KnownLines>,
+        ignore_patterns: &'a RegexSet,
         gl_date: Option<Epoch>,
     ) -> ChunkProcessor<'a, IR, R> {
         ChunkProcessor {
@@ -156,6 +169,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
             byte_count: 0,
             gl_date,
             last_ts: LastTS::KnownTS(None, 0),
+            ignore_patterns,
         }
     }
 
@@ -207,6 +221,10 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
             // Special check to break when we are processing ourself
             if self.is_job_output && raw_str.contains("TASK [run-logjuicer") {
                 break;
+            }
+
+            if self.ignore_patterns.is_match(raw_str) {
+                continue;
             }
 
             // Call the static method of the ChunkIndex trait
@@ -422,7 +440,16 @@ fn test_leftovers() {
     let index = logjuicer_index::index_mat(&[]);
     let mut skip_lines = Some(KnownLines::new());
     let reader = std::io::Cursor::new("");
-    let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines, None);
+    let ignore_patterns = regex::RegexSet::empty();
+    let mut cp = ChunkProcessor::new(
+        reader,
+        &index,
+        false,
+        false,
+        &mut skip_lines,
+        &ignore_patterns,
+        None,
+    );
 
     cp.buffer.push((("001 log line".into(), 0), 0));
     cp.buffer.push((("002 log line".into(), 1), 1));
@@ -480,8 +507,9 @@ fn test_leftovers() {
 fn test_chunk_processor() {
     let baseline = std::io::Cursor::new(["001: regular log line", "in-between line"].join("\n"));
 
+    let ignore_patterns = regex::RegexSet::empty();
     let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default(), false);
-    trainer.add(baseline).unwrap();
+    trainer.add(&ignore_patterns, baseline).unwrap();
     let index = trainer.build();
 
     let data = std::io::Cursor::new(
@@ -497,7 +525,15 @@ fn test_chunk_processor() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
-    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, None);
+    let processor = ChunkProcessor::new(
+        data,
+        &index,
+        false,
+        false,
+        &mut skip_lines,
+        &ignore_patterns,
+        None,
+    );
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         println!("anomalies: {:?}", anomaly);
@@ -554,7 +590,8 @@ fn test_extended_context() {
     );
 
     let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default(), false);
-    trainer.add(baseline).unwrap();
+    let ignore_patterns = regex::RegexSet::empty();
+    trainer.add(&ignore_patterns, baseline).unwrap();
     let index = trainer.build();
 
     let data = std::io::Cursor::new(
@@ -576,7 +613,15 @@ fn test_extended_context() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
-    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, None);
+    let processor = ChunkProcessor::new(
+        data,
+        &index,
+        false,
+        false,
+        &mut skip_lines,
+        &ignore_patterns,
+        None,
+    );
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         println!("anomalies: {:?}", anomaly);

@@ -122,7 +122,7 @@ impl<IR: IndexReader> Index<IR> {
                 Source::Local(_, path_buf) => file_open(path_buf.as_path())?,
                 Source::Remote(prefix, url) => url_open(env, *prefix, url)?,
             };
-            if let Err(e) = trainer.add(reader) {
+            if let Err(e) = trainer.add(&env.config.ignore_patterns, reader) {
                 tracing::error!("{}: failed to load: {}", source, e)
             }
         }
@@ -143,7 +143,7 @@ impl<IR: IndexReader> Index<IR> {
 
     pub fn get_processor<'a>(
         &'a self,
-        env: &Env,
+        env: &'a Env,
         source: &Source,
         skip_lines: &'a mut Option<KnownLines>,
         gl_date: Option<Epoch>,
@@ -163,6 +163,7 @@ impl<IR: IndexReader> Index<IR> {
             source.is_json(),
             is_job_output,
             skip_lines,
+            &env.config.ignore_patterns,
             gl_date,
         ))
     }
@@ -170,7 +171,7 @@ impl<IR: IndexReader> Index<IR> {
     #[tracing::instrument(level = "debug", name = "Index::inspect", skip_all, fields(source))]
     pub fn inspect<'a>(
         &'a self,
-        env: &Env,
+        env: &'a Env,
         source: &Source,
         skip_lines: &'a mut Option<KnownLines>,
         gl_date: Option<Epoch>,
