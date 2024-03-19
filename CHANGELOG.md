@@ -1,6 +1,8 @@
 next-version
 ============
 
+- api: add support for LOGJUICER_CONFIG environment.
+
 0.9.10
 ======
 

@@ -11,6 +11,8 @@ podman run --name logjuicer --volume logjuicer-data:/data --publish 3000:3000 gh
 
 Activate debug log using this environment variable: `LOGJUICER_LOG="logjuicer_model=debug,logjuicer_cli=debug,logjuicer_api=debug"`.
 
+Enable configuration by setting the `LOGJUICER_CONFIG` environment variable to a filepath inside the container. See the [main README](../../README.md#Configure).
+
 ## API
 
 The service is designed to be access with the [logjuicer-web](../web) application.
