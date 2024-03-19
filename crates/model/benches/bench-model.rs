@@ -9,12 +9,11 @@ pub fn model_process(c: &mut Criterion) {
     let baselines = lines[0..42].join("\n");
     let target = lines[1024..2048].join("\n");
 
-    let ignore_patterns = regex::RegexSet::empty();
     let builder = logjuicer_index::FeaturesMatrixBuilder::default();
     let index = logjuicer_model::process::IndexTrainer::single(
         builder,
         false,
-        &ignore_patterns,
+        None,
         std::io::Cursor::new(baselines),
     )
     .unwrap();
@@ -29,7 +28,7 @@ pub fn model_process(c: &mut Criterion) {
                 false,
                 false,
                 &mut skip_lines,
-                &ignore_patterns,
+                None,
                 None,
             );
             let _anomalies = processor.collect::<Result<Vec<_>, _>>().unwrap();

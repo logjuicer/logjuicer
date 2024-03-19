@@ -177,14 +177,16 @@ fn process_report(
     monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
     baselines.iter().try_for_each(check_content)?;
 
+    let target_env = env.get_target_env(&content);
+
     let model = logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
         logjuicer_model::FeaturesMatrixBuilder,
-    >(env, baselines)
+    >(&target_env, baselines)
     .map_err(|e| format!("training failed: {:?}", e))?;
 
     monitor.emit("Starting analysis".into());
     let report = model
-        .report(env, content)
+        .report(&target_env, content)
         .map_err(|e| format!("report failed: {:?}", e))?;
     Ok(report)
 }

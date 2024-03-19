@@ -181,14 +181,16 @@ impl Cli {
                         "A output file path is required, please add a `--model FILE` argument"
                     )
                 })?;
-                let model = Model::train::<FeaturesMatrixBuilder>(
-                    &env,
-                    baselines
-                        .into_iter()
-                        .map(Input::from_string)
-                        .map(|x| content_from_input(&env, x))
-                        .collect::<Result<Vec<_>>>()?,
-                )?;
+                let baselines = baselines
+                    .into_iter()
+                    .map(Input::from_string)
+                    .map(|x| content_from_input(&env, x))
+                    .collect::<Result<Vec<_>>>()?;
+
+                // Use the first baseline for the target config
+                let env = env.get_target_env(&baselines[0]);
+
+                let model = Model::train::<FeaturesMatrixBuilder>(&env, baselines)?;
                 model.save(&model_path)
             }
 
@@ -248,7 +250,8 @@ impl Cli {
             Commands::DebugIterator { path } => {
                 let input = Input::Path(path.clone());
                 let content = content_from_input(&env, input)?;
-                let sources = content_get_sources(&content, &env)?;
+                let env = env.get_target_env(&content);
+                let sources = content_get_sources(&env, &content)?;
                 match sources.first() {
                     Some(source) => {
                         let reader = match source {
@@ -256,7 +259,7 @@ impl Cli {
                                 logjuicer_model::files::file_open(path_buf.as_path())?
                             }
                             Source::Remote(prefix, url) => {
-                                logjuicer_model::urls::url_open(&env, *prefix, url)?
+                                logjuicer_model::urls::url_open(env.gl, *prefix, url)?
                             }
                         };
                         for line in logjuicer_iterator::BytesLines::new(reader, source.is_json()) {
@@ -357,15 +360,16 @@ fn process(
 ) -> Result<()> {
     // Convert user Input to target Content.
     let content = content_from_input(env, input)?;
+    let env = &env.get_target_env(&content);
 
     let train_model = |baselines: Option<Vec<Input>>| {
         // Lookup baselines.
         tracing::debug!("Finding baselines");
         let baselines = match baselines {
-            None => content_discover_baselines(&content, env),
+            None => content_discover_baselines(&content, env.gl),
             Some(baselines) => baselines
                 .into_iter()
-                .map(|x| content_from_input(env, x))
+                .map(|x| content_from_input(env.gl, x))
                 .collect::<Result<Vec<_>>>(),
         }?;
 
@@ -391,7 +395,7 @@ fn process(
 
     match model_path {
         Some(ref path) if !path.exists() => {
-            clear_progress(env.output);
+            clear_progress(env.gl.output);
             model.save(path)
         }
         _ => Ok(()),
@@ -399,7 +403,7 @@ fn process(
 
     tracing::debug!("Inspecting");
     match report {
-        None => process_live(env, &content, &model),
+        None => process_live(env.gl, &content, &model),
         Some((file, open)) => {
             let report = model.report(env, content)?;
 
@@ -443,8 +447,9 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
     let mut total_anomaly_count = 0;
     let mut gl_date = None;
     let start_time = Instant::now();
+    let env = &env.get_target_env(content);
 
-    let sources = content_get_sources(content, env)?;
+    let sources = content_get_sources(env, content)?;
     for source in &sources {
         let index_name = logjuicer_model::indexname_from_source(source);
         match model.get_index(&index_name) {
@@ -476,10 +481,10 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
                     last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                 };
                 progress_sep_shown = false;
-                match index.get_processor(env, source, &mut env.config.new_skip_lines(), gl_date) {
+                match index.get_processor(env, source, &mut env.new_skip_lines(), gl_date) {
                     Ok(mut processor) => {
                         for anomaly in processor.by_ref() {
-                            if env.output.inlined() && !progress_sep_shown {
+                            if env.gl.output.inlined() && !progress_sep_shown {
                                 // Show a progress separator for the first anomaly.
                                 if sources.len() > 1 {
                                     println!("\n[{}]", source.get_relative());
@@ -518,12 +523,12 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
     }
     if !progress_sep_shown {
         // If the last source didn't had an anomaly, then erase the current progress
-        clear_progress(env.output);
+        clear_progress(env.gl.output);
     }
     let process_time = start_time.elapsed();
     let total_mb_count = (total_byte_count as f64) / (1024.0 * 1024.0);
     let speed: f64 = total_mb_count / process_time.as_secs_f64();
-    env.debug_or_progress(&format!(
+    env.gl.debug_or_progress(&format!(
         "Completed {}: Reduced from {} to {} in {} at {:.2} MB/s\n",
         content,
         total_line_count,
@@ -559,6 +564,7 @@ fn human_duration(elapsed: std::time::Duration) -> String {
 
 fn debug_groups(env: &Env, input: Input) -> Result<()> {
     let content = content_from_input(env, input)?;
+    let env = &env.get_target_env(&content);
     for (index_name, sources) in group_sources(env, &[content])?
         .drain()
         .sorted_by(|x, y| Ord::cmp(&x.0, &y.0))

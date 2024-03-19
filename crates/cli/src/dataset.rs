@@ -5,6 +5,7 @@
 //! See the <https://github.com/logjuicer/logjuicer-tests> project
 
 use anyhow::Result;
+use logjuicer_report::Content;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::iter::zip;
@@ -72,6 +73,7 @@ pub fn test_datasets(base_env: Env, paths: &[String]) -> Result<()> {
 }
 
 fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
+    let env = &env.get_target_env(&Content::sample("default"));
     let expected_count = dataset.anomalies.len();
     let paths = std::fs::read_dir(path)?
         .map(|d| d.unwrap().path())

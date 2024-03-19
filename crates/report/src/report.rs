@@ -240,6 +240,12 @@ pub enum Content {
     LocalZuulBuild(PathBuf, Box<ZuulBuild>),
 }
 
+impl Content {
+    pub fn sample(name: &str) -> Self {
+        Content::File(Source::Local(0, name.into()))
+    }
+}
+
 impl std::fmt::Display for Content {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
