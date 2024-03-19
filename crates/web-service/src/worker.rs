@@ -27,12 +27,12 @@ pub struct Workers {
 const MAX_LOGJUICER_PROCESS: usize = 2;
 
 impl Workers {
-    pub async fn new() -> Self {
+    pub async fn new(env: Env) -> Self {
         // TODO: requeue pending build
         Workers {
             db: Db::new().await.unwrap(),
             pool: threadpool::ThreadPool::new(MAX_LOGJUICER_PROCESS),
-            env: Arc::new(Env::new()),
+            env: Arc::new(env),
             running: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }

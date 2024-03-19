@@ -43,9 +43,19 @@ fn setup_logging() {
     tracing_subscriber::registry().with(filter).with(fmt).init();
 }
 
+use logjuicer_model::env::{Env, OutputMode};
+fn setup_env() -> anyhow::Result<Env> {
+    match std::env::var_os("LOGJUICER_CONFIG") {
+        None => Ok(Env::new()),
+        Some(path) => Env::new_with_settings(Some(path.into()), OutputMode::Debug),
+    }
+}
+
 #[tokio::main]
 async fn main() {
     setup_logging();
+
+    let env = setup_env().expect("Valid config");
 
     let builder = metrics_exporter_prometheus::PrometheusBuilder::new();
     let handle = builder
@@ -68,7 +78,7 @@ async fn main() {
     metrics::describe_counter!("http_request", "HTTP request count");
     metrics::describe_counter!("http_request_error", "HTTP request error count");
 
-    let workers = worker::Workers::new().await;
+    let workers = worker::Workers::new(env).await;
 
     let mut app = axum::Router::new()
         .route("/ready", get(|| async { "ok" }))
