@@ -244,6 +244,9 @@ impl Content {
     pub fn sample(name: &str) -> Self {
         Content::File(Source::Local(0, name.into()))
     }
+    pub fn sample_job(name: &str) -> Self {
+        Content::Zuul(Box::new(ZuulBuild::sample(name)))
+    }
 }
 
 impl std::fmt::Display for Content {

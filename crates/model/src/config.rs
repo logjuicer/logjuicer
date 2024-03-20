@@ -261,7 +261,7 @@ fn test_config_default() {
 }
 
 #[cfg(test)]
-fn config_from_yaml(yaml: &str) -> Config {
+pub fn config_from_yaml(yaml: &str) -> Config {
     Config::from_reader("config.yaml".into(), std::io::Cursor::new(yaml)).unwrap()
 }
 
@@ -326,4 +326,30 @@ fn test_config_bad() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn test_config_match() {
+    let config = config_from_yaml(
+        "
+- match_job: config-.*
+  config: {}
+- match_job: linters
+  config:
+    ignore_patterns:
+    - fetch log
+",
+    );
+    let target_config = |name: &str| config.get_target_config(&Content::sample_job(name));
+    assert!(target_config("proj-linters").is_some());
+    assert!(target_config("config-check").is_some());
+    assert!(target_config("unit").is_none());
+
+    let patterns = target_config("linters").unwrap();
+    assert!(patterns.ignore_patterns.is_match("- task: fetch log"));
+    assert!(!patterns.ignore_patterns.is_match("traceback"));
+
+    let no_patterns = target_config("config").unwrap();
+    assert!(!no_patterns.ignore_patterns.is_match("- task: fetch log"),);
+    assert!(!no_patterns.ignore_patterns.is_match("traceback"));
 }
