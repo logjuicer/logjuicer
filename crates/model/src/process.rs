@@ -651,3 +651,41 @@ fn test_extended_context() {
             assert_eq!(got.after, expected.after);
         });
 }
+
+#[test]
+fn test_process_config() {
+    let cfg = crate::config::config_from_yaml(
+        "
+ignore_patterns:
+  - fetch logs
+  - get logs
+",
+    );
+    let baseline = std::io::Cursor::new(
+        [
+            "001: regular log line",
+            "in-between line",
+            "extra context line",
+        ]
+        .join("\n"),
+    );
+
+    let config = cfg.get_target_config(&logjuicer_report::Content::sample("test"));
+
+    let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default(), false);
+    trainer.add(config, baseline).unwrap();
+    let index = trainer.build();
+    let data = std::io::Cursor::new(
+        [
+            "001: regular log line",
+            "TASK fetch logs",
+            "2024-03-19 get logs done",
+            "Traceback oops",
+        ]
+        .join("\n"),
+    );
+    let mut skip_lines = Some(KnownLines::new());
+    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, config, None);
+    let anomalies = processor.into_iter().collect::<Vec<_>>();
+    assert_eq!(anomalies.len(), 1);
+}
