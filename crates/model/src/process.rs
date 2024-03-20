@@ -49,7 +49,7 @@ where
     pub fn single<R: Read>(
         builder: IB,
         is_json: bool,
-        config: Option<&TargetConfig>,
+        config: &TargetConfig,
         read: R,
     ) -> Result<IB::Reader> {
         let mut trainer = IndexTrainer::new(builder, is_json);
@@ -58,7 +58,7 @@ where
     }
 
     #[tracing::instrument(level = "debug", name = "Trainer::add", skip_all)]
-    pub fn add<R: Read>(&mut self, config: Option<&TargetConfig>, read: R) -> Result<()> {
+    pub fn add<R: Read>(&mut self, config: &TargetConfig, read: R) -> Result<()> {
         for line in logjuicer_iterator::BytesLines::new(read, self.is_json) {
             let line = line?;
             let raw_str = std::str::from_utf8(&line.0[..])
@@ -66,10 +66,7 @@ where
             self.line_count += 1;
             self.byte_count += line.0.len();
 
-            if config
-                .map(|config| config.is_ignored_line(raw_str))
-                .unwrap_or(false)
-            {
+            if config.is_ignored_line(raw_str) {
                 continue;
             }
 
@@ -121,7 +118,7 @@ pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
     /// Keep track of the last known timestamp for searching backward when timestamp is missing
     last_ts: LastTS,
     /// The target user config
-    config: Option<&'a TargetConfig>,
+    config: &'a TargetConfig,
 }
 
 #[derive(Copy, Clone)]
@@ -153,7 +150,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         is_json: bool,
         is_job_output: bool,
         skip_lines: &'a mut Option<KnownLines>,
-        config: Option<&'a TargetConfig>,
+        config: &'a TargetConfig,
         gl_date: Option<Epoch>,
     ) -> ChunkProcessor<'a, IR, R> {
         ChunkProcessor {
@@ -226,11 +223,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
                 break;
             }
 
-            if self
-                .config
-                .map(|c| c.is_ignored_line(raw_str))
-                .unwrap_or(false)
-            {
+            if self.config.is_ignored_line(raw_str) {
                 continue;
             }
 
@@ -444,10 +437,11 @@ fn collect_before(
 
 #[test]
 fn test_leftovers() {
+    let config = &TargetConfig::default();
     let index = logjuicer_index::index_mat(&[]);
     let mut skip_lines = Some(KnownLines::new());
     let reader = std::io::Cursor::new("");
-    let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines, None, None);
+    let mut cp = ChunkProcessor::new(reader, &index, false, false, &mut skip_lines, config, None);
 
     cp.buffer.push((("001 log line".into(), 0), 0));
     cp.buffer.push((("002 log line".into(), 1), 1));
@@ -503,10 +497,11 @@ fn test_leftovers() {
 
 #[test]
 fn test_chunk_processor() {
+    let config = &TargetConfig::default();
     let baseline = std::io::Cursor::new(["001: regular log line", "in-between line"].join("\n"));
 
     let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default(), false);
-    trainer.add(None, baseline).unwrap();
+    trainer.add(&TargetConfig::default(), baseline).unwrap();
     let index = trainer.build();
 
     let data = std::io::Cursor::new(
@@ -522,7 +517,7 @@ fn test_chunk_processor() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
-    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, None, None);
+    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, config, None);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         println!("anomalies: {:?}", anomaly);
@@ -569,6 +564,7 @@ fn test_chunk_processor() {
 
 #[test]
 fn test_extended_context() {
+    let config = &TargetConfig::default();
     let baseline = std::io::Cursor::new(
         [
             "001: regular log line",
@@ -579,7 +575,7 @@ fn test_extended_context() {
     );
 
     let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default(), false);
-    trainer.add(None, baseline).unwrap();
+    trainer.add(config, baseline).unwrap();
     let index = trainer.build();
 
     let data = std::io::Cursor::new(
@@ -601,7 +597,7 @@ fn test_extended_context() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
-    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, None, None);
+    let processor = ChunkProcessor::new(data, &index, false, false, &mut skip_lines, config, None);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         println!("anomalies: {:?}", anomaly);

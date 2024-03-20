@@ -72,7 +72,7 @@ filter the processed files:
 - *excludes*: list of files regex that must be excluded. Defaults to default excludes or none if `default_excludes` is false.
 - *default_excludes*: indicates whether [default excludes](./crates/model/src/config/default_excludes.rs) should be used or not.
 
-LogJuicer supports custom ignore patterns to silence known anomalous lines:
+LogJuicer supports custom ignore patterns to silence noisy lines:
 
 - *ignore_patterns*: list of log line regex to be ignored.
 
@@ -86,6 +86,8 @@ The configuration can be defined per target, for example:
       - get logs
       - fetch debug
 ```
+
+Use the `logjuicer debug-config JOB FILE LINE` to validate the *ignore_patterns* config.
 
 ## Learn
 

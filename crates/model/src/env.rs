@@ -12,15 +12,13 @@ use logjuicer_report::Content;
 
 /// The environment to process a target
 pub struct TargetEnv<'a> {
-    pub config: Option<&'a TargetConfig>,
+    pub config: &'a TargetConfig,
     pub gl: &'a Env,
 }
 
 impl<'a> TargetEnv<'a> {
     pub fn new_skip_lines(&self) -> Option<KnownLines> {
-        self.config
-            .map(|c| c.new_skip_lines())
-            .unwrap_or_else(|| Some(KnownLines::new()))
+        self.config.new_skip_lines()
     }
 }
 

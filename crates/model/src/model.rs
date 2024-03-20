@@ -252,7 +252,7 @@ pub fn content_get_sources(env: &TargetEnv, content: &Content) -> Result<Vec<Sou
         .filter(|source| {
             source
                 .as_ref()
-                .map(|src| env.config.map(|tc| tc.is_source_valid(src)).unwrap_or(true))
+                .map(|src| env.config.is_source_valid(src))
                 .unwrap_or(true)
         })
         // FIXME: extract errors and emit them separately to avoid abort on a single error

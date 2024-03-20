@@ -16,7 +16,7 @@ pub enum Config {
     /// A single global target config
     Static(TargetConfig),
     /// A list of target config to be matched with the target content
-    Matchers(Vec<(MatcherConfig, TargetConfig)>),
+    Matchers(TargetConfig, Vec<(MatcherConfig, TargetConfig)>),
 }
 
 #[derive(Error, Debug)]
@@ -72,20 +72,33 @@ impl Config {
                     ))
                 })
                 .collect::<Result<Vec<_>, _>>()
-                .map(Config::Matchers),
+                .map(|xs| Config::Matchers(TargetConfig::default(), xs)),
         }
     }
 
     /// Get a target config for the given targetr content
-    pub fn get_target_config(&self, target: &Content) -> Option<&TargetConfig> {
+    pub fn get_target_config(&self, target: &Content) -> &TargetConfig {
         match self {
             // When the config is static, use it directly.
-            Config::Static(tc) => Some(tc),
+            Config::Static(tc) => tc,
             // Otherwise, find the matcher for this target
-            Config::Matchers(matchers) => matchers
+            Config::Matchers(def, matchers) => matchers
                 .iter()
                 .find(|mc| mc.0.matches(target))
-                .map(|mc| &mc.1),
+                .map(|mc| &mc.1)
+                .unwrap_or_else(|| def),
+        }
+    }
+
+    /// For debug purpose
+    pub fn test_target_config(&self, target: &Content) -> Option<(usize, &TargetConfig)> {
+        match self {
+            Config::Static(tc) => Some((0, tc)),
+            Config::Matchers(_, matchers) => matchers
+                .iter()
+                .enumerate()
+                .find(|(_, mc)| mc.0.matches(target))
+                .map(|(pos, mc)| (pos, &mc.1)),
         }
     }
 }
@@ -95,6 +108,13 @@ pub struct TargetConfig {
     excludes: RegexSet,
     skip_duplicate: bool,
     ignore_patterns: RegexSet,
+}
+
+impl Default for TargetConfig {
+    fn default() -> Self {
+        TargetConfig::from_config_file(&TargetConfigFile::default())
+            .expect("default config is valid")
+    }
 }
 
 impl TargetConfig {
@@ -240,7 +260,7 @@ impl Default for TargetConfigFile {
 #[test]
 fn test_config_default_exclude() {
     let config = Config::default();
-    let config = config.get_target_config(&Content::sample("test")).unwrap();
+    let config = config.get_target_config(&Content::sample("test"));
     for src in [
         "config.yaml",
         "/config/.git/HEAD",
@@ -267,7 +287,7 @@ pub fn config_from_yaml(yaml: &str) -> Config {
 
 #[cfg(test)]
 fn config_check(config: &Config, path: &str) -> bool {
-    let config = config.get_target_config(&Content::sample("test")).unwrap();
+    let config = config.get_target_config(&Content::sample("test"));
     config.is_source_valid(&Source::from_pathbuf(path.into()))
 }
 
@@ -340,16 +360,16 @@ fn test_config_match() {
     - fetch log
 ",
     );
-    let target_config = |name: &str| config.get_target_config(&Content::sample_job(name));
+    let target_config = |name: &str| config.test_target_config(&Content::sample_job(name));
     assert!(target_config("proj-linters").is_some());
     assert!(target_config("config-check").is_some());
     assert!(target_config("unit").is_none());
 
-    let patterns = target_config("linters").unwrap();
+    let patterns = target_config("linters").unwrap().1;
     assert!(patterns.ignore_patterns.is_match("- task: fetch log"));
     assert!(!patterns.ignore_patterns.is_match("traceback"));
 
-    let no_patterns = target_config("config").unwrap();
+    let no_patterns = target_config("config").unwrap().1;
     assert!(!no_patterns.ignore_patterns.is_match("- task: fetch log"),);
     assert!(!no_patterns.ignore_patterns.is_match("traceback"));
 }

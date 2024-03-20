@@ -221,7 +221,7 @@ impl ProwBuild {
         Self {
             url: Url::parse(&format!("http://localhost/{name}-url")).unwrap(),
             uid: format!("{name}-uid").into(),
-            job_name: format!("{name}-job").into(),
+            job_name: name.into(),
             project: format!("{name}-project").into(),
             pr: name.len() as u64,
             storage_type: format!("{name}-storage-type").into(),

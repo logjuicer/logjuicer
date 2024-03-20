@@ -121,10 +121,18 @@ enum Commands {
     // Debug saved model
     #[clap(hide = true, about = "Debug index name")]
     DebugModel,
+
+    #[clap(hide = true, about = "Debug config matcher")]
+    DebugConfig {
+        job: String,
+        file: String,
+        line: String,
+    },
 }
 
 impl Cli {
     fn run(self, output: OutputMode) -> Result<()> {
+        let configured = self.config.is_some();
         let env = Env::new_with_settings(self.config, output)?;
 
         /* Uncomment to debug a single function using the regular env
@@ -284,6 +292,31 @@ impl Cli {
                 })?;
                 let model = Model::load(&model_path)?;
                 debug_model(model)
+            }
+            Commands::DebugConfig { job, file, line } => {
+                if !configured {
+                    anyhow::bail!(
+                        "debug-config requires a config, please add a `--config FILE` argument"
+                    )
+                }
+                let content = Content::sample_job(&job);
+                if let Some((pos, cfg)) = env.config.test_target_config(&content) {
+                    let source = Source::from_pathbuf(file.into());
+                    let skipped = if cfg.is_source_valid(&source) {
+                        "valid"
+                    } else {
+                        "skipped"
+                    };
+                    let ignored = if cfg.is_ignored_line(&line) {
+                        "ignored"
+                    } else {
+                        "processed"
+                    };
+                    println!("Config number {pos} match the job named {job}, the file is {skipped}, the line is {ignored}");
+                } else {
+                    anyhow::bail!("Couldn't find a target config matching {job}")
+                }
+                Ok(())
             }
         }
     }
