@@ -11,7 +11,7 @@ use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 
-use logjuicer_report::report_row::{ReportID, ReportRow, ReportStatus};
+use logjuicer_report::report_row::{ReportID, ReportKind, ReportRow, ReportStatus};
 
 use crate::dom_utils::*;
 use crate::state::{App, Route};
@@ -19,21 +19,25 @@ use crate::state::{App, Route};
 const TH_CLASS: [&str; 2] = ["px-3", "py-2"];
 
 fn render_report_row(state: &Rc<App>, report: &ReportRow) -> Dom {
+    let (report_route, name) = match &report.target {
+        ReportKind::Similarity => (Route::Similarity(report.id), "similarity"),
+        ReportKind::Target(target) => (Route::Report(report.id), target.as_str()),
+    };
     let status = match &report.status {
         ReportStatus::Pending => {
             link!(state.to_url(Route::Watch(report.id)), {.text("watch")})
         }
         ReportStatus::Completed => {
-            link!(state.to_url(Route::Report(report.id)), {.text("read")})
+            link!(state.to_url(report_route), {.text("read")})
         }
         ReportStatus::Error(err) => {
-            link!(state.to_url(Route::Report(report.id)), {.text("error").attr("title", &err)})
+            link!(state.to_url(report_route), {.text("error").attr("title", &err)})
         }
     };
     html!("tr", {.class(["border-b", "px-6"]).children(&mut [
             html!("td", {.class(TH_CLASS).child(status)}),
             html!("td", {.class(TH_CLASS).text(&format!("{}", report.anomaly_count))}),
-            html!("td", {.class(TH_CLASS).text(&report.target)}),
+            html!("td", {.class(TH_CLASS).text(name)}),
             html!("td", {.class(TH_CLASS).text(&report.baseline)}),
             html!("td", {.class(TH_CLASS).text(&format!("{}", report.updated_at))}),
         ])

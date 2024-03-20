@@ -12,6 +12,7 @@ use web_sys::Url;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
     Report(ReportID),
+    Similarity(ReportID),
     Watch(ReportID),
     NewReport(Rc<str>, Option<Rc<str>>),
     Welcome,
@@ -37,6 +38,10 @@ impl Route {
                     Ok(report_id) => Route::Watch(report_id),
                     Err(_) => Route::Welcome,
                 },
+                [report_id_str, "similarity", ..] => match ReportID::from_str(report_id_str) {
+                    Ok(report_id) => Route::Similarity(report_id),
+                    Err(_) => Route::Welcome,
+                },
                 [report_id_str, "report", ..] => match ReportID::from_str(report_id_str) {
                     Ok(report_id) => Route::Report(report_id),
                     Err(_) => Route::Welcome,
@@ -55,6 +60,7 @@ impl Route {
             }
             Route::Watch(report_id) => format!("{}report/watch/{}", base, report_id),
             Route::Report(report_id) => format!("{}report/{}", base, report_id),
+            Route::Similarity(report_id) => format!("{}similarity/{}", base, report_id),
             Route::Audit => format!("{}audit", base),
             Route::Welcome => base.to_string(),
         }

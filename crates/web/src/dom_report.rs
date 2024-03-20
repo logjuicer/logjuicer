@@ -5,7 +5,6 @@
 
 use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
-use gloo_console::log;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
@@ -14,8 +13,8 @@ use logjuicer_report::{
     bytes_to_mb, AnomalyContext, Content, Epoch, IndexName, LogReport, Report, Source,
 };
 
-use crate::dom_utils::{data_attr, data_attr_html, render_link};
-use crate::selection::Selection;
+use crate::dom_utils::{data_attr, data_attr_html, fetch_data, render_link};
+use crate::selection::{put_hash_into_view, Selection};
 
 #[cfg(feature = "api_client")]
 use crate::state::App;
@@ -33,7 +32,7 @@ impl App {
     }
 }
 
-fn render_source_link(source: &Source) -> Dom {
+pub fn render_source_link(source: &Source) -> Dom {
     render_link(source.as_str(), log_name(source.get_relative()))
 }
 
@@ -42,11 +41,12 @@ fn render_time(system_time: &std::time::SystemTime) -> String {
     datetime.format("%Y-%m-%d %T").to_string()
 }
 
-fn render_content(content: &Content) -> Dom {
+pub fn render_content(content: &Content) -> Dom {
     match content {
         Content::Zuul(zuul_build) => html!("div", {.children(&mut [
             render_link(&zuul_build.build_url(),
-                        &format!("zuul<job={}, project={}, branch={}, result={}>", zuul_build.job_name, zuul_build.project, zuul_build.branch, zuul_build.result))
+                        &format!("zuul<change={} date={} job={}, project={}, branch={}, result={}>",
+                                 zuul_build.change, zuul_build.end_time, zuul_build.job_name, zuul_build.project, zuul_build.branch, zuul_build.result))
         ])}),
         _ => html!("div", {.text(&content.to_string())}),
     }
@@ -89,7 +89,7 @@ fn render_sep() -> Dom {
     html!("tr", {.children(&mut [html!("td", {.class(["bg-slate-100", "h-3"]).attr("colspan", "2")})])})
 }
 
-fn render_anomaly_context(
+pub fn render_anomaly_context(
     gl_pos: &mut usize,
     last_pos: &mut Option<usize>,
     lines: &mut Vec<Dom>,
@@ -359,49 +359,9 @@ pub fn render_report_card(report: &Report, toggle_info: &Mutable<bool>) -> Dom {
     ]).class_signal("tooltip-visible", toggle_info.signal())})
 }
 
-use gloo_timers::future::TimeoutFuture;
-// This function waits for the hash to be rendered
-async fn put_hash_into_view(selection: Selection) {
-    let body = web_sys::window().unwrap().document().unwrap();
-    let elem_id = selection.elem_id();
-    for _retry in 0..10 {
-        if let Some(elem) = body.get_element_by_id(&elem_id) {
-            log!(&format!("Putting {} into view", elem_id));
-            elem.scroll_into_view_with_scroll_into_view_options(
-                web_sys::ScrollIntoViewOptions::new()
-                    .behavior(web_sys::ScrollBehavior::Smooth)
-                    .block(web_sys::ScrollLogicalPosition::Center)
-                    .inline(web_sys::ScrollLogicalPosition::Center),
-            );
-            selection.highlight();
-            break;
-        }
-        log!(&format!("Waiting for {}", elem_id));
-        TimeoutFuture::new(200).await;
-    }
-}
-
 async fn get_report(path: &str) -> Result<Report, String> {
-    let resp = gloo_net::http::Request::get(path)
-        .send()
-        .await
-        .map_err(|e| format!("Request error: {}", e))?;
-    if resp.status() == 404 {
-        let msg = resp.text().await;
-        match msg {
-            Ok(msg) => Err(msg),
-            Err(e) => Err(format!("Not found {}", e)),
-        }
-    } else if !resp.ok() {
-        Err(format!("Bad status: {}", resp.status()))
-    } else {
-        let data: Vec<u8> = resp
-            .binary()
-            .await
-            .map_err(|e| format!("Response error: {}", e))?;
-        // log!(format!("Loaded report: {:?}", &data[..24]));
-        logjuicer_report::Report::load_bytes(&data).map_err(|e| format!("Decode error: {}", e))
-    }
+    let data = fetch_data(path).await?;
+    logjuicer_report::Report::load_bytes(&data).map_err(|e| format!("Decode error: {}", e))
 }
 
 pub fn fetch_and_render_report(state: &Rc<App>, path: String) -> Dom {
