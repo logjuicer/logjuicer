@@ -27,6 +27,9 @@
 //!
 //! You can zero-copy convert a [Bytes] to [&str] using: `std::str::from_utf8(&bytes[..])`.
 
+// Clippy complains about unused read size, but that's not true.
+// TODO: check how to enable this warning.
+#![allow(clippy::unused_io_amount)]
 use bytes::{Buf, Bytes, BytesMut};
 use std::io::{Read, Result};
 
