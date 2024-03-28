@@ -21,6 +21,39 @@ pub mod schema_capnp {
 pub mod codec;
 pub mod report_row;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct TargetID(pub usize);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SourceID(pub usize);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimilarityReport {
+    pub targets: Vec<Content>,
+    pub baselines: Vec<Content>,
+    pub similarity_reports: Vec<SimilarityLogReport>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimilaritySource {
+    pub target: TargetID,
+    pub source: Source,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimilarityLogReport {
+    pub sources: Vec<SimilaritySource>,
+    pub anomalies: Vec<SimilarityAnomalyContext>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimilarityAnomalyContext {
+    pub sources: Vec<SourceID>,
+    pub anomaly: AnomalyContext,
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Report {
     pub created_at: SystemTime,
@@ -150,7 +183,7 @@ impl Report {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ZuulBuild {
     pub api: ApiUrl,
     pub uuid: Box<str>,
@@ -199,7 +232,7 @@ impl ZuulBuild {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ProwBuild {
     pub url: Url,
     pub uid: Box<str>,
@@ -231,7 +264,7 @@ impl ProwBuild {
 }
 
 /// A source of log lines.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Content {
     File(Source),
     Directory(Source),
@@ -420,7 +453,7 @@ pub fn bytes_to_mb(bytes: usize) -> f64 {
 }
 
 /// An url that is guaranteed to be terminated with a slash
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct ApiUrl(Url);
 

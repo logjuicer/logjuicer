@@ -38,6 +38,7 @@ pub mod timestamps;
 pub mod unordered;
 pub mod urls;
 pub mod zuul;
+pub mod similarity;
 
 use logjuicer_index::traits::*;
 
