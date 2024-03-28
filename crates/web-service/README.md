@@ -61,6 +61,12 @@ curl -XPUT localhost:3000/api/report/new?target=$URL
 
 Returns the ReportID, ReportStatus
 
+### Create a similarity report
+
+```ShellSession
+curl -XPUT localhost:3000/api/similarity/new?reports=$REPORTID1:$REPORTID2:...
+```
+
 ### Watch a report
 
 ```ShellSession

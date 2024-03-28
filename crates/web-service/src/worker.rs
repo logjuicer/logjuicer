@@ -4,11 +4,14 @@
 use itertools::Itertools;
 use logjuicer_model::config::DiskSizeLimit;
 use logjuicer_model::env::TargetEnv;
+use logjuicer_model::similarity::create_similarity_report;
 use logjuicer_model::ModelF;
 use logjuicer_report::model_row::ContentID;
 use logjuicer_report::report_row::FileSize;
 use logjuicer_report::Content;
+use logjuicer_report::SimilarityReport;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -17,7 +20,9 @@ use logjuicer_model::env::EnvConfig;
 use logjuicer_report::report_row::{ReportID, ReportStatus};
 use logjuicer_report::Report;
 
+use crate::database::report_path;
 use crate::database::Db;
+use crate::routes::ReportRequest;
 
 type ReportsLock = Arc<RwLock<BTreeMap<ReportID, ProcessMonitor>>>;
 type ModelsLock = Arc<RwLock<BTreeMap<ContentID, ProcessMonitor>>>;
@@ -104,9 +109,9 @@ impl Workers {
         }
     }
 
-    pub fn submit(&self, report_id: ReportID, target: &str, baseline: Option<&str>) {
+    pub fn submit(&self, report_id: ReportID, report_request: ReportRequest) {
         if let Some(monitor) = report_lock(report_id, &self.reports) {
-            tracing::info!("Submiting new url {}", target);
+            tracing::info!("Submiting report request {}", report_request);
 
             // Cleanup if necessary
             self.reclaim_any_space();
@@ -114,8 +119,6 @@ impl Workers {
             // Prepare worker variables
             let env = self.env.clone();
             let models_lock = self.models.clone();
-            let target = target.to_string();
-            let baseline = baseline.map(|s| s.to_string());
             let reports = self.reports.clone();
             let db = self.db.clone();
             let handle = tokio::runtime::Handle::current();
@@ -124,7 +127,6 @@ impl Workers {
 
             // Submit the execution to the thread pool
             self.pool.execute(move || {
-                let baseline = baseline.as_deref();
                 let penv = ProcessEnv {
                     storage_dir,
                     monitor,
@@ -134,31 +136,38 @@ impl Workers {
                     allow_any_sources,
                 };
                 let monitor = &penv.monitor;
-                let (status, count, size) =
-                    match process_report_safe(&penv, &env, &target, baseline) {
-                        Ok(report) => {
-                            let count = report.anomaly_count();
-                            let fp = format!("{}/{}.gz", penv.storage_dir, report_id);
-                            let path = std::path::Path::new(&fp);
-                            let (status, size) = if let Err(err) = report.save(path) {
-                                tracing::error!("{}: failed to save report: {}", fp, err);
-                                monitor.emit(format!("Error: saving failed: {}", err).into());
-                                (
-                                    ReportStatus::Error(format!("Save error: {}", err)),
-                                    FileSize(0),
-                                )
-                            } else {
-                                tracing::info!("{}: saved report", fp);
-                                monitor.emit("Done".into());
-                                (ReportStatus::Completed, FileSize::from(path))
-                            };
-                            (status, count, size)
-                        }
-                        Err(e) => {
-                            monitor.emit(format!("Error: {}", e).into());
-                            (ReportStatus::Error(e), 0, FileSize(0))
-                        }
-                    };
+                let (status, count, size) = match process_report_safe(&penv, &env, report_request) {
+                    Ok(report) => {
+                        let fp = report_path(&penv.storage_dir, report_id);
+                        let path = std::path::Path::new(&fp);
+                        let (count, save_result) = match report {
+                            ReportResult::NewReport(report) => {
+                                (report.anomaly_count(), report.save(path))
+                            }
+                            ReportResult::NewSimilarity(report) => {
+                                ((report.similarity_reports.len()), report.save(path))
+                            }
+                        };
+                        let path = std::path::Path::new(&fp);
+                        let (status, size) = if let Err(err) = save_result {
+                            tracing::error!("{}: failed to save report: {}", fp, err);
+                            monitor.emit(format!("Error: saving failed: {}", err).into());
+                            (
+                                ReportStatus::Error(format!("Save error: {}", err)),
+                                FileSize(0),
+                            )
+                        } else {
+                            tracing::info!("{}: saved report", fp);
+                            monitor.emit("Done".into());
+                            (ReportStatus::Completed, FileSize::from(path))
+                        };
+                        (status, count, size)
+                    }
+                    Err(e) => {
+                        monitor.emit(format!("Error: {}", e).into());
+                        (ReportStatus::Error(e), 0, FileSize(0))
+                    }
+                };
                 // Remove the monitor
                 let _ = reports.write().unwrap().remove(&report_id);
                 // Record the result into the db
@@ -169,7 +178,7 @@ impl Workers {
                 });
             })
         } else {
-            tracing::info!("Url already submitted {}", target);
+            tracing::info!("Url already submitted {}", report_request);
         }
     }
 }
@@ -227,14 +236,25 @@ impl ProcessMonitor {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
+enum ReportResult {
+    NewReport(Report),
+    NewSimilarity(SimilarityReport),
+}
+
 fn process_report_safe(
     penv: &ProcessEnv,
     env: &EnvConfig,
-    target: &str,
-    baseline: Option<&str>,
-) -> Result<Report, String> {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        process_report(penv, env, target, baseline)
+    report_request: ReportRequest,
+) -> Result<ReportResult, String> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match report_request {
+        ReportRequest::NewSimilarity(rids) => {
+            process_similarity(penv, rids).map(ReportResult::NewSimilarity)
+        }
+        ReportRequest::NewReport(args) => {
+            process_report(penv, env, &args.target, args.baseline.as_deref())
+                .map(ReportResult::NewReport)
+        }
     })) {
         Ok(res) => res,
         Err(err) => Err(format!(
@@ -242,6 +262,22 @@ fn process_report_safe(
             err.downcast::<&str>().unwrap_or(Box::new("unknown"))
         )),
     }
+}
+
+fn process_similarity(
+    penv: &ProcessEnv,
+    reports_id: Vec<ReportID>,
+) -> Result<SimilarityReport, String> {
+    let reports: Vec<Report> = reports_id
+        .into_iter()
+        .map(|rid| {
+            let fp = report_path(&penv.storage_dir, rid);
+            Report::load(Into::<PathBuf>::into(&fp).as_path())
+                .map_err(|e| format!("{fp}: loading failed: {e}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let reports: Vec<&Report> = reports.iter().collect();
+    Ok(create_similarity_report(&reports))
 }
 
 fn process_report(

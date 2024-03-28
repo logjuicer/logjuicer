@@ -12,6 +12,7 @@ use tokio::fs::File;
 
 use logjuicer_report::report_row::{ReportID, ReportRow, ReportStatus};
 
+use crate::database::report_path;
 use crate::worker::Workers;
 
 type Error = (StatusCode, String);
@@ -39,7 +40,7 @@ pub async fn report_get(
     State(workers): State<Workers>,
     Path(report_id): Path<ReportID>,
 ) -> Result<axum::response::Response> {
-    let fp = format!("{}/{}.gz", workers.storage_dir, report_id);
+    let fp = report_path(&workers.storage_dir, report_id);
     if let Ok(file) = File::open(&fp).await {
         // The file exists, stream its content...
 
@@ -77,8 +78,8 @@ pub async fn report_get(
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct NewReportQuery {
-    target: String,
-    baseline: Option<String>,
+    pub target: String,
+    pub baseline: Option<String>,
 }
 
 pub async fn report_new(
@@ -100,7 +101,81 @@ pub async fn report_new(
                 .initialize_report(&args.target, baseline)
                 .await
                 .map_err(handle_db_error)?;
-            workers.submit(report_id, &args.target, args.baseline.as_deref());
+            workers.submit(report_id, ReportRequest::NewReport(args));
+            Ok(Json((report_id, ReportStatus::Pending)))
+        }
+    }
+}
+
+pub enum ReportRequest {
+    NewReport(NewReportQuery),
+    NewSimilarity(Vec<ReportID>),
+}
+
+impl ReportRequest {
+    #[cfg(test)]
+    pub fn new_request(target: String, baseline: String) -> ReportRequest {
+        ReportRequest::NewReport(NewReportQuery {
+            target,
+            baseline: Some(baseline),
+        })
+    }
+}
+
+impl std::fmt::Display for ReportRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReportRequest::NewReport(args) => {
+                write!(
+                    f,
+                    "target={}, baseline={}",
+                    args.target,
+                    args.baseline.as_deref().unwrap_or("auto")
+                )
+            }
+            ReportRequest::NewSimilarity(rids) => {
+                write!(f, "similarity={:?}", rids)
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NewSimilarityQuery {
+    reports: String,
+}
+
+pub async fn similarity_new(
+    State(workers): State<Workers>,
+    Query(args): Query<NewSimilarityQuery>,
+) -> Result<Json<(ReportID, ReportStatus)>> {
+    let report = workers
+        .db
+        .lookup_report("similarity", &args.reports)
+        .await
+        .map_err(handle_db_error)?;
+    match report {
+        Some(report) => Ok(Json(report)),
+        None => {
+            tracing::info!(reports = args.reports, "Creating a new similarity report");
+            let rids = args
+                .reports
+                .split(':')
+                .map(|id| {
+                    <ReportID as std::str::FromStr>::from_str(id).map_err(|e| {
+                        (
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            format!("{id}: invalid id: {e}"),
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let report_id = workers
+                .db
+                .initialize_report("similarity", &args.reports)
+                .await
+                .map_err(handle_db_error)?;
+            workers.submit(report_id, ReportRequest::NewSimilarity(rids));
             Ok(Json((report_id, ReportStatus::Pending)))
         }
     }
