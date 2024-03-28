@@ -8,6 +8,8 @@ use mockito::Server;
 use std::sync::atomic::Ordering;
 use zuul_build::zuul_manifest;
 
+use crate::routes::ReportRequest;
+
 fn register_build(server: &mut Server, name: &str, content: &str) -> Content {
     let mut build = ZuulBuild::sample(name);
     let path = format!("/logs/{}/artifacts/", name);
@@ -128,14 +130,17 @@ Second good line
     let temppath = tempdir.path().to_str().unwrap();
     let workers =
         crate::worker::Workers::new(true, temppath.into(), DiskSizeLimit::default(), env).await;
-    let target = &get_job_url(&target);
-    let baseline = &get_job_url(&baseline);
+    let target = get_job_url(&target);
+    let baseline = get_job_url(&baseline);
     let rid = workers
         .db
-        .initialize_report(target, baseline)
+        .initialize_report(&target, &baseline)
         .await
         .unwrap();
-    workers.submit(rid, target, Some(baseline));
+    workers.submit(
+        rid,
+        ReportRequest::new_request(target.clone(), baseline.clone()),
+    );
     assert!(workers
         .wait(rid)
         .await
@@ -146,13 +151,13 @@ Second good line
     assert_eq!(workers.db.get_models().await.unwrap().len(), 1);
     assert!(workers.current_files_size.load(Ordering::Relaxed) > 0);
 
-    let target2 = &get_job_url(&target2);
+    let target2 = get_job_url(&target2);
     let rid2 = workers
         .db
-        .initialize_report(target2, baseline)
+        .initialize_report(&target2, &baseline)
         .await
         .unwrap();
-    workers.submit(rid2, target2, Some(baseline));
+    workers.submit(rid2, ReportRequest::new_request(target, baseline));
     assert!(workers
         .wait(rid2)
         .await
@@ -240,14 +245,14 @@ Oops this is an error
     let temppath = tempdir.path().to_str().unwrap();
     let workers =
         crate::worker::Workers::new(true, temppath.into(), DiskSizeLimit::default(), env).await;
-    let target = &get_job_url(&target);
-    let baseline = &get_job_url(&baseline);
+    let target = get_job_url(&target);
+    let baseline = get_job_url(&baseline);
     let rid = workers
         .db
-        .initialize_report(target, baseline)
+        .initialize_report(&target, &baseline)
         .await
         .unwrap();
-    workers.submit(rid, target, Some(baseline));
+    workers.submit(rid, ReportRequest::new_request(target, baseline));
     let logs = workers.wait(rid).await;
     // dbg!(&logs);
     assert!(logs

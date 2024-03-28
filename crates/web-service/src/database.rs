@@ -161,7 +161,7 @@ impl Db {
                 self.sub_sizes(report_size);
                 amount = amount.saturating_sub(report_size);
                 report_count += 1;
-                let _ = std::fs::remove_file(format!("{storage_dir}/{}.gz", row.id));
+                let _ = std::fs::remove_file(report_path(storage_dir, ReportID(row.id)));
                 sqlx::query!("delete from reports where id != ?", row.id)
                     .execute(&self.pool)
                     .await
@@ -312,4 +312,8 @@ impl Db {
         .await
         .map(|_| ())
     }
+}
+
+pub fn report_path(storage_dir: &str, rid: ReportID) -> String {
+    format!("{}/{}.gz", storage_dir, rid)
 }
