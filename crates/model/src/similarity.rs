@@ -229,4 +229,11 @@ fn test_report_similarity() {
         },
     ];
     assert_eq!(expected, sr.similarity_reports);
+
+    // Test round-trip
+    let mut buffer = std::io::Cursor::new(vec![]);
+    sr.save_writer(&mut buffer).unwrap();
+    buffer.set_position(0);
+    let sr_back = SimilarityReport::load_reader(buffer).unwrap();
+    assert_eq!(sr, sr_back);
 }

@@ -23,9 +23,6 @@ smol_str = { workspace = true }
 itertools = { workspace = true }
 url = { workspace = true, features = ["serde"] }
 
-# Temporary solution for similarity report
-bincode = { workspace = true }
-
 # For IndexName...
 logjuicer-tokenizer = { path = "../tokenizer" }
 

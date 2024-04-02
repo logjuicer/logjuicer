@@ -140,9 +140,6 @@ pub enum Error {
 
     #[error("decode error: {0}")]
     DecodeError(#[from] capnp::Error),
-
-    #[error("bincode error: {0}")]
-    BincodeError(#[from] bincode::Error),
 }
 
 impl Report {
@@ -187,7 +184,6 @@ impl Report {
     }
 }
 
-// TODO: use capnproto instead of bincode
 impl SimilarityReport {
     pub fn save(&self, path: &Path) -> Result<(), Error> {
         let file = std::fs::File::create(path).map_err(Error::IOError)?;
@@ -200,7 +196,9 @@ impl SimilarityReport {
     }
 
     pub fn save_writer(&self, dest: impl std::io::Write) -> Result<(), Error> {
-        Ok(bincode::serialize_into(dest, self)?)
+        codec::ReportEncoder::new()
+            .encode_similarity(self, dest)
+            .map_err(Error::DecodeError)
     }
 
     pub fn load(path: &Path) -> Result<Self, Error> {
@@ -218,7 +216,9 @@ impl SimilarityReport {
     }
 
     pub fn load_bufreader(src: impl std::io::BufRead) -> Result<Self, Error> {
-        Ok(bincode::deserialize_from(src)?)
+        codec::ReportDecoder::new()
+            .decode_similarity(src)
+            .map_err(Error::DecodeError)
     }
 
     pub fn load_bytes(data: &[u8]) -> Result<Self, Error> {
