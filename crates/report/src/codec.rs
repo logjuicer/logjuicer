@@ -256,6 +256,92 @@ impl ReportEncoder {
         }
         Ok(())
     }
+
+    pub fn encode_similarity(
+        &self,
+        report: &SimilarityReport,
+        write: impl capnp::io::Write,
+    ) -> Result<()> {
+        let mut message = capnp::message::Builder::new_default();
+        let mut module = message.init_root::<schema_capnp::similarity_report::Builder>();
+
+        {
+            let mut builder = module.reborrow().init_targets(report.targets.len() as u32);
+            for (idx, content) in report.targets.iter().enumerate() {
+                let content_builder = builder.reborrow().get(idx as u32);
+                self.write_content(content, content_builder)?;
+            }
+        }
+        {
+            let mut builder = module
+                .reborrow()
+                .init_baselines(report.baselines.len() as u32);
+            for (idx, content) in report.baselines.iter().enumerate() {
+                let content_builder = builder.reborrow().get(idx as u32);
+                self.write_content(content, content_builder)?;
+            }
+        }
+        {
+            let mut builder = module
+                .reborrow()
+                .init_similarity_reports(report.similarity_reports.len() as u32);
+            for (idx, slr) in report.similarity_reports.iter().enumerate() {
+                let mut slr_builder = builder.reborrow().get(idx as u32);
+                self.write_similarity_log_report(slr, &mut slr_builder)?;
+            }
+        }
+        capnp::serialize::write_message(write, &message)
+    }
+
+    fn write_similarity_log_report(
+        &self,
+        slr: &SimilarityLogReport,
+        builder: &mut schema_capnp::similarity_log_report::Builder,
+    ) -> Result<()> {
+        {
+            let mut builder = builder.reborrow().init_sources(slr.sources.len() as u32);
+            for (idx, content) in slr.sources.iter().enumerate() {
+                let mut content_builder = builder.reborrow().get(idx as u32);
+                self.write_similarity_source(content, &mut content_builder)?;
+            }
+        }
+        {
+            let mut builder = builder
+                .reborrow()
+                .init_anomalies(slr.anomalies.len() as u32);
+            for (idx, content) in slr.anomalies.iter().enumerate() {
+                let mut content_builder = builder.reborrow().get(idx as u32);
+                self.write_similarity_anomaly_context(content, &mut content_builder)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn write_similarity_source(
+        &self,
+        content: &SimilaritySource,
+        builder: &mut schema_capnp::similarity_source::Builder,
+    ) -> Result<()> {
+        builder.set_target(content.target.0 as u32);
+        self.write_source(&content.source, builder.reborrow().init_source())?;
+        Ok(())
+    }
+
+    fn write_similarity_anomaly_context(
+        &self,
+        content: &SimilarityAnomalyContext,
+        builder: &mut schema_capnp::similarity_anomaly_context::Builder,
+    ) -> Result<()> {
+        {
+            let mut builder = builder
+                .reborrow()
+                .init_sources(content.sources.len() as u32);
+            for (idx, content) in content.sources.iter().enumerate() {
+                builder.set(idx as u32, content.0 as u32);
+            }
+        }
+        self.write_anomaly_context(&content.anomaly, &mut builder.reborrow().init_anomaly())
+    }
 }
 
 pub struct ReportDecoder;
@@ -473,6 +559,91 @@ impl ReportDecoder {
             vec.push((src, err));
         }
         Ok(vec)
+    }
+
+    pub fn decode_similarity(&self, reader: impl BufRead) -> Result<SimilarityReport> {
+        let message_reader =
+            capnp::serialize::read_message(reader, capnp::message::ReaderOptions::new())?;
+        let reader = message_reader.get_root::<schema_capnp::similarity_report::Reader<'_>>()?;
+
+        Ok(SimilarityReport {
+            targets: self.read_baselines(&reader.get_targets()?)?,
+            baselines: self.read_baselines(&reader.get_baselines()?)?,
+            similarity_reports: self.read_similarity_reports(&reader.get_similarity_reports()?)?,
+        })
+    }
+
+    fn read_similarity_reports(
+        &self,
+        reader: &capnp::struct_list::Reader<schema_capnp::similarity_log_report::Owned>,
+    ) -> Result<Vec<SimilarityLogReport>> {
+        let mut vec = Vec::with_capacity(reader.len() as usize);
+        for reader in reader.into_iter() {
+            vec.push(self.read_similarity_report(&reader)?)
+        }
+        Ok(vec)
+    }
+
+    fn read_similarity_report(
+        &self,
+        reader: &schema_capnp::similarity_log_report::Reader,
+    ) -> Result<SimilarityLogReport> {
+        Ok(SimilarityLogReport {
+            sources: self.read_similarity_sources(&reader.get_sources()?)?,
+            anomalies: self.read_similarity_anomalies(&reader.get_anomalies()?)?,
+        })
+    }
+
+    fn read_similarity_sources(
+        &self,
+        reader: &capnp::struct_list::Reader<schema_capnp::similarity_source::Owned>,
+    ) -> Result<Vec<SimilaritySource>> {
+        let mut vec = Vec::with_capacity(reader.len() as usize);
+        for reader in reader.into_iter() {
+            vec.push(self.read_similarity_source(&reader)?)
+        }
+        Ok(vec)
+    }
+
+    fn read_similarity_source(
+        &self,
+        reader: &schema_capnp::similarity_source::Reader,
+    ) -> Result<SimilaritySource> {
+        Ok(SimilaritySource {
+            target: TargetID(reader.get_target() as usize),
+            source: self.read_source(&reader.get_source()?)?,
+        })
+    }
+
+    fn read_similarity_anomalies(
+        &self,
+        reader: &capnp::struct_list::Reader<schema_capnp::similarity_anomaly_context::Owned>,
+    ) -> Result<Vec<SimilarityAnomalyContext>> {
+        let mut vec = Vec::with_capacity(reader.len() as usize);
+        for reader in reader.into_iter() {
+            vec.push(self.read_similarity_anomaly(&reader)?)
+        }
+        Ok(vec)
+    }
+
+    fn read_similarity_anomaly(
+        &self,
+        reader: &schema_capnp::similarity_anomaly_context::Reader,
+    ) -> Result<SimilarityAnomalyContext> {
+        Ok(SimilarityAnomalyContext {
+            sources: self.read_similarity_anomaly_sources(&reader.get_sources()?)?,
+            anomaly: self.read_anomaly_context(&reader.get_anomaly()?)?,
+        })
+    }
+    fn read_similarity_anomaly_sources(
+        &self,
+        reader: &capnp::primitive_list::Reader<'_, u32>,
+    ) -> Result<Vec<SourceID>> {
+        let mut res = Vec::with_capacity(reader.len() as usize);
+        for value in reader.iter() {
+            res.push(SourceID(value as usize))
+        }
+        Ok(res)
     }
 }
 

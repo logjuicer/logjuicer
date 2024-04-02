@@ -5,6 +5,27 @@ struct Property(Value) {
   value @1 :Value;
 }
 
+struct SimilarityReport {
+  targets           @0 :List(Content);
+  baselines         @1 :List(Content);
+  similarityReports @2 :List(SimilarityLogReport);
+}
+
+struct SimilarityLogReport {
+  sources           @0 :List(SimilaritySource);
+  anomalies         @1 :List(SimilarityAnomalyContext);
+}
+
+struct SimilaritySource {
+  target            @0 :UInt32;
+  source            @1 :Source;
+}
+
+struct SimilarityAnomalyContext {
+  sources           @0 :List(UInt32);
+  anomaly           @1 :AnomalyContext;
+}
+
 struct Report {
   createdAt         @0 :UInt64;
   runTime           @1 :UInt64;
