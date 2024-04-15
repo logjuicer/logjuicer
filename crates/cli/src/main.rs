@@ -6,7 +6,7 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
-use logjuicer_model::env::{Env, OutputMode};
+use logjuicer_model::env::{EnvConfig, OutputMode, TargetEnv};
 use logjuicer_model::{
     content_discover_baselines, content_from_input, content_get_sources, group_sources, Content,
     FeaturesMatrix, FeaturesMatrixBuilder, Input, Model, Source,
@@ -133,7 +133,7 @@ enum Commands {
 impl Cli {
     fn run(self, output: OutputMode) -> Result<()> {
         let configured = self.config.is_some();
-        let env = Env::new_with_settings(self.config, output)?;
+        let env = EnvConfig::new_with_settings(self.config, output)?;
 
         /* Uncomment to debug a single function using the regular env
         let mut res =
@@ -192,7 +192,7 @@ impl Cli {
                 let baselines = baselines
                     .into_iter()
                     .map(Input::from_string)
-                    .map(|x| content_from_input(&env, x))
+                    .map(|x| content_from_input(&env.gl, x))
                     .collect::<Result<Vec<_>>>()?;
 
                 // Use the first baseline for the target config
@@ -257,7 +257,7 @@ impl Cli {
             }
             Commands::DebugIterator { path } => {
                 let input = Input::Path(path.clone());
-                let content = content_from_input(&env, input)?;
+                let content = content_from_input(&env.gl, input)?;
                 let env = env.get_target_env(&content);
                 let sources = content_get_sources(&env, &content)?;
                 match sources.first() {
@@ -384,7 +384,7 @@ fn main() -> Result<()> {
 /// process is the logjuicer implementation after command line parsing.
 #[tracing::instrument(level = "debug", skip(env))]
 fn process(
-    env: &Env,
+    env: &EnvConfig,
     report: Option<(&PathBuf, bool)>,
     web_package_url: Option<String>,
     model_path: Option<PathBuf>,
@@ -392,7 +392,7 @@ fn process(
     input: Input,
 ) -> Result<()> {
     // Convert user Input to target Content.
-    let content = content_from_input(env, input)?;
+    let content = content_from_input(&env.gl, input)?;
     let env = &env.get_target_env(&content);
 
     let train_model = |baselines: Option<Vec<Input>>| {
@@ -436,7 +436,7 @@ fn process(
 
     tracing::debug!("Inspecting");
     match report {
-        None => process_live(env.gl, &content, &model),
+        None => process_live(env, &content, &model),
         Some((file, open)) => {
             let report = model.report(env, content)?;
 
@@ -467,7 +467,7 @@ fn process(
     }
 }
 
-fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> Result<()> {
+fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix>) -> Result<()> {
     let print_context = |pos: usize, xs: &[Rc<str>]| {
         xs.iter()
             .enumerate()
@@ -480,7 +480,6 @@ fn process_live(env: &Env, content: &Content, model: &Model<FeaturesMatrix>) -> 
     let mut total_anomaly_count = 0;
     let mut gl_date = None;
     let start_time = Instant::now();
-    let env = &env.get_target_env(content);
 
     let sources = content_get_sources(env, content)?;
     for source in &sources {
@@ -595,8 +594,8 @@ fn human_duration(elapsed: std::time::Duration) -> String {
     }
 }
 
-fn debug_groups(env: &Env, input: Input) -> Result<()> {
-    let content = content_from_input(env, input)?;
+fn debug_groups(env: &EnvConfig, input: Input) -> Result<()> {
+    let content = content_from_input(&env.gl, input)?;
     let env = &env.get_target_env(&content);
     for (index_name, sources) in group_sources(env, &[content])?
         .drain()

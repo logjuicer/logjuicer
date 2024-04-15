@@ -43,11 +43,11 @@ fn setup_logging() {
     tracing_subscriber::registry().with(filter).with(fmt).init();
 }
 
-use logjuicer_model::env::{Env, OutputMode};
-fn setup_env() -> anyhow::Result<Env> {
+use logjuicer_model::env::{EnvConfig, OutputMode};
+fn setup_env() -> anyhow::Result<EnvConfig> {
     match std::env::var_os("LOGJUICER_CONFIG") {
-        None => Ok(Env::new()),
-        Some(path) => Env::new_with_settings(Some(path.into()), OutputMode::Debug),
+        None => Ok(EnvConfig::new()),
+        Some(path) => EnvConfig::new_with_settings(Some(path.into()), OutputMode::Debug),
     }
 }
 

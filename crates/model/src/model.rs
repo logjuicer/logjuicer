@@ -6,7 +6,7 @@
 //! This module dispatch the abstract Content and Source to their implementationm e.g. the files module.
 
 use anyhow::{Context, Result};
-use env::TargetEnv;
+use env::{Env, TargetEnv};
 use itertools::Itertools;
 use logjuicer_report::Epoch;
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,6 @@ pub use logjuicer_report::{
 
 pub use logjuicer_index::{FeaturesMatrix, FeaturesMatrixBuilder};
 
-use crate::env::Env;
 use crate::files::{dir_iter, file_iter, file_open};
 use crate::unordered::KnownLines;
 use crate::urls::{httpdir_iter, url_open};

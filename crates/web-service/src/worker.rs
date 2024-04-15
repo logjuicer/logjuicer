@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use logjuicer_model::env::Env;
+use logjuicer_model::env::EnvConfig;
 use logjuicer_report::report_row::{ReportID, ReportStatus};
 use logjuicer_report::Report;
 
@@ -19,7 +19,7 @@ pub struct Workers {
     /// The report process monitor to broadcast the status to websocket clients.
     running: Arc<RwLock<BTreeMap<ReportID, ProcessMonitor>>>,
     /// The logjuicer environment.
-    env: Arc<Env>,
+    env: Arc<EnvConfig>,
     /// The local database of reports.
     pub db: Db,
 }
@@ -27,7 +27,7 @@ pub struct Workers {
 const MAX_LOGJUICER_PROCESS: usize = 2;
 
 impl Workers {
-    pub async fn new(env: Env) -> Self {
+    pub async fn new(env: EnvConfig) -> Self {
         // TODO: requeue pending build
         Workers {
             db: Db::new().await.unwrap(),
@@ -120,7 +120,7 @@ impl ProcessMonitor {
 }
 
 fn process_report_safe(
-    env: &Env,
+    env: &EnvConfig,
     target: &str,
     baseline: Option<&str>,
     monitor: &ProcessMonitor,
@@ -137,7 +137,7 @@ fn process_report_safe(
 }
 
 fn process_report(
-    env: &Env,
+    env: &EnvConfig,
     target: &str,
     baseline: Option<&str>,
     monitor: &ProcessMonitor,
@@ -159,7 +159,7 @@ fn process_report(
 
     let input = logjuicer_model::Input::Url(target.into());
     let content =
-        logjuicer_model::content_from_input(env, input).map_err(|e| format!("{:?}", e))?;
+        logjuicer_model::content_from_input(&env.gl, input).map_err(|e| format!("{:?}", e))?;
 
     monitor.emit(format!("Content resolved: {}", content).into());
     check_content(&content)?;
@@ -167,10 +167,10 @@ fn process_report(
     let baselines = match baseline {
         Some(baseline) => {
             let input = logjuicer_model::Input::Url(baseline.into());
-            vec![logjuicer_model::content_from_input(env, input)
+            vec![logjuicer_model::content_from_input(&env.gl, input)
                 .map_err(|e| format!("baseline: {:?}", e))?]
         }
-        None => logjuicer_model::content_discover_baselines(&content, env)
+        None => logjuicer_model::content_discover_baselines(&content, &env.gl)
             .map_err(|e| format!("discovery failed: {:?}", e))?,
     };
 
