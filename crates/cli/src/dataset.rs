@@ -11,7 +11,7 @@ use std::ffi::OsStr;
 use std::iter::zip;
 use std::path::Path;
 
-use logjuicer_model::env::{Env, OutputMode};
+use logjuicer_model::env::{Env, EnvConfig, OutputMode};
 use logjuicer_model::{content_from_pathbuf, AnomalyContext, IndexName, Model, Source};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -36,9 +36,12 @@ fn load_inf(path: &Path) -> Result<Dataset> {
     Ok(serde_yaml::from_reader(file)?)
 }
 
-pub fn test_datasets(base_env: Env, paths: &[String]) -> Result<()> {
-    let env = Env {
-        output: OutputMode::Quiet,
+pub fn test_datasets(base_env: EnvConfig, paths: &[String]) -> Result<()> {
+    let env = EnvConfig {
+        gl: Env {
+            output: OutputMode::Quiet,
+            ..base_env.gl
+        },
         ..base_env
     };
     let mut fail_count = 0;
@@ -72,7 +75,7 @@ pub fn test_datasets(base_env: Env, paths: &[String]) -> Result<()> {
     Ok(())
 }
 
-fn process(env: &Env, path: &Path, dataset: Dataset) -> Result<()> {
+fn process(env: &EnvConfig, path: &Path, dataset: Dataset) -> Result<()> {
     let env = &env.get_target_env(&Content::sample("default"));
     let expected_count = dataset.anomalies.len();
     let paths = std::fs::read_dir(path)?

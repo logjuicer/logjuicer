@@ -10,6 +10,39 @@ use crate::{
 use anyhow::Result;
 use logjuicer_report::Content;
 
+pub struct Env {
+    pub cache: Option<logjuicer_cache::Cache>,
+    pub client: ureq::Agent,
+    pub output: OutputMode,
+}
+
+impl Env {
+    pub fn new() -> Self {
+        Env::new_with_settings(OutputMode::Debug)
+    }
+
+    pub fn new_with_settings(output: OutputMode) -> Self {
+        let cache = if std::env::var("LOGJUICER_CACHE").is_ok() {
+            Some(logjuicer_cache::Cache::new().expect("Cache"))
+        } else {
+            None
+        };
+        Env {
+            cache,
+            client: new_agent(),
+            output,
+        }
+    }
+    /// Helper function to debug
+    pub fn debug_or_progress(&self, msg: &str) {
+        match self.output {
+            OutputMode::FastTerminal => print!("\r\x1b[1;33m[+]\x1b[0m {}", msg),
+            OutputMode::Debug => tracing::debug!("{}", msg),
+            OutputMode::Quiet => {}
+        }
+    }
+}
+
 /// The environment to process a target
 pub struct TargetEnv<'a> {
     pub config: &'a TargetConfig,
@@ -23,52 +56,37 @@ impl<'a> TargetEnv<'a> {
 }
 
 /// The global environment
-pub struct Env {
-    pub cache: Option<logjuicer_cache::Cache>,
-    pub client: ureq::Agent,
-    pub output: OutputMode,
+pub struct EnvConfig {
+    pub gl: Env,
     pub config: Config,
 }
 
-impl Env {
-    pub fn new() -> Env {
-        Env::new_with_settings(None, OutputMode::Debug).unwrap()
+impl EnvConfig {
+    pub fn new() -> Self {
+        Self::new_with_settings(None, OutputMode::Debug).unwrap()
     }
 
     pub fn new_with_settings(
         config: Option<std::path::PathBuf>,
         output: OutputMode,
-    ) -> Result<Env> {
+    ) -> Result<Self> {
+        let gl = Env::new_with_settings(output);
         let config = config
             .map(Config::from_path)
             .unwrap_or_else(|| Ok(Config::default()))?;
-        let cache = if std::env::var("LOGJUICER_CACHE").is_ok() {
-            Some(logjuicer_cache::Cache::new().expect("Cache"))
-        } else {
-            None
-        };
-        Ok(Env {
-            cache,
-            client: new_agent(),
-            output,
-            config,
-        })
+        Ok(Self { gl, config })
     }
 
     pub fn get_target_env<'a>(&'a self, target: &Content) -> TargetEnv<'a> {
         TargetEnv {
             config: self.config.get_target_config(target),
-            gl: self,
+            gl: &self.gl,
         }
     }
 
     /// Helper function to debug
     pub fn debug_or_progress(&self, msg: &str) {
-        match self.output {
-            OutputMode::FastTerminal => print!("\r\x1b[1;33m[+]\x1b[0m {}", msg),
-            OutputMode::Debug => tracing::debug!("{}", msg),
-            OutputMode::Quiet => {}
-        }
+        self.gl.debug_or_progress(msg)
     }
 }
 
@@ -148,6 +166,12 @@ fn new_agent_safe() -> Result<ureq::Agent, std::io::Error> {
         Ok(builder.tls_config(Arc::new(client_config)).build())
     } else {
         Ok(builder.build())
+    }
+}
+
+impl Default for EnvConfig {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
