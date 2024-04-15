@@ -46,7 +46,7 @@ const MODEL_MAGIC: &str = "LGRD";
 const MODEL_VERSION: usize = 7;
 
 /// The user input.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Input {
     Path(String),
     Url(String),
@@ -320,10 +320,16 @@ impl<IR: IndexReader> Model<IR> {
     #[tracing::instrument(level = "debug", skip(env))]
     pub fn train<IB: Default + IndexBuilder<Reader = IR>>(
         env: &TargetEnv,
-        baselines: Baselines,
+        mut baselines: Baselines,
     ) -> Result<Model<IR>> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
+
+        // add extra baselines
+        for baseline in &env.config.extra_baselines {
+            baselines.push(baseline.clone());
+        }
+
         for (index_name, sources) in group_sources(env, &baselines)?.drain() {
             env.gl.debug_or_progress(&format!(
                 "Loading index {} with {}",

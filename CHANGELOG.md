@@ -1,6 +1,8 @@
 next-version
 ============
 
+- config: add extra_baselines option.
+
 0.9.11
 ======
 
