@@ -3,6 +3,7 @@
 
 //! This module provides a model configuration.
 
+use crate::{content_from_input, env::Env, Input};
 use logjuicer_report::{Content, Source};
 use regex::{Regex, RegexSet};
 use serde::{Deserialize, Serialize};
@@ -33,17 +34,24 @@ pub enum Error {
     #[error("invalid yaml: {0}")]
     BadYAML(#[from] serde_yaml::Error),
 
+    #[error("invalid baseline: {0}")]
+    BadBaseline(String),
+
     #[error("unknown format: {0}")]
     UnknownFormat(String),
 }
 
 impl Config {
-    pub fn from_path(path: PathBuf) -> Result<Self, Error> {
+    pub fn from_path(env: Option<&Env>, path: PathBuf) -> Result<Self, Error> {
         let file = std::fs::File::open(&path)?;
-        Config::from_reader(path, file)
+        Config::from_reader(env, path, file)
     }
 
-    fn from_reader<R: std::io::Read>(path: PathBuf, file: R) -> Result<Self, Error> {
+    fn from_reader<R: std::io::Read>(
+        env: Option<&Env>,
+        path: PathBuf,
+        file: R,
+    ) -> Result<Self, Error> {
         let reader = std::io::BufReader::new(file);
         let cf = match path.as_path().extension().and_then(std::ffi::OsStr::to_str) {
             Some("yaml") => Ok(serde_yaml::from_reader(reader)?),
@@ -52,14 +60,14 @@ impl Config {
                 m_ext.map(|s| s.to_string()).unwrap_or("".to_string()),
             )),
         }?;
-        Config::from_config_file(&cf)
+        Config::from_config_file(env, &cf)
     }
 
     /// Convert the raw ConfigFile into a loaded Config
-    fn from_config_file(cf: &ConfigFile) -> Result<Self, Error> {
+    fn from_config_file(env: Option<&Env>, cf: &ConfigFile) -> Result<Self, Error> {
         match cf {
             ConfigFile::Empty => Ok(Config::default()),
-            ConfigFile::Static(tcf) => TargetConfig::from_config_file(tcf).map(Config::Static),
+            ConfigFile::Static(tcf) => TargetConfig::from_config_file(env, tcf).map(Config::Static),
             ConfigFile::Matchers(xs) if xs.is_empty() => {
                 Err(Error::UnknownFormat("Target list is empty".into()))
             }
@@ -68,7 +76,7 @@ impl Config {
                 .map(|tmf| {
                     Ok((
                         MatcherConfig::from_config_file(tmf)?,
-                        TargetConfig::from_config_file(&tmf.config)?,
+                        TargetConfig::from_config_file(env, &tmf.config)?,
                     ))
                 })
                 .collect::<Result<Vec<_>, _>>()
@@ -108,17 +116,18 @@ pub struct TargetConfig {
     excludes: RegexSet,
     skip_duplicate: bool,
     ignore_patterns: RegexSet,
+    pub extra_baselines: Vec<Content>,
 }
 
 impl Default for TargetConfig {
     fn default() -> Self {
-        TargetConfig::from_config_file(&TargetConfigFile::default())
+        TargetConfig::from_config_file(None, &TargetConfigFile::default())
             .expect("default config is valid")
     }
 }
 
 impl TargetConfig {
-    fn from_config_file(cf: &TargetConfigFile) -> Result<Self, Error> {
+    fn from_config_file(env: Option<&Env>, cf: &TargetConfigFile) -> Result<Self, Error> {
         let includes = if cf.includes.is_empty() {
             None
         } else {
@@ -141,11 +150,27 @@ impl TargetConfig {
         } else {
             cf.skip_duplicate
         };
+        let extra_baselines = match env {
+            Some(env) => cf
+                .extra_baselines
+                .clone()
+                .into_iter()
+                .map(Input::from_string)
+                .map(|input| {
+                    content_from_input(env, input).map_err(|e| Error::BadBaseline(format!("{}", e)))
+                })
+                .collect(),
+            None if !cf.extra_baselines.is_empty() => Err(Error::BadBaseline(
+                "Env is necessary to load extra baseline...".into(),
+            )),
+            None => Ok(vec![]),
+        }?;
         Ok(TargetConfig {
             includes,
             excludes,
             skip_duplicate,
             ignore_patterns,
+            extra_baselines,
         })
     }
 
@@ -201,7 +226,7 @@ impl MatcherConfig {
 
 impl Default for Config {
     fn default() -> Self {
-        Config::from_config_file(&ConfigFile::default()).unwrap()
+        Config::from_config_file(None, &ConfigFile::default()).unwrap()
     }
 }
 
@@ -239,6 +264,8 @@ struct TargetConfigFile {
     skip_duplicate: bool,
     #[serde(default)]
     ignore_patterns: Vec<String>,
+    #[serde(default)]
+    extra_baselines: Vec<String>,
 }
 
 fn default_default_excludes() -> bool {
@@ -253,6 +280,7 @@ impl Default for TargetConfigFile {
             default_excludes: true,
             skip_duplicate: true,
             ignore_patterns: Vec::new(),
+            extra_baselines: Vec::new(),
         }
     }
 }
@@ -282,7 +310,7 @@ fn test_config_default() {
 
 #[cfg(test)]
 pub fn config_from_yaml(yaml: &str) -> Config {
-    Config::from_reader("config.yaml".into(), std::io::Cursor::new(yaml)).unwrap()
+    Config::from_reader(None, "config.yaml".into(), std::io::Cursor::new(yaml)).unwrap()
 }
 
 #[cfg(test)]
@@ -336,11 +364,17 @@ excludes:
 fn test_config_bad() {
     assert_eq!(
         true,
-        Config::from_reader("config.yaml".into(), std::io::Cursor::new("unknown: true")).is_err()
+        Config::from_reader(
+            None,
+            "config.yaml".into(),
+            std::io::Cursor::new("unknown: true")
+        )
+        .is_err()
     );
     assert_eq!(
         true,
         Config::from_reader(
+            None,
             "config.json".into(),
             std::io::Cursor::new("{\"unknown\": true}")
         )

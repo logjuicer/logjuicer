@@ -76,6 +76,10 @@ LogJuicer supports custom ignore patterns to silence noisy lines:
 
 - *ignore_patterns*: list of log line regex to be ignored.
 
+Adds custom extra baseline, for example to include files that are skipped in success build artifacts:
+
+- *extra_baselines*: list of file path or remote urls.
+
 The configuration can be defined per target, for example:
 
 ```yaml

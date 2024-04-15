@@ -72,7 +72,7 @@ impl EnvConfig {
     ) -> Result<Self> {
         let gl = Env::new_with_settings(output);
         let config = config
-            .map(Config::from_path)
+            .map(|p| Config::from_path(Some(&gl), p))
             .unwrap_or_else(|| Ok(Config::default()))?;
         Ok(Self { gl, config })
     }
