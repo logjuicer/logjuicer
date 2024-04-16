@@ -101,6 +101,35 @@ impl<IR: IndexReader> Index<IR> {
     pub fn samples_count(&self) -> usize {
         self.index.rows()
     }
+
+    pub fn mappend(&self, other: &Index<IR>) -> Index<IR> {
+        Index {
+            created_at: self.created_at.max(other.created_at),
+            train_time: self.train_time + other.train_time,
+            sources: [&self.sources[..], &other.sources[..]].concat(),
+            index: self.index.mappend(&other.index),
+            line_count: self.line_count + other.line_count,
+            byte_count: self.byte_count + other.byte_count,
+        }
+    }
+}
+
+impl<IR: IndexReader> Model<IR> {
+    pub fn mappend(mut self, other: Model<IR>) -> Model<IR> {
+        for (k, v) in other.indexes {
+            let value = match self.indexes.get(&k) {
+                None => v,
+                Some(p) => p.mappend(&v),
+            };
+            self.indexes.insert(k, value);
+        }
+        self.baselines.extend(other.baselines);
+        Model {
+            created_at: self.created_at.max(other.created_at),
+            baselines: self.baselines,
+            indexes: self.indexes,
+        }
+    }
 }
 
 impl<IR: IndexReader> Index<IR> {

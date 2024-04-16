@@ -10,6 +10,8 @@ use tower_http::trace::{self, TraceLayer};
 
 mod database;
 mod routes;
+#[cfg(test)]
+mod tests;
 mod worker;
 
 fn collect_vstat() {

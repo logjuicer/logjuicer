@@ -41,3 +41,8 @@ metrics-process = "1"
 
 logjuicer-report = { path = "../report" }
 logjuicer-model = { path = "../model" }
+
+[dev-dependencies]
+mockito = { workspace = true }
+url = { workspace = true }
+zuul-build = { path = "../zuul" }

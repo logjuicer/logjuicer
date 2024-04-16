@@ -114,6 +114,9 @@ impl traits::IndexReader for FeaturesMatrix {
     fn rows(&self) -> usize {
         self.rows()
     }
+    fn mappend(&self, other: &FeaturesMatrix) -> FeaturesMatrix {
+        vstack(&[self.view(), other.view()])
+    }
 }
 
 impl traits::IndexBuilder for FeaturesMatrixBuilder {
@@ -226,6 +229,28 @@ mod tests {
         let model = index_list(&mut baselines);
         assert!(dbg!(search_list(&model, "a new error")) > 0.6);
         assert_eq!(search_list(&model, "the second line"), 0.0);
+    }
+
+    #[test]
+    fn test_index_mappend() {
+        use crate::traits::*;
+        let baselines1 = vec!["the first line".to_string(), "the second line".to_string()];
+        let model1 = index_mat(&baselines1);
+        let baselines2 = vec!["the third line is a warning".to_string()];
+        let model2 = index_mat(&baselines2);
+        let model = model1.mappend(&model2);
+        assert_eq!(model.rows(), 3);
+        let distances = search_mat(
+            &model.view(),
+            &[
+                "the third line is a warning".to_string(),
+                "the first line".to_string(),
+                "a new error".to_string(),
+            ],
+        );
+        assert_eq!((distances[0] * 1000.0).round(), 0.0);
+        assert_eq!((distances[1] * 1000.0).round(), 0.0);
+        assert_eq!((distances[2] * 1000.0).round(), 764.0);
     }
 
     #[test]

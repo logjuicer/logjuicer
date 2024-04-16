@@ -9,6 +9,12 @@ pub trait IndexBuilder {
 }
 
 pub trait IndexReader {
+    /// Return the number of feature vectors.
     fn rows(&self) -> usize;
+
+    /// Compute the distances of the given lines.
     fn distance(&self, lines: &[String]) -> Vec<f32>;
+
+    /// Combine two indexes.
+    fn mappend(&self, other: &Self) -> Self;
 }
