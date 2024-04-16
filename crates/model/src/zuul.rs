@@ -223,17 +223,21 @@ fn new_content(api: ApiUrl, build: zuul_build::Build) -> Content {
 fn get_build(env: &Env, api: &ApiUrl, uuid: &str) -> Result<zuul_build::Build> {
     let url = api.as_url().join(&format!("build/{}", uuid))?;
     let reader = crate::reader::from_url(env, 0, &url)?;
-    match zuul_build::decode_build(reader).context("Can't decode zuul api") {
+    match zuul_build::decode_build(reader).context("Can't decode zuul build api") {
         Ok(x) => Ok(x),
-        Err(e) => crate::reader::drop_url(env, 0, &url).map_or_else(Err, |_| Err(e)),
+        Err(e) => {
+            crate::reader::drop_url(env, 0, &url).map_or_else(Err, |_| Err(e).context(url.clone()))
+        }
     }
 }
 
 fn get_builds(env: &Env, url: &Url) -> Result<Vec<zuul_build::Build>> {
     let reader = crate::reader::from_url(env, 0, url)?;
-    match zuul_build::decode_builds(reader).context("Can't decode zuul api") {
+    match zuul_build::decode_builds(reader).context("Can't decode zuul builds api") {
         Ok(xs) => Ok(xs),
-        Err(e) => crate::reader::drop_url(env, 0, url).map_or_else(Err, |_| Err(e)),
+        Err(e) => {
+            crate::reader::drop_url(env, 0, url).map_or_else(Err, |_| Err(e).context(url.clone()))
+        }
     }
 }
 
