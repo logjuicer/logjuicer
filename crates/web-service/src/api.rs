@@ -9,6 +9,7 @@ use tower_http::services::ServeDir;
 use tower_http::trace::{self, TraceLayer};
 
 mod database;
+mod models;
 mod routes;
 #[cfg(test)]
 mod tests;
@@ -84,6 +85,7 @@ async fn main() {
 
     let mut app = axum::Router::new()
         .route("/ready", get(|| async { "ok" }))
+        .route("/api/models", get(routes::models_list))
         .route("/api/reports", get(routes::reports_list))
         .route("/api/report/:report_id", get(routes::report_get))
         .route("/api/report/new", put(routes::report_new))

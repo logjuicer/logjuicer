@@ -1781,6 +1781,7 @@ dependencies = [
  "rustix",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "threadpool",
  "tokio",
