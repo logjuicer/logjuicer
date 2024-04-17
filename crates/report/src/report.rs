@@ -19,6 +19,7 @@ pub mod schema_capnp {
 }
 
 pub mod codec;
+pub mod model_row;
 pub mod report_row;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

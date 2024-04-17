@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "insert into models (content_id, version, created_at)\n                      values (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "7a3d88fe6b0008895dad7aab0510c8603631e192cbd94c7e74b92775c57f309b"
+}

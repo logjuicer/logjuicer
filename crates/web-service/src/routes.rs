@@ -7,6 +7,7 @@ use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::Json;
 use futures::TryFutureExt;
+use logjuicer_report::model_row::ModelRow;
 use tokio::fs::File;
 
 use logjuicer_report::report_row::{ReportID, ReportRow, ReportStatus};
@@ -27,6 +28,11 @@ fn handle_db_error(err: sqlx::Error) -> Error {
 pub async fn reports_list(State(workers): State<Workers>) -> Result<Json<Vec<ReportRow>>> {
     let reports = workers.db.get_reports().await.map_err(handle_db_error)?;
     Ok(Json(reports))
+}
+
+pub async fn models_list(State(workers): State<Workers>) -> Result<Json<Vec<ModelRow>>> {
+    let models = workers.db.get_models().await.map_err(handle_db_error)?;
+    Ok(Json(models))
 }
 
 pub async fn report_get(

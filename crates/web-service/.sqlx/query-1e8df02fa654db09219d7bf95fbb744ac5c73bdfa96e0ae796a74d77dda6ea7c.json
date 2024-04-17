@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "select content_id, version, created_at from models",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "version",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 2,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1e8df02fa654db09219d7bf95fbb744ac5c73bdfa96e0ae796a74d77dda6ea7c"
+}

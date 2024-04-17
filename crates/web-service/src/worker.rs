@@ -4,6 +4,7 @@
 use itertools::Itertools;
 use logjuicer_model::env::TargetEnv;
 use logjuicer_model::ModelF;
+use logjuicer_report::model_row::ContentID;
 use logjuicer_report::Content;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -16,6 +17,7 @@ use logjuicer_report::Report;
 use crate::database::Db;
 
 type ReportsLock = Arc<RwLock<BTreeMap<ReportID, ProcessMonitor>>>;
+type ModelsLock = Arc<RwLock<BTreeMap<ContentID, ProcessMonitor>>>;
 
 #[derive(Clone)]
 pub struct Workers {
@@ -23,6 +25,8 @@ pub struct Workers {
     pool: threadpool::ThreadPool,
     /// The report process monitor to broadcast the status to websocket clients.
     reports: ReportsLock,
+    /// The models being created
+    models: ModelsLock,
     /// The logjuicer environment.
     env: Arc<EnvConfig>,
     /// The local database of reports.
@@ -39,6 +43,7 @@ impl Workers {
             pool: threadpool::ThreadPool::new(MAX_LOGJUICER_PROCESS),
             env: Arc::new(env),
             reports: Arc::new(RwLock::new(BTreeMap::new())),
+            models: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
@@ -55,6 +60,7 @@ impl Workers {
 
             // Prepare worker variables
             let env = self.env.clone();
+            let models_lock = self.models.clone();
             let target = target.to_string();
             let baseline = baseline.map(|s| s.to_string());
             let reports = self.reports.clone();
@@ -64,7 +70,14 @@ impl Workers {
             // Submit the execution to the thread pool
             self.pool.execute(move || {
                 let baseline = baseline.as_deref();
-                let (status, count) = match process_report_safe(&env, &target, baseline, &monitor) {
+                let penv = ProcessEnv {
+                    monitor,
+                    models_lock,
+                    db: db.clone(),
+                    handle: handle.clone(),
+                };
+                let monitor = &penv.monitor;
+                let (status, count) = match process_report_safe(&penv, &env, &target, baseline) {
                     Ok(report) => {
                         let count = report.anomaly_count();
                         let fp = format!("data/{}.gz", report_id);
@@ -109,6 +122,13 @@ fn report_lock(report_id: ReportID, reports: &ReportsLock) -> Option<ProcessMoni
     }
 }
 
+struct ProcessEnv {
+    monitor: ProcessMonitor,
+    db: Db,
+    models_lock: ModelsLock,
+    handle: tokio::runtime::Handle,
+}
+
 #[derive(Clone)]
 pub struct ProcessMonitor {
     pub events: Arc<tokio::sync::RwLock<Vec<Arc<str>>>>,
@@ -132,13 +152,13 @@ impl ProcessMonitor {
 }
 
 fn process_report_safe(
+    penv: &ProcessEnv,
     env: &EnvConfig,
     target: &str,
     baseline: Option<&str>,
-    monitor: &ProcessMonitor,
 ) -> Result<Report, String> {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        process_report(env, target, baseline, monitor)
+        process_report(penv, env, target, baseline)
     })) {
         Ok(res) => res,
         Err(err) => Err(format!(
@@ -149,11 +169,12 @@ fn process_report_safe(
 }
 
 fn process_report(
+    penv: &ProcessEnv,
     env: &EnvConfig,
     target: &str,
     baseline: Option<&str>,
-    monitor: &ProcessMonitor,
 ) -> Result<Report, String> {
+    let monitor = &penv.monitor;
     match baseline {
         None => monitor.emit(format!("Running `logjuicer url {}`", target).into()),
         Some(baseline) => {
@@ -189,7 +210,7 @@ fn process_report(
     baselines.iter().try_for_each(check_content)?;
 
     let target_env = env.get_target_env(&content);
-    let model: ModelF = process_models(&target_env, baselines)?;
+    let model: ModelF = process_models(penv, &target_env, baselines)?;
 
     monitor.emit("Starting analysis".into());
     let report = model
@@ -198,10 +219,14 @@ fn process_report(
     Ok(report)
 }
 
-fn process_models(target_env: &TargetEnv, baselines: Vec<Content>) -> Result<ModelF, String> {
+fn process_models(
+    penv: &ProcessEnv,
+    target_env: &TargetEnv,
+    baselines: Vec<Content>,
+) -> Result<ModelF, String> {
     let mut models = baselines
         .into_iter()
-        .map(|content| process_model(target_env, content))
+        .map(|content| process_model(penv, target_env, content))
         .collect::<Result<Vec<ModelF>, String>>()?;
     if let Some(model) = models.pop() {
         Ok(if models.is_empty() {
@@ -216,9 +241,78 @@ fn process_models(target_env: &TargetEnv, baselines: Vec<Content>) -> Result<Mod
     }
 }
 
-fn process_model(target_env: &TargetEnv, content: Content) -> Result<ModelF, String> {
-    logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
-        logjuicer_model::FeaturesMatrixBuilder,
-    >(target_env, vec![content])
-    .map_err(|e| format!("training failed: {:?}", e))
+enum ModelStatus {
+    Existing,
+    Pending(ProcessMonitor),
+    ToBuild(ProcessMonitor),
+}
+
+fn model_lock(penv: &ProcessEnv, content_id: &ContentID) -> Result<ModelStatus, String> {
+    let mut models_lock = penv.models_lock.write().unwrap();
+    match models_lock.get(content_id) {
+        // Someone is already building it
+        Some(monitor) => Ok(ModelStatus::Pending(monitor.clone())),
+        // Nobody is building it
+        None => match penv
+            .handle
+            .block_on(penv.db.lookup_model(content_id))
+            .map_err(|e| format!("db model lookup: {}", e))?
+        {
+            // The model is not in the database
+            None => {
+                let monitor = ProcessMonitor::new();
+                models_lock.insert(content_id.clone(), monitor.clone());
+                Ok(ModelStatus::ToBuild(monitor))
+            }
+            // The model was already built
+            Some(()) => Ok(ModelStatus::Existing),
+        },
+    }
+}
+
+fn process_model(
+    penv: &ProcessEnv,
+    target_env: &TargetEnv,
+    content: Content,
+) -> Result<ModelF, String> {
+    let content_id = (&content).into();
+    match model_lock(penv, &content_id)? {
+        ModelStatus::Existing => crate::models::load_model(&content_id),
+        ModelStatus::Pending(model_monitor) => {
+            penv.handle.block_on(async {
+                while let Ok(msg) = model_monitor.chan.subscribe().recv().await {
+                    penv.monitor.emit(msg);
+                }
+            });
+            crate::models::load_model(&content_id)
+        }
+        ModelStatus::ToBuild(model_monitor) => {
+            let emit = |msg: Arc<str>| {
+                penv.monitor.emit(msg.clone());
+                model_monitor.emit(msg);
+            };
+            emit("Building the model".into());
+            let model = logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
+                logjuicer_model::FeaturesMatrixBuilder,
+            >(target_env, vec![content])
+            .map_err(|e| {
+                let msg = format!("Training the model failed: {:?}", e);
+                emit(msg.clone().into());
+                msg
+            })?;
+
+            emit("Saving the model".into());
+            crate::models::save_model(&content_id, &model)?;
+
+            // Add the model to the db
+            penv.handle
+                .block_on(penv.db.add_model(&content_id))
+                .map_err(|e| format!("Adding the model to the db failed: {:?}", e))?;
+
+            // Remove the monitor
+            let _ = penv.models_lock.write().unwrap().remove(&content_id);
+
+            Ok(model)
+        }
+    }
 }
