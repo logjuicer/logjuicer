@@ -12,12 +12,14 @@ use logjuicer_report::Report;
 
 use crate::database::Db;
 
+type ReportsLock = Arc<RwLock<BTreeMap<ReportID, ProcessMonitor>>>;
+
 #[derive(Clone)]
 pub struct Workers {
     /// The execution pool to run logjuicer model.
     pool: threadpool::ThreadPool,
     /// The report process monitor to broadcast the status to websocket clients.
-    running: Arc<RwLock<BTreeMap<ReportID, ProcessMonitor>>>,
+    reports: ReportsLock,
     /// The logjuicer environment.
     env: Arc<EnvConfig>,
     /// The local database of reports.
@@ -33,31 +35,26 @@ impl Workers {
             db: Db::new().await.unwrap(),
             pool: threadpool::ThreadPool::new(MAX_LOGJUICER_PROCESS),
             env: Arc::new(env),
-            running: Arc::new(RwLock::new(BTreeMap::new())),
+            reports: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
     pub fn subscribe(&self, report_id: ReportID) -> Option<ProcessMonitor> {
-        let running = self.running.read().unwrap();
+        let running = self.reports.read().unwrap();
         running.get(&report_id).cloned()
     }
 
     // TODO: deny this clippy warning
     #[allow(clippy::map_entry)]
     pub fn submit(&self, report_id: ReportID, target: &str, baseline: Option<&str>) {
-        let mut running_init_write = self.running.write().unwrap();
-        // Check if the report is being processed
-        if !running_init_write.contains_key(&report_id) {
+        if let Some(monitor) = report_lock(report_id, &self.reports) {
             tracing::info!("Submiting new url {}", target);
-            let monitor = ProcessMonitor::new();
-            running_init_write.insert(report_id, monitor.clone());
-            std::mem::drop(running_init_write);
 
             // Prepare worker variables
             let env = self.env.clone();
             let target = target.to_string();
             let baseline = baseline.map(|s| s.to_string());
-            let running = self.running.clone();
+            let reports = self.reports.clone();
             let db = self.db.clone();
             let handle = tokio::runtime::Handle::current();
 
@@ -85,7 +82,7 @@ impl Workers {
                     }
                 };
                 // Remove the monitor
-                let _ = running.write().unwrap().remove(&report_id);
+                let _ = reports.write().unwrap().remove(&report_id);
                 // Record the result into the db
                 handle.spawn(
                     async move { db.update_report(report_id, count, &status).await.unwrap() },
@@ -94,6 +91,18 @@ impl Workers {
         } else {
             tracing::info!("Url already submitted {}", target);
         }
+    }
+}
+
+fn report_lock(report_id: ReportID, reports: &ReportsLock) -> Option<ProcessMonitor> {
+    let mut reports_init_write = reports.write().unwrap();
+    // Check if the report is being processed
+    if let std::collections::btree_map::Entry::Vacant(e) = reports_init_write.entry(report_id) {
+        let monitor = ProcessMonitor::new();
+        e.insert(monitor.clone());
+        Some(monitor)
+    } else {
+        None
     }
 }
 
