@@ -13,6 +13,7 @@ use sprs::*;
 use std::collections::HashMap;
 
 pub mod traits;
+mod vstack;
 
 pub type F = f32;
 type SparseVec = CsVecBase<Vec<usize>, Vec<F>, F>;
@@ -115,7 +116,7 @@ impl traits::IndexReader for FeaturesMatrix {
         self.rows()
     }
     fn mappend(&self, other: &FeaturesMatrix) -> FeaturesMatrix {
-        vstack(&[self.view(), other.view()])
+        crate::vstack::nub_vstack(&[self.view(), other.view()])
     }
 }
 
@@ -236,21 +237,21 @@ mod tests {
         use crate::traits::*;
         let baselines1 = vec!["the first line".to_string(), "the second line".to_string()];
         let model1 = index_mat(&baselines1);
-        let baselines2 = vec!["the third line is a warning".to_string()];
+        let baselines2 = vec!["the first line".to_string(), "the third line".to_string()];
         let model2 = index_mat(&baselines2);
         let model = model1.mappend(&model2);
         assert_eq!(model.rows(), 3);
         let distances = search_mat(
             &model.view(),
             &[
-                "the third line is a warning".to_string(),
+                "the third line".to_string(),
                 "the first line".to_string(),
                 "a new error".to_string(),
             ],
         );
         assert_eq!((distances[0] * 1000.0).round(), 0.0);
         assert_eq!((distances[1] * 1000.0).round(), 0.0);
-        assert_eq!((distances[2] * 1000.0).round(), 764.0);
+        assert_eq!((distances[2] * 1000.0).round(), 1000.0);
     }
 
     #[test]
