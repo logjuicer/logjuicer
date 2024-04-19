@@ -17,4 +17,7 @@ pub trait IndexReader {
 
     /// Combine two indexes.
     fn mappend(&self, other: &Self) -> Self;
+
+    /// Combine multiple indexes.
+    fn mconcat(&self, others: &[&Self]) -> Self;
 }
