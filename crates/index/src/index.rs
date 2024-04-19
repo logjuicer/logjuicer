@@ -118,6 +118,13 @@ impl traits::IndexReader for FeaturesMatrix {
     fn mappend(&self, other: &FeaturesMatrix) -> FeaturesMatrix {
         crate::vstack::nub_vstack(&[self.view(), other.view()])
     }
+    fn mconcat(&self, others: &[&FeaturesMatrix]) -> FeaturesMatrix {
+        crate::vstack::nub_vstack(
+            &std::iter::once(self.view())
+                .chain(others.iter().map(|mat| mat.view()))
+                .collect::<Vec<_>>(),
+        )
+    }
 }
 
 impl traits::IndexBuilder for FeaturesMatrixBuilder {

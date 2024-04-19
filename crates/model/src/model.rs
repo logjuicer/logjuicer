@@ -76,6 +76,9 @@ pub struct Model<IR: IndexReader> {
     pub indexes: HashMap<IndexName, Index<IR>>,
 }
 
+/// The default model type
+pub type ModelF = Model<FeaturesMatrix>;
+
 pub fn indexname_from_source(source: &Source) -> IndexName {
     IndexName::from_path(source.get_relative())
 }
@@ -112,20 +115,91 @@ impl<IR: IndexReader> Index<IR> {
             byte_count: self.byte_count + other.byte_count,
         }
     }
+
+    pub fn mconcat(&self, indexes: &[Index<IR>]) -> Index<IR> {
+        Index {
+            created_at: indexes
+                .iter()
+                .map(|i| i.created_at)
+                .fold(self.created_at, |a, b| a.max(b)),
+            train_time: indexes
+                .iter()
+                .map(|i| i.train_time)
+                .fold(self.train_time, |a, b| a + b),
+            sources: std::iter::once(self.sources.clone())
+                .chain(indexes.iter().map(|i| i.sources.clone()))
+                .flatten()
+                .collect(),
+            index: self
+                .index
+                .mconcat(&indexes.iter().map(|i| &i.index).collect::<Vec<_>>()),
+            line_count: indexes
+                .iter()
+                .map(|i| i.line_count)
+                .fold(self.line_count, |a, b| a + b),
+            byte_count: indexes
+                .iter()
+                .map(|i| i.byte_count)
+                .fold(self.byte_count, |a, b| a + b),
+        }
+    }
 }
 
 impl<IR: IndexReader> Model<IR> {
+    /// Combine two models
     pub fn mappend(mut self, other: Model<IR>) -> Model<IR> {
-        for (k, v) in other.indexes {
-            let value = match self.indexes.get(&k) {
-                None => v,
-                Some(p) => p.mappend(&v),
+        // Merge the other's indexes
+        for (index_name, index) in other.indexes {
+            let value = match self.indexes.get(&index_name) {
+                // This is a new index, use it directly
+                None => index,
+                // This is an index update, combine it with the previous one
+                Some(prev) => prev.mappend(&index),
             };
-            self.indexes.insert(k, value);
+            self.indexes.insert(index_name, value);
         }
+
+        // Merge the baselines
         self.baselines.extend(other.baselines);
+
         Model {
             created_at: self.created_at.max(other.created_at),
+            baselines: self.baselines,
+            indexes: self.indexes,
+        }
+    }
+
+    /// Combine multiple models
+    pub fn mconcat(mut self, others: Vec<Model<IR>>) -> Model<IR> {
+        let mut created_at = self.created_at;
+
+        // Collect the indexes so that they can be merged at once
+        let mut other_indexes = HashMap::new();
+
+        for other in others.into_iter() {
+            self.baselines.extend(other.baselines);
+            created_at = created_at.max(other.created_at);
+            for (k, v) in other.indexes {
+                other_indexes.entry(k).or_insert_with(Vec::new).push(v)
+            }
+        }
+
+        for (index_name, mut indexes) in other_indexes {
+            let base_index = match self.indexes.remove(&index_name) {
+                None => indexes.pop().unwrap(),
+                Some(index) => index,
+            };
+            let value = if indexes.is_empty() {
+                base_index
+            } else if indexes.len() == 1 {
+                base_index.mappend(&indexes.pop().unwrap())
+            } else {
+                base_index.mconcat(&indexes)
+            };
+            self.indexes.insert(index_name, value);
+        }
+        Model {
+            created_at,
             baselines: self.baselines,
             indexes: self.indexes,
         }
