@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use itertools::Itertools;
+use logjuicer_model::env::TargetEnv;
+use logjuicer_model::ModelF;
+use logjuicer_report::Content;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -158,7 +161,6 @@ fn process_report(
         }
     }
 
-    use logjuicer_report::Content;
     fn check_content(content: &Content) -> Result<(), String> {
         match content {
             Content::Zuul(_) | logjuicer_report::Content::Prow(_) => Ok(()),
@@ -187,15 +189,36 @@ fn process_report(
     baselines.iter().try_for_each(check_content)?;
 
     let target_env = env.get_target_env(&content);
-
-    let model = logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
-        logjuicer_model::FeaturesMatrixBuilder,
-    >(&target_env, baselines)
-    .map_err(|e| format!("training failed: {:?}", e))?;
+    let model: ModelF = process_models(&target_env, baselines)?;
 
     monitor.emit("Starting analysis".into());
     let report = model
         .report(&target_env, content)
         .map_err(|e| format!("report failed: {:?}", e))?;
     Ok(report)
+}
+
+fn process_models(target_env: &TargetEnv, baselines: Vec<Content>) -> Result<ModelF, String> {
+    let mut models = baselines
+        .into_iter()
+        .map(|content| process_model(target_env, content))
+        .collect::<Result<Vec<ModelF>, String>>()?;
+    if let Some(model) = models.pop() {
+        Ok(if models.is_empty() {
+            model
+        } else if models.len() == 1 {
+            model.mappend(models.pop().unwrap())
+        } else {
+            model.mconcat(models)
+        })
+    } else {
+        Err("No models found".to_string())
+    }
+}
+
+fn process_model(target_env: &TargetEnv, content: Content) -> Result<ModelF, String> {
+    logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
+        logjuicer_model::FeaturesMatrixBuilder,
+    >(target_env, vec![content])
+    .map_err(|e| format!("training failed: {:?}", e))
 }
