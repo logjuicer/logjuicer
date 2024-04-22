@@ -125,10 +125,9 @@ pub async fn report_watch(
 
 use axum::extract::ws::{Message, WebSocket};
 pub async fn do_report_watch(
-    monitor: crate::worker::ProcessMonitor,
+    mut monitor: crate::worker::ProcessFollower,
     mut ws: WebSocket,
 ) -> std::result::Result<(), axum::Error> {
-    let mut monitor_rx = monitor.chan.subscribe();
     {
         let events = monitor.events.read().await;
         if events.is_empty() {
@@ -141,7 +140,7 @@ pub async fn do_report_watch(
         };
     }
 
-    while let Ok(msg) = monitor_rx.recv().await {
+    while let Ok(msg) = monitor.chan.recv().await {
         ws.send(Message::Text(msg.to_string())).await?;
     }
     ws.close().await?;

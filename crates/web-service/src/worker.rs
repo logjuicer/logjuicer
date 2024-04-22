@@ -49,9 +49,12 @@ impl Workers {
         }
     }
 
-    pub fn subscribe(&self, report_id: ReportID) -> Option<ProcessMonitor> {
+    pub fn subscribe(&self, report_id: ReportID) -> Option<ProcessFollower> {
         let running = self.reports.read().unwrap();
-        running.get(&report_id).cloned()
+        running.get(&report_id).map(|pm| ProcessFollower {
+            events: pm.events.clone(),
+            chan: pm.chan.subscribe(),
+        })
     }
 
     // TODO: deny this clippy warning
@@ -132,6 +135,11 @@ struct ProcessEnv {
     db: Db,
     models_lock: ModelsLock,
     handle: tokio::runtime::Handle,
+}
+
+pub struct ProcessFollower {
+    pub events: Arc<tokio::sync::RwLock<Vec<Arc<str>>>>,
+    pub chan: tokio::sync::broadcast::Receiver<Arc<str>>,
 }
 
 #[derive(Clone)]
@@ -248,7 +256,7 @@ fn process_models(
 
 enum ModelStatus {
     Existing,
-    Pending(ProcessMonitor),
+    Pending(ProcessFollower),
     ToBuild(ProcessMonitor),
 }
 
@@ -256,7 +264,10 @@ fn model_lock(penv: &ProcessEnv, content_id: &ContentID) -> Result<ModelStatus, 
     let mut models_lock = penv.models_lock.write().unwrap();
     match models_lock.get(content_id) {
         // Someone is already building it
-        Some(monitor) => Ok(ModelStatus::Pending(monitor.clone())),
+        Some(monitor) => Ok(ModelStatus::Pending(ProcessFollower {
+            events: monitor.events.clone(),
+            chan: monitor.chan.subscribe(),
+        })),
         // Nobody is building it
         None => match penv
             .handle
@@ -283,9 +294,9 @@ fn process_model(
     let content_id = (&content).into();
     match model_lock(penv, &content_id)? {
         ModelStatus::Existing => crate::models::load_model(&penv.storage_dir, &content_id),
-        ModelStatus::Pending(model_monitor) => {
+        ModelStatus::Pending(mut model_follower) => {
             penv.handle.block_on(async {
-                while let Ok(msg) = model_monitor.chan.subscribe().recv().await {
+                while let Ok(msg) = model_follower.chan.recv().await {
                     penv.monitor.emit(msg);
                 }
             });
