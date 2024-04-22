@@ -1783,6 +1783,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sqlx",
+ "tempfile",
  "threadpool",
  "tokio",
  "tokio-util",

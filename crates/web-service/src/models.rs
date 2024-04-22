@@ -13,6 +13,11 @@ fn model_path(storage_dir: &str, content_id: &ContentID) -> std::path::PathBuf {
     .into()
 }
 
+#[cfg(test)]
+pub fn test_model_path(storage_dir: &str, content_id: &ContentID) -> std::path::PathBuf {
+    model_path(storage_dir, content_id)
+}
+
 pub fn load_model(storage_dir: &str, content_id: &ContentID) -> Result<ModelF, String> {
     ModelF::load(&model_path(storage_dir, content_id))
         .map_err(|e| format!("Reading the model failed {:?}", e))

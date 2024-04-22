@@ -47,3 +47,4 @@ logjuicer-model = { path = "../model" }
 mockito = { workspace = true }
 url = { workspace = true }
 zuul-build = { path = "../zuul" }
+tempfile = "*"

@@ -21,6 +21,8 @@ type ModelsLock = Arc<RwLock<BTreeMap<ContentID, ProcessMonitor>>>;
 
 #[derive(Clone)]
 pub struct Workers {
+    /// Allow the worker to fetch any user input.
+    allow_any_sources: bool,
     /// The execution pool to run logjuicer model.
     pool: threadpool::ThreadPool,
     /// The report process monitor to broadcast the status to websocket clients.
@@ -37,9 +39,10 @@ pub struct Workers {
 const MAX_LOGJUICER_PROCESS: usize = 2;
 
 impl Workers {
-    pub async fn new(storage_dir: Arc<str>, env: EnvConfig) -> Self {
+    pub async fn new(allow_any_sources: bool, storage_dir: Arc<str>, env: EnvConfig) -> Self {
         // TODO: requeue pending build
         Workers {
+            allow_any_sources,
             db: Db::new(&storage_dir).await.unwrap(),
             pool: threadpool::ThreadPool::new(MAX_LOGJUICER_PROCESS),
             env: Arc::new(env),
@@ -57,6 +60,19 @@ impl Workers {
         })
     }
 
+    #[cfg(test)]
+    pub async fn wait(&self, report_id: ReportID) -> Vec<Arc<str>> {
+        if let Some(mut monitor) = self.subscribe(report_id) {
+            let mut events = monitor.events.read().await.clone();
+            while let Ok(msg) = monitor.chan.recv().await {
+                events.push(msg)
+            }
+            events
+        } else {
+            vec![]
+        }
+    }
+
     // TODO: deny this clippy warning
     #[allow(clippy::map_entry)]
     pub fn submit(&self, report_id: ReportID, target: &str, baseline: Option<&str>) {
@@ -72,6 +88,7 @@ impl Workers {
             let db = self.db.clone();
             let handle = tokio::runtime::Handle::current();
             let storage_dir = self.storage_dir.clone();
+            let allow_any_sources = self.allow_any_sources;
 
             // Submit the execution to the thread pool
             self.pool.execute(move || {
@@ -82,6 +99,7 @@ impl Workers {
                     models_lock,
                     db: db.clone(),
                     handle: handle.clone(),
+                    allow_any_sources,
                 };
                 let monitor = &penv.monitor;
                 let (status, count) = match process_report_safe(&penv, &env, &target, baseline) {
@@ -130,6 +148,7 @@ fn report_lock(report_id: ReportID, reports: &ReportsLock) -> Option<ProcessMoni
 }
 
 struct ProcessEnv {
+    allow_any_sources: bool,
     storage_dir: Arc<str>,
     monitor: ProcessMonitor,
     db: Db,
@@ -207,7 +226,9 @@ fn process_report(
         logjuicer_model::content_from_input(&env.gl, input).map_err(|e| format!("{:?}", e))?;
 
     monitor.emit(format!("Content resolved: {}", content).into());
-    check_content(&content)?;
+    if !penv.allow_any_sources {
+        check_content(&content)?;
+    }
 
     let baselines = match baseline {
         Some(baseline) => {
@@ -220,7 +241,9 @@ fn process_report(
     };
 
     monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
-    baselines.iter().try_for_each(check_content)?;
+    if !penv.allow_any_sources {
+        baselines.iter().try_for_each(check_content)?;
+    }
 
     let target_env = env.get_target_env(&content);
     let model: ModelF = process_models(penv, &target_env, baselines)?;
@@ -243,10 +266,13 @@ fn process_models(
         .collect::<Result<Vec<ModelF>, String>>()?;
     if let Some(model) = models.pop() {
         Ok(if models.is_empty() {
+            // There is only a single baseline, use the model directly
             model
         } else if models.len() == 1 {
+            // There are two baselines, use the fast mappend operation
             model.mappend(models.pop().unwrap())
         } else {
+            // There are more than two baselines, use the mconcat operation
             model.mconcat(models)
         })
     } else {
@@ -293,7 +319,10 @@ fn process_model(
 ) -> Result<ModelF, String> {
     let content_id = (&content).into();
     match model_lock(penv, &content_id)? {
-        ModelStatus::Existing => crate::models::load_model(&penv.storage_dir, &content_id),
+        ModelStatus::Existing => {
+            penv.monitor.emit("Loading existing model".into());
+            crate::models::load_model(&penv.storage_dir, &content_id)
+        }
         ModelStatus::Pending(mut model_follower) => {
             penv.handle.block_on(async {
                 while let Ok(msg) = model_follower.chan.recv().await {
