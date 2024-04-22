@@ -38,6 +38,19 @@ impl Db {
             .map(|_| ())
     }
 
+    #[cfg(test)]
+    pub async fn deprecate_models(&self) -> sqlx::Result<()> {
+        sqlx::query!("update models set version = 0")
+            .execute(&self.0)
+            .await
+            .map(|_| ())
+    }
+
+    #[cfg(test)]
+    pub async fn test_clean_old_models(&self, storage_dir: &str) -> sqlx::Result<()> {
+        self.clean_old_models(storage_dir).await
+    }
+
     async fn clean_old_models(&self, storage_dir: &str) -> sqlx::Result<()> {
         let mut rows = sqlx::query!(
             "select content_id from models where version != ?",
@@ -45,10 +58,14 @@ impl Db {
         )
         .map(|row| row.content_id.into())
         .fetch(&self.0);
+        let mut clean_count = 0;
         while let Some(row) = rows.try_next().await? {
-            crate::models::delete_model(storage_dir, &row)
+            crate::models::delete_model(storage_dir, &row);
+            clean_count += 1;
         }
-
+        if clean_count > 0 {
+            tracing::info!(count = clean_count, "Cleaned old models");
+        }
         sqlx::query!("delete from models where version != ?", MODEL_VER)
             .execute(&self.0)
             .await

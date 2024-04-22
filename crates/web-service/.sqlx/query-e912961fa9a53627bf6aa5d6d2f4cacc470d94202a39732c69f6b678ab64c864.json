@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "update models set version = 0",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "e912961fa9a53627bf6aa5d6d2f4cacc470d94202a39732c69f6b678ab64c864"
+}

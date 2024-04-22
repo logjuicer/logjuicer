@@ -2,6 +2,7 @@ next-version
 ============
 
 - config: add extra_baselines option.
+- api: save trained models for faster re-use.
 
 0.9.11
 ======
