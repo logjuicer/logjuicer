@@ -81,7 +81,7 @@ async fn main() {
     metrics::describe_counter!("http_request", "HTTP request count");
     metrics::describe_counter!("http_request_error", "HTTP request error count");
 
-    let workers = worker::Workers::new(env).await;
+    let workers = worker::Workers::new("data".into(), env).await;
 
     let mut app = axum::Router::new()
         .route("/ready", get(|| async { "ok" }))

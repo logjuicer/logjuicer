@@ -31,19 +31,21 @@ pub struct Workers {
     env: Arc<EnvConfig>,
     /// The local database of reports.
     pub db: Db,
+    pub storage_dir: Arc<str>,
 }
 
 const MAX_LOGJUICER_PROCESS: usize = 2;
 
 impl Workers {
-    pub async fn new(env: EnvConfig) -> Self {
+    pub async fn new(storage_dir: Arc<str>, env: EnvConfig) -> Self {
         // TODO: requeue pending build
         Workers {
-            db: Db::new().await.unwrap(),
+            db: Db::new(&storage_dir).await.unwrap(),
             pool: threadpool::ThreadPool::new(MAX_LOGJUICER_PROCESS),
             env: Arc::new(env),
             reports: Arc::new(RwLock::new(BTreeMap::new())),
             models: Arc::new(RwLock::new(BTreeMap::new())),
+            storage_dir,
         }
     }
 
@@ -66,11 +68,13 @@ impl Workers {
             let reports = self.reports.clone();
             let db = self.db.clone();
             let handle = tokio::runtime::Handle::current();
+            let storage_dir = self.storage_dir.clone();
 
             // Submit the execution to the thread pool
             self.pool.execute(move || {
                 let baseline = baseline.as_deref();
                 let penv = ProcessEnv {
+                    storage_dir,
                     monitor,
                     models_lock,
                     db: db.clone(),
@@ -80,7 +84,7 @@ impl Workers {
                 let (status, count) = match process_report_safe(&penv, &env, &target, baseline) {
                     Ok(report) => {
                         let count = report.anomaly_count();
-                        let fp = format!("data/{}.gz", report_id);
+                        let fp = format!("{}/{}.gz", penv.storage_dir, report_id);
                         let status = if let Err(err) = report.save(std::path::Path::new(&fp)) {
                             tracing::error!("{}: failed to save report: {}", fp, err);
                             monitor.emit(format!("Error: saving failed: {}", err).into());
@@ -123,6 +127,7 @@ fn report_lock(report_id: ReportID, reports: &ReportsLock) -> Option<ProcessMoni
 }
 
 struct ProcessEnv {
+    storage_dir: Arc<str>,
     monitor: ProcessMonitor,
     db: Db,
     models_lock: ModelsLock,
@@ -277,14 +282,14 @@ fn process_model(
 ) -> Result<ModelF, String> {
     let content_id = (&content).into();
     match model_lock(penv, &content_id)? {
-        ModelStatus::Existing => crate::models::load_model(&content_id),
+        ModelStatus::Existing => crate::models::load_model(&penv.storage_dir, &content_id),
         ModelStatus::Pending(model_monitor) => {
             penv.handle.block_on(async {
                 while let Ok(msg) = model_monitor.chan.subscribe().recv().await {
                     penv.monitor.emit(msg);
                 }
             });
-            crate::models::load_model(&content_id)
+            crate::models::load_model(&penv.storage_dir, &content_id)
         }
         ModelStatus::ToBuild(model_monitor) => {
             let emit = |msg: Arc<str>| {
@@ -302,7 +307,7 @@ fn process_model(
             })?;
 
             emit("Saving the model".into());
-            crate::models::save_model(&content_id, &model)?;
+            crate::models::save_model(&penv.storage_dir, &content_id, &model)?;
 
             // Add the model to the db
             penv.handle

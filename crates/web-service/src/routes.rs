@@ -39,7 +39,7 @@ pub async fn report_get(
     State(workers): State<Workers>,
     Path(report_id): Path<ReportID>,
 ) -> Result<axum::response::Response> {
-    let fp = format!("data/{}.gz", report_id);
+    let fp = format!("{}/{}.gz", workers.storage_dir, report_id);
     if let Ok(file) = File::open(&fp).await {
         // The file exists, stream its content...
 
