@@ -20,13 +20,13 @@ pub struct Db(sqlx::SqlitePool);
 const MODEL_VER: i64 = MODEL_VERSION as i64;
 
 impl Db {
-    pub async fn new() -> sqlx::Result<Db> {
-        let db_url = "sqlite://data/logjuicer.sqlite?mode=rwc";
-        let pool = sqlx::SqlitePool::connect(db_url).await?;
+    pub async fn new(storage_dir: &str) -> sqlx::Result<Db> {
+        let db_url = format!("sqlite://{storage_dir}/logjuicer.sqlite?mode=rwc");
+        let pool = sqlx::SqlitePool::connect(&db_url).await?;
         sqlx::migrate!("./migrations").run(&pool).await?;
         let db = Db(pool);
         db.clean_pending().await?;
-        db.clean_old_models().await?;
+        db.clean_old_models(storage_dir).await?;
         Ok(db)
     }
 
@@ -38,7 +38,7 @@ impl Db {
             .map(|_| ())
     }
 
-    async fn clean_old_models(&self) -> sqlx::Result<()> {
+    async fn clean_old_models(&self, storage_dir: &str) -> sqlx::Result<()> {
         let mut rows = sqlx::query!(
             "select content_id from models where version != ?",
             MODEL_VER
@@ -46,7 +46,7 @@ impl Db {
         .map(|row| row.content_id.into())
         .fetch(&self.0);
         while let Some(row) = rows.try_next().await? {
-            crate::models::delete_model(&row)
+            crate::models::delete_model(storage_dir, &row)
         }
 
         sqlx::query!("delete from models where version != ?", MODEL_VER)
