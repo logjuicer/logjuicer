@@ -8,6 +8,7 @@ use logjuicer_report::model_row::ContentID;
 use logjuicer_report::report_row::FileSize;
 use logjuicer_report::Content;
 use std::collections::BTreeMap;
+use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -35,21 +36,28 @@ pub struct Workers {
     /// The local database of reports.
     pub db: Db,
     pub storage_dir: Arc<str>,
+    pub current_files_size: Arc<AtomicUsize>,
 }
 
 const MAX_LOGJUICER_PROCESS: usize = 2;
 
 impl Workers {
     pub async fn new(allow_any_sources: bool, storage_dir: Arc<str>, env: EnvConfig) -> Self {
-        // TODO: requeue pending build
+        let current_files_size = Arc::new(AtomicUsize::new(0));
+        std::fs::create_dir_all(format!("{storage_dir}/models")).unwrap();
+        // TODO: migrate reports to a reports sub directory
+        let db = Db::new(&storage_dir, current_files_size.clone())
+            .await
+            .unwrap();
         Workers {
             allow_any_sources,
-            db: Db::new(&storage_dir).await.unwrap(),
+            db,
             pool: threadpool::ThreadPool::new(MAX_LOGJUICER_PROCESS),
             env: Arc::new(env),
             reports: Arc::new(RwLock::new(BTreeMap::new())),
             models: Arc::new(RwLock::new(BTreeMap::new())),
             storage_dir,
+            current_files_size,
         }
     }
 

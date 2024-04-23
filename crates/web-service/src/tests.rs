@@ -4,6 +4,7 @@
 use logjuicer_model::{env::EnvConfig, Model};
 use logjuicer_report::{report_row::ReportID, Content, ZuulBuild};
 use mockito::Server;
+use std::sync::atomic::Ordering;
 use zuul_build::zuul_manifest;
 
 fn register_build(server: &mut Server, name: &str, content: &str) -> Content {
@@ -128,6 +129,7 @@ Second good line
 
     // Check that the model got built
     assert_eq!(workers.db.get_models().await.unwrap().len(), 1);
+    assert!(workers.current_files_size.load(Ordering::Relaxed) > 0);
 
     workers.submit(rid, &get_job_url(&target), Some(&get_job_url(&baseline)));
     assert!(workers
@@ -141,6 +143,8 @@ Second good line
     assert!(model_path.exists());
 
     // Test old model removal
+    let prev_size = workers.current_files_size.load(Ordering::Relaxed);
+    let model_size = models[0].bytes_size.0 as usize;
     workers.db.deprecate_models().await.unwrap();
     workers
         .db
@@ -149,4 +153,8 @@ Second good line
         .unwrap();
     assert!(!model_path.exists());
     assert_eq!(workers.db.get_models().await.unwrap().len(), 0);
+    assert_eq!(
+        workers.current_files_size.load(Ordering::Relaxed),
+        (prev_size - model_size)
+    );
 }

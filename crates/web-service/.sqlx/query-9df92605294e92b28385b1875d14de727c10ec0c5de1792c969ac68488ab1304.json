@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "select SUM(bytes_size) as size from reports",
+  "describe": {
+    "columns": [
+      {
+        "name": "size",
+        "ordinal": 0,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "9df92605294e92b28385b1875d14de727c10ec0c5de1792c969ac68488ab1304"
+}

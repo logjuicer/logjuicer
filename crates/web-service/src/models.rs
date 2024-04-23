@@ -9,7 +9,7 @@ use logjuicer_report::model_row::ContentID;
 fn model_path(storage_dir: &str, content_id: &ContentID) -> PathBuf {
     use sha2::{Digest, Sha256};
     format!(
-        "{storage_dir}/model_{:X}.gz",
+        "{storage_dir}/models/model_{:X}.gz",
         Sha256::digest(content_id.0.as_bytes())
     )
     .into()

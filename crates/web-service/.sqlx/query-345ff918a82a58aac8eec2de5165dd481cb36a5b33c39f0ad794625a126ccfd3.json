@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "select content_id, bytes_size from models where version != ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "bytes_size",
+        "ordinal": 1,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "345ff918a82a58aac8eec2de5165dd481cb36a5b33c39f0ad794625a126ccfd3"
+}
