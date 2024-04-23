@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT content_id, bytes_size FROM models WHERE created_at < ? ORDER BY created_at ASC LIMIT 20",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "bytes_size",
+        "ordinal": 1,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "b05ea3d19c70abf9c12145990a1c1c2cffaa953910efc6d3bf45145e822bfcc8"
+}

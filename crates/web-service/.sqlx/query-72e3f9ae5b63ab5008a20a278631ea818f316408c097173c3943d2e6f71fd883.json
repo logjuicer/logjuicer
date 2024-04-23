@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "update reports set created_at = '2024-01-01'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "72e3f9ae5b63ab5008a20a278631ea818f316408c097173c3943d2e6f71fd883"
+}

@@ -12,6 +12,22 @@ use thiserror::Error;
 
 mod default_excludes;
 
+#[derive(Clone)]
+pub struct DiskSizeLimit {
+    pub min: usize,
+    pub max: usize,
+}
+
+impl Default for DiskSizeLimit {
+    fn default() -> Self {
+        let gb = 1024 * 1024 * 1024;
+        DiskSizeLimit {
+            min: 5 * gb,
+            max: 10 * gb,
+        }
+    }
+}
+
 /// The loaded user config
 pub enum Config {
     /// A single global target config

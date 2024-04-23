@@ -8,11 +8,12 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
+use tokio::sync::Semaphore;
 
 // provides `try_next`
 use futures::TryStreamExt;
 
-use logjuicer_model::MODEL_VERSION;
+use logjuicer_model::{config::DiskSizeLimit, MODEL_VERSION};
 use logjuicer_report::{
     model_row::{ContentID, ModelRow},
     report_row::{FileSize, ReportID, ReportRow, ReportStatus},
@@ -25,6 +26,7 @@ pub struct Db {
 }
 
 const MODEL_VER: i64 = MODEL_VERSION as i64;
+static JANITOR: Semaphore = Semaphore::const_new(1);
 
 impl Db {
     pub async fn new(storage_dir: &str, sizes: Arc<AtomicUsize>) -> sqlx::Result<Db> {
@@ -79,8 +81,101 @@ impl Db {
     }
 
     #[cfg(test)]
-    pub async fn test_clean_old_models(&self, storage_dir: &str) -> sqlx::Result<()> {
-        self.clean_old_models(storage_dir).await
+    pub async fn increase_report_age(&self) -> sqlx::Result<()> {
+        sqlx::query!("update reports set created_at = '2024-01-01'")
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn reclaim_space(
+        &self,
+        storage_dir: &str,
+        disk_size_limit: DiskSizeLimit,
+    ) -> sqlx::Result<Option<(usize, usize, usize)>> {
+        let _janitor = JANITOR.acquire().await.unwrap();
+        let current = self.sizes.load(Ordering::Relaxed);
+        if current > disk_size_limit.max {
+            let amount = current - disk_size_limit.min;
+            match self.do_reclaim_space(storage_dir, amount).await {
+                Ok((model_count, report_count)) => {
+                    tracing::info!(amount, model_count, report_count, "Reclaimed disk space");
+                    Ok(Some((amount, model_count, report_count)))
+                }
+                Err(e) => {
+                    tracing::error!(error = e.to_string(), "Could not reclaim disk space");
+                    Err(e)
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn do_reclaim_space(
+        &self,
+        storage_dir: &str,
+        mut amount: usize,
+    ) -> sqlx::Result<(usize, usize)> {
+        let last_week = Utc::now().checked_sub_days(chrono::Days::new(7)).unwrap();
+        let last_week_str = format!("{}", last_week.format("%Y-%m-%d"));
+        let mut model_count: usize = 0;
+        let mut report_count: usize = 0;
+        while amount > 0 {
+            // remove models
+            let models = sqlx::query!(
+                "SELECT content_id, bytes_size FROM models WHERE created_at < ? ORDER BY created_at ASC LIMIT 20",
+                last_week_str
+            )
+            .fetch_all(&self.pool)
+            .await?;
+            let has_models = !models.is_empty();
+            for row in models {
+                crate::models::delete_model(storage_dir, &(row.content_id.clone().into()));
+                let model_size = row.bytes_size.unwrap_or(0) as usize;
+                self.sub_sizes(model_size);
+                amount = amount.saturating_sub(model_size);
+                model_count += 1;
+                sqlx::query!("delete from models where content_id != ?", row.content_id)
+                    .execute(&self.pool)
+                    .await
+                    .map(|_| ())?;
+                if amount == 0 {
+                    break;
+                }
+            }
+            if amount == 0 {
+                break;
+            }
+
+            // remove reports
+            let reports = sqlx::query!(
+                "SELECT id, bytes_size FROM reports WHERE created_at < ? ORDER BY created_at ASC LIMIT 20",
+                last_week_str
+            )
+            .fetch_all(&self.pool)
+            .await?;
+            let has_reports = !reports.is_empty();
+            for row in reports {
+                let report_size = row.bytes_size.unwrap_or(0) as usize;
+                self.sub_sizes(report_size);
+                amount = amount.saturating_sub(report_size);
+                report_count += 1;
+                let _ = std::fs::remove_file(format!("{storage_dir}/{}.gz", row.id));
+                sqlx::query!("delete from reports where id != ?", row.id)
+                    .execute(&self.pool)
+                    .await
+                    .map(|_| ())?;
+                if amount == 0 {
+                    break;
+                }
+            }
+
+            if !has_reports && !has_models {
+                break;
+            }
+        }
+        Ok((model_count, report_count))
     }
 
     async fn clean_old_models(&self, storage_dir: &str) -> sqlx::Result<()> {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use itertools::Itertools;
+use logjuicer_model::config::DiskSizeLimit;
 use logjuicer_model::env::TargetEnv;
 use logjuicer_model::ModelF;
 use logjuicer_report::model_row::ContentID;
@@ -37,12 +38,18 @@ pub struct Workers {
     pub db: Db,
     pub storage_dir: Arc<str>,
     pub current_files_size: Arc<AtomicUsize>,
+    size_limit: DiskSizeLimit,
 }
 
 const MAX_LOGJUICER_PROCESS: usize = 2;
 
 impl Workers {
-    pub async fn new(allow_any_sources: bool, storage_dir: Arc<str>, env: EnvConfig) -> Self {
+    pub async fn new(
+        allow_any_sources: bool,
+        storage_dir: Arc<str>,
+        size_limit: DiskSizeLimit,
+        env: EnvConfig,
+    ) -> Self {
         let current_files_size = Arc::new(AtomicUsize::new(0));
         std::fs::create_dir_all(format!("{storage_dir}/models")).unwrap();
         // TODO: migrate reports to a reports sub directory
@@ -58,6 +65,21 @@ impl Workers {
             models: Arc::new(RwLock::new(BTreeMap::new())),
             storage_dir,
             current_files_size,
+            size_limit,
+        }
+    }
+
+    fn reclaim_any_space(&self) {
+        if self
+            .current_files_size
+            .load(std::sync::atomic::Ordering::Relaxed)
+            > self.size_limit.max
+        {
+            let db = self.db.clone();
+            let storage_dir = self.storage_dir.clone();
+            let disk_size_limit = self.size_limit.clone();
+            tokio::runtime::Handle::current()
+                .spawn(async move { db.reclaim_space(&storage_dir, disk_size_limit).await });
         }
     }
 
@@ -82,11 +104,12 @@ impl Workers {
         }
     }
 
-    // TODO: deny this clippy warning
-    #[allow(clippy::map_entry)]
     pub fn submit(&self, report_id: ReportID, target: &str, baseline: Option<&str>) {
         if let Some(monitor) = report_lock(report_id, &self.reports) {
             tracing::info!("Submiting new url {}", target);
+
+            // Cleanup if necessary
+            self.reclaim_any_space();
 
             // Prepare worker variables
             let env = self.env.clone();

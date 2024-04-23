@@ -5,6 +5,7 @@
 
 use axum::routing::{get, put};
 use axum::{middleware::Next, response::IntoResponse};
+use logjuicer_model::config::DiskSizeLimit;
 use tower_http::services::ServeDir;
 use tower_http::trace::{self, TraceLayer};
 
@@ -47,6 +48,7 @@ fn setup_logging() {
 }
 
 use logjuicer_model::env::{EnvConfig, OutputMode};
+
 fn setup_env() -> anyhow::Result<EnvConfig> {
     match std::env::var_os("LOGJUICER_CONFIG") {
         None => Ok(EnvConfig::new()),
@@ -81,7 +83,7 @@ async fn main() {
     metrics::describe_counter!("http_request", "HTTP request count");
     metrics::describe_counter!("http_request_error", "HTTP request error count");
 
-    let workers = worker::Workers::new(false, "data".into(), env).await;
+    let workers = worker::Workers::new(false, "data".into(), DiskSizeLimit::default(), env).await;
 
     let mut app = axum::Router::new()
         .route("/ready", get(|| async { "ok" }))

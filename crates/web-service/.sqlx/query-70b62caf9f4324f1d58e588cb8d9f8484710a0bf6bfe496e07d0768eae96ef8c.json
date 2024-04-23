@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "delete from reports where id != ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "70b62caf9f4324f1d58e588cb8d9f8484710a0bf6bfe496e07d0768eae96ef8c"
+}

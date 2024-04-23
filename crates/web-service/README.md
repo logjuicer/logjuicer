@@ -74,7 +74,7 @@ Watch the report creation process.
 
 Hot reload the service with `cargo watch -x run`.
 
-When changing migrations or sqlx macro usages, run: `cargo sqlx prepare`.
+When changing migrations or sqlx macro usages, run: `cargo sqlx prepare -- --tests`.
 
 To create the database manually:
 

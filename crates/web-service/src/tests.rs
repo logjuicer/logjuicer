@@ -1,8 +1,8 @@
 // Copyright (C) 2024 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-use logjuicer_model::{env::EnvConfig, Model};
-use logjuicer_report::{report_row::ReportID, Content, ZuulBuild};
+use logjuicer_model::{config::DiskSizeLimit, env::EnvConfig, Model};
+use logjuicer_report::{Content, ZuulBuild};
 use mockito::Server;
 use std::sync::atomic::Ordering;
 use zuul_build::zuul_manifest;
@@ -107,6 +107,13 @@ Oops this is an error
 Second good line
 "#,
     );
+    let target2 = register_build(
+        &mut server,
+        "job-target-2",
+        r#"
+Oops this is an error
+"#,
+    );
     let baseline = register_build(
         &mut server,
         "job-success",
@@ -118,9 +125,16 @@ Second good line
 
     let tempdir = tempfile::tempdir().unwrap();
     let temppath = tempdir.path().to_str().unwrap();
-    let workers = crate::worker::Workers::new(true, temppath.into(), env).await;
-    let rid = ReportID(0);
-    workers.submit(rid, &get_job_url(&target), Some(&get_job_url(&baseline)));
+    let workers =
+        crate::worker::Workers::new(true, temppath.into(), DiskSizeLimit::default(), env).await;
+    let target = &get_job_url(&target);
+    let baseline = &get_job_url(&baseline);
+    let rid = workers
+        .db
+        .initialize_report(target, baseline)
+        .await
+        .unwrap();
+    workers.submit(rid, target, Some(baseline));
     assert!(workers
         .wait(rid)
         .await
@@ -131,9 +145,15 @@ Second good line
     assert_eq!(workers.db.get_models().await.unwrap().len(), 1);
     assert!(workers.current_files_size.load(Ordering::Relaxed) > 0);
 
-    workers.submit(rid, &get_job_url(&target), Some(&get_job_url(&baseline)));
+    let target2 = &get_job_url(&target2);
+    let rid2 = workers
+        .db
+        .initialize_report(target2, baseline)
+        .await
+        .unwrap();
+    workers.submit(rid2, target2, Some(baseline));
     assert!(workers
-        .wait(rid)
+        .wait(rid2)
         .await
         .iter()
         .any(|msg: &std::sync::Arc<str>| msg.as_bytes() == b"Loading existing model"));
@@ -143,18 +163,30 @@ Second good line
     assert!(model_path.exists());
 
     // Test old model removal
-    let prev_size = workers.current_files_size.load(Ordering::Relaxed);
-    let model_size = models[0].bytes_size.0 as usize;
     workers.db.deprecate_models().await.unwrap();
-    workers
-        .db
-        .test_clean_old_models(&workers.storage_dir)
-        .await
-        .unwrap();
+    let env = EnvConfig::new();
+    let workers =
+        crate::worker::Workers::new(true, temppath.into(), DiskSizeLimit::default(), env).await;
     assert!(!model_path.exists());
     assert_eq!(workers.db.get_models().await.unwrap().len(), 0);
-    assert_eq!(
-        workers.current_files_size.load(Ordering::Relaxed),
-        (prev_size - model_size)
-    );
+
+    // Check reclaim space
+    let reports = workers.db.get_reports().await.unwrap();
+    let report_size = reports[0].bytes_size.0 as usize;
+    workers.db.increase_report_age().await.unwrap();
+    let (amount, model_count, report_count) = workers
+        .db
+        .reclaim_space(
+            &workers.storage_dir,
+            DiskSizeLimit {
+                min: report_size,
+                max: report_size + 2,
+            },
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(amount > 0);
+    assert_eq!(model_count, 0);
+    assert_eq!(report_count, 1);
 }
