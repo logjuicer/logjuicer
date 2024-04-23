@@ -3,37 +3,69 @@
 
 //! This module contains the database logic.
 
+use sqlx::types::chrono::Utc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+
 // provides `try_next`
 use futures::TryStreamExt;
 
 use logjuicer_model::MODEL_VERSION;
-use sqlx::types::chrono::Utc;
-
 use logjuicer_report::{
     model_row::{ContentID, ModelRow},
     report_row::{FileSize, ReportID, ReportRow, ReportStatus},
 };
 
 #[derive(Clone)]
-pub struct Db(sqlx::SqlitePool);
+pub struct Db {
+    pool: sqlx::SqlitePool,
+    sizes: Arc<AtomicUsize>,
+}
 
 const MODEL_VER: i64 = MODEL_VERSION as i64;
 
 impl Db {
-    pub async fn new(storage_dir: &str) -> sqlx::Result<Db> {
+    pub async fn new(storage_dir: &str, sizes: Arc<AtomicUsize>) -> sqlx::Result<Db> {
         let db_url = format!("sqlite://{storage_dir}/logjuicer.sqlite?mode=rwc");
         let pool = sqlx::SqlitePool::connect(&db_url).await?;
         sqlx::migrate!("./migrations").run(&pool).await?;
-        let db = Db(pool);
+        let db = Db { pool, sizes };
         db.clean_pending().await?;
         db.clean_old_models(storage_dir).await?;
+        db.add_sizes(db.get_files_size().await?);
         Ok(db)
+    }
+
+    fn add_sizes(&self, value: usize) {
+        self.sizes.fetch_add(value, Ordering::Relaxed);
+    }
+
+    fn sub_sizes(&self, value: usize) {
+        let _ = self
+            .sizes
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |prev| {
+                Some(prev.saturating_sub(value))
+            });
+    }
+
+    async fn get_files_size(&self) -> sqlx::Result<usize> {
+        let models = sqlx::query!("select SUM(bytes_size) as size from models")
+            .map(|r| r.size.unwrap_or(0))
+            .fetch_one(&self.pool)
+            .await?;
+        let reports = sqlx::query!("select SUM(bytes_size) as size from reports")
+            .map(|r| r.size.unwrap_or(0))
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(models as usize + reports as usize)
     }
 
     async fn clean_pending(&self) -> sqlx::Result<()> {
         let status = ReportStatus::Pending.as_str();
         sqlx::query!("delete from reports where status = ?", status)
-            .execute(&self.0)
+            .execute(&self.pool)
             .await
             .map(|_| ())
     }
@@ -41,7 +73,7 @@ impl Db {
     #[cfg(test)]
     pub async fn deprecate_models(&self) -> sqlx::Result<()> {
         sqlx::query!("update models set version = 0")
-            .execute(&self.0)
+            .execute(&self.pool)
             .await
             .map(|_| ())
     }
@@ -57,17 +89,17 @@ impl Db {
             MODEL_VER
         )
         .map(|row| row.content_id.into())
-        .fetch(&self.0);
+        .fetch(&self.pool);
         let mut clean_count = 0;
-        while let Some(row) = rows.try_next().await? {
-            crate::models::delete_model(storage_dir, &row);
+        while let Some(content_id) = rows.try_next().await? {
+            crate::models::delete_model(storage_dir, &content_id);
             clean_count += 1;
         }
         if clean_count > 0 {
             tracing::info!(count = clean_count, "Cleaned old models");
         }
         sqlx::query!("delete from models where version != ?", MODEL_VER)
-            .execute(&self.0)
+            .execute(&self.pool)
             .await
             .map(|_| ())
     }
@@ -77,7 +109,7 @@ impl Db {
         ReportRow,
         "select id, created_at, updated_at, target, baseline, anomaly_count, status, bytes_size from reports order by id desc"
     )
-        .fetch_all(&self.0)
+        .fetch_all(&self.pool)
         .await
     }
 
@@ -87,7 +119,7 @@ impl Db {
     ) -> sqlx::Result<Option<ReportStatus>> {
         sqlx::query!("select status from reports where id = ?", report_id.0)
             .map(|row| row.status.into())
-            .fetch_optional(&self.0)
+            .fetch_optional(&self.pool)
             .await
     }
 
@@ -102,7 +134,7 @@ impl Db {
             baseline
         )
         .map(|row| (row.id.into(), row.status.into()))
-        .fetch_optional(&self.0)
+        .fetch_optional(&self.pool)
         .await
     }
 
@@ -115,6 +147,7 @@ impl Db {
     ) -> sqlx::Result<()> {
         let now = Utc::now();
         let count = anomaly_count as i64;
+        self.add_sizes(size.0 as usize);
         let size = size.0 as i64;
         let status = status.as_str();
         sqlx::query!(
@@ -125,7 +158,7 @@ impl Db {
             size,
             report_id.0,
         )
-        .execute(&self.0)
+        .execute(&self.pool)
         .await
         .map(|_| ())
     }
@@ -143,7 +176,7 @@ impl Db {
             0,
             status
         )
-        .execute(&self.0)
+        .execute(&self.pool)
         .await?
         .last_insert_rowid();
         Ok(id.into())
@@ -154,7 +187,7 @@ impl Db {
             ModelRow,
             "select content_id, version, created_at, bytes_size from models"
         )
-        .fetch_all(&self.0)
+        .fetch_all(&self.pool)
         .await
     }
 
@@ -164,12 +197,13 @@ impl Db {
             content_id.0
         )
         .map(|_row| ())
-        .fetch_optional(&self.0)
+        .fetch_optional(&self.pool)
         .await
     }
 
     pub async fn add_model(&self, content_id: &ContentID, size: FileSize) -> sqlx::Result<()> {
         let now_utc = Utc::now();
+        self.add_sizes(size.0 as usize);
         let size = size.0 as i64;
         sqlx::query!(
             "insert into models (content_id, version, created_at, bytes_size)
@@ -179,7 +213,7 @@ impl Db {
             now_utc,
             size,
         )
-        .execute(&self.0)
+        .execute(&self.pool)
         .await
         .map(|_| ())
     }

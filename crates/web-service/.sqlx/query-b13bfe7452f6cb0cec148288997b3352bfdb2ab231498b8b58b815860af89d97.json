@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "select SUM(bytes_size) as size from models",
+  "describe": {
+    "columns": [
+      {
+        "name": "size",
+        "ordinal": 0,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "b13bfe7452f6cb0cec148288997b3352bfdb2ab231498b8b58b815860af89d97"
+}
