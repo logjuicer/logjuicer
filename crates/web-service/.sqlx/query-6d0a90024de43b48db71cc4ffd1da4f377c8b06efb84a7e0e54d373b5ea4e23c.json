@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "select id, created_at, updated_at, target, baseline, anomaly_count, status from reports order by id desc",
+  "query": "select id, created_at, updated_at, target, baseline, anomaly_count, status, bytes_size from reports order by id desc",
   "describe": {
     "columns": [
       {
@@ -37,6 +37,11 @@
         "name": "status",
         "ordinal": 6,
         "type_info": "Text"
+      },
+      {
+        "name": "bytes_size",
+        "ordinal": 7,
+        "type_info": "Int64"
       }
     ],
     "parameters": {
@@ -49,8 +54,9 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "6d2617eb9194ac486d9144fb98387ee2ffa450f4dbd2ad582b9437978afba6e4"
+  "hash": "6d0a90024de43b48db71cc4ffd1da4f377c8b06efb84a7e0e54d373b5ea4e23c"
 }

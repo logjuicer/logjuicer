@@ -1,0 +1,2 @@
+ALTER TABLE reports ADD COLUMN bytes_size INTEGER;
+ALTER TABLE models  ADD COLUMN bytes_size INTEGER;

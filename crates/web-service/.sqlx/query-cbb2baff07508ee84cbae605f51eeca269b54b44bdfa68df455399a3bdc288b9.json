@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "select content_id, version, created_at from models",
+  "query": "select content_id, version, created_at, bytes_size from models",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "name": "created_at",
         "ordinal": 2,
         "type_info": "Datetime"
+      },
+      {
+        "name": "bytes_size",
+        "ordinal": 3,
+        "type_info": "Int64"
       }
     ],
     "parameters": {
@@ -25,8 +30,9 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "1e8df02fa654db09219d7bf95fbb744ac5c73bdfa96e0ae796a74d77dda6ea7c"
+  "hash": "cbb2baff07508ee84cbae605f51eeca269b54b44bdfa68df455399a3bdc288b9"
 }

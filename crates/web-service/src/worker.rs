@@ -5,6 +5,7 @@ use itertools::Itertools;
 use logjuicer_model::env::TargetEnv;
 use logjuicer_model::ModelF;
 use logjuicer_report::model_row::ContentID;
+use logjuicer_report::report_row::FileSize;
 use logjuicer_report::Content;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -102,32 +103,39 @@ impl Workers {
                     allow_any_sources,
                 };
                 let monitor = &penv.monitor;
-                let (status, count) = match process_report_safe(&penv, &env, &target, baseline) {
-                    Ok(report) => {
-                        let count = report.anomaly_count();
-                        let fp = format!("{}/{}.gz", penv.storage_dir, report_id);
-                        let status = if let Err(err) = report.save(std::path::Path::new(&fp)) {
-                            tracing::error!("{}: failed to save report: {}", fp, err);
-                            monitor.emit(format!("Error: saving failed: {}", err).into());
-                            ReportStatus::Error(format!("Save error: {}", err))
-                        } else {
-                            tracing::info!("{}: saved report", fp);
-                            monitor.emit("Done".into());
-                            ReportStatus::Completed
-                        };
-                        (status, count)
-                    }
-                    Err(e) => {
-                        monitor.emit(format!("Error: {}", e).into());
-                        (ReportStatus::Error(e), 0)
-                    }
-                };
+                let (status, count, size) =
+                    match process_report_safe(&penv, &env, &target, baseline) {
+                        Ok(report) => {
+                            let count = report.anomaly_count();
+                            let fp = format!("{}/{}.gz", penv.storage_dir, report_id);
+                            let path = std::path::Path::new(&fp);
+                            let (status, size) = if let Err(err) = report.save(path) {
+                                tracing::error!("{}: failed to save report: {}", fp, err);
+                                monitor.emit(format!("Error: saving failed: {}", err).into());
+                                (
+                                    ReportStatus::Error(format!("Save error: {}", err)),
+                                    FileSize(0),
+                                )
+                            } else {
+                                tracing::info!("{}: saved report", fp);
+                                monitor.emit("Done".into());
+                                (ReportStatus::Completed, FileSize::from(path))
+                            };
+                            (status, count, size)
+                        }
+                        Err(e) => {
+                            monitor.emit(format!("Error: {}", e).into());
+                            (ReportStatus::Error(e), 0, FileSize(0))
+                        }
+                    };
                 // Remove the monitor
                 let _ = reports.write().unwrap().remove(&report_id);
                 // Record the result into the db
-                handle.spawn(
-                    async move { db.update_report(report_id, count, &status).await.unwrap() },
-                );
+                handle.spawn(async move {
+                    db.update_report(report_id, count, &status, size)
+                        .await
+                        .unwrap()
+                });
             })
         } else {
             tracing::info!("Url already submitted {}", target);
@@ -347,11 +355,12 @@ fn process_model(
             })?;
 
             emit("Saving the model".into());
-            crate::models::save_model(&penv.storage_dir, &content_id, &model)?;
+            let path = crate::models::save_model(&penv.storage_dir, &content_id, &model)?;
+            let size = FileSize::from(path.as_path());
 
             // Add the model to the db
             penv.handle
-                .block_on(penv.db.add_model(&content_id))
+                .block_on(penv.db.add_model(&content_id, size))
                 .map_err(|e| format!("Adding the model to the db failed: {:?}", e))?;
 
             // Remove the monitor

@@ -45,4 +45,5 @@ pub struct ModelRow {
     pub content_id: ContentID,
     pub version: i64,
     pub created_at: NaiveDateTime,
+    pub bytes_size: crate::report_row::FileSize,
 }
