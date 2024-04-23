@@ -1,12 +1,12 @@
 {
   "db_name": "SQLite",
-  "query": "select content_id, bytes_size from models where version != ?",
+  "query": "SELECT id, bytes_size FROM reports WHERE created_at < ? ORDER BY created_at ASC LIMIT 20",
   "describe": {
     "columns": [
       {
-        "name": "content_id",
+        "name": "id",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Int64"
       },
       {
         "name": "bytes_size",
@@ -22,5 +22,5 @@
       true
     ]
   },
-  "hash": "345ff918a82a58aac8eec2de5165dd481cb36a5b33c39f0ad794625a126ccfd3"
+  "hash": "83c20823d79b58e7eafb19bde539b6f3b3066280dfab60f350418461eb8ce119"
 }
