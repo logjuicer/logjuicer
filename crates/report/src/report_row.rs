@@ -58,6 +58,27 @@ impl From<String> for ReportStatus {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct FileSize(pub u64);
+
+impl From<Option<i64>> for FileSize {
+    fn from(value: Option<i64>) -> Self {
+        FileSize(value.unwrap_or(0) as u64)
+    }
+}
+
+impl From<&std::path::Path> for FileSize {
+    fn from(value: &std::path::Path) -> Self {
+        FileSize(
+            std::fs::metadata(value)
+                .ok()
+                .map(|metadata| metadata.len())
+                .unwrap_or(0),
+        )
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReportRow {
     pub id: ReportID,
@@ -67,4 +88,5 @@ pub struct ReportRow {
     pub baseline: Box<str>,
     pub anomaly_count: i64,
     pub status: ReportStatus,
+    pub bytes_size: FileSize,
 }

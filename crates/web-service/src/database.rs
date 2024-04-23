@@ -11,7 +11,7 @@ use sqlx::types::chrono::Utc;
 
 use logjuicer_report::{
     model_row::{ContentID, ModelRow},
-    report_row::{ReportID, ReportRow, ReportStatus},
+    report_row::{FileSize, ReportID, ReportRow, ReportStatus},
 };
 
 #[derive(Clone)]
@@ -75,7 +75,7 @@ impl Db {
     pub async fn get_reports(&self) -> sqlx::Result<Vec<ReportRow>> {
         sqlx::query_as!(
         ReportRow,
-        "select id, created_at, updated_at, target, baseline, anomaly_count, status from reports order by id desc"
+        "select id, created_at, updated_at, target, baseline, anomaly_count, status, bytes_size from reports order by id desc"
     )
         .fetch_all(&self.0)
         .await
@@ -111,16 +111,19 @@ impl Db {
         report_id: ReportID,
         anomaly_count: usize,
         status: &ReportStatus,
+        size: FileSize,
     ) -> sqlx::Result<()> {
         let now = Utc::now();
         let count = anomaly_count as i64;
+        let size = size.0 as i64;
         let status = status.as_str();
         sqlx::query!(
-            "update reports set updated_at = ?, anomaly_count = ?, status = ? where id = ?",
+            "update reports set updated_at = ?, anomaly_count = ?, status = ?, bytes_size = ? where id = ?",
             now,
             count,
             status,
-            report_id.0
+            size,
+            report_id.0,
         )
         .execute(&self.0)
         .await
@@ -149,7 +152,7 @@ impl Db {
     pub async fn get_models(&self) -> sqlx::Result<Vec<ModelRow>> {
         sqlx::query_as!(
             ModelRow,
-            "select content_id, version, created_at from models"
+            "select content_id, version, created_at, bytes_size from models"
         )
         .fetch_all(&self.0)
         .await
@@ -165,14 +168,16 @@ impl Db {
         .await
     }
 
-    pub async fn add_model(&self, content_id: &ContentID) -> sqlx::Result<()> {
+    pub async fn add_model(&self, content_id: &ContentID, size: FileSize) -> sqlx::Result<()> {
         let now_utc = Utc::now();
+        let size = size.0 as i64;
         sqlx::query!(
-            "insert into models (content_id, version, created_at)
-                      values (?, ?, ?)",
+            "insert into models (content_id, version, created_at, bytes_size)
+                      values (?, ?, ?, ?)",
             content_id.0,
             MODEL_VER,
             now_utc,
+            size,
         )
         .execute(&self.0)
         .await
