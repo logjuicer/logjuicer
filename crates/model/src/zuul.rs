@@ -9,7 +9,7 @@ use std::io::Read;
 use url::Url;
 
 use crate::env::Env;
-use crate::{Baselines, Content, Source};
+use crate::{Content, Source};
 use logjuicer_report::{ApiUrl, ZuulBuild};
 
 fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
@@ -153,7 +153,7 @@ fn logs_available(env: &Env, target: &zuul_build::Build) -> bool {
     }
 }
 
-pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Baselines> {
+pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Vec<Content>> {
     let samples = zuul_build_success_samples(build, env)?;
     let max_builds = 1;
     let now = Utc::now().date_naive();

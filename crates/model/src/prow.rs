@@ -7,7 +7,7 @@ use std::io::Read;
 use url::Url;
 
 use crate::env::Env;
-use crate::{Baselines, Content, Source};
+use crate::{Content, Source};
 use logjuicer_report::ProwBuild;
 
 fn is_prow_uid(uid: &str) -> bool {
@@ -129,7 +129,7 @@ fn from_build_result(build: &ProwBuild, br: prow_build::BuildResult) -> Result<P
     })
 }
 
-pub fn discover_baselines(build: &ProwBuild, env: &Env) -> Result<Baselines> {
+pub fn discover_baselines(build: &ProwBuild, env: &Env) -> Result<Vec<Content>> {
     let client = prow_build::Client {
         client: env.client.clone(),
         api_url: build.url.clone(),

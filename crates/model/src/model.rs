@@ -65,14 +65,11 @@ impl Input {
     }
 }
 
-/// A list of nominal content, e.g. a successful build.
-type Baselines = Vec<Content>;
-
 /// An archive of baselines that is used to search anomaly.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Model<IR: IndexReader> {
     pub created_at: SystemTime,
-    pub baselines: Baselines,
+    pub baselines: Vec<Content>,
     pub indexes: HashMap<IndexName, Index<IR>>,
 }
 
@@ -316,7 +313,7 @@ pub fn content_from_pathbuf(p: PathBuf) -> Content {
 
 /// Discover the baselines for this Content.
 #[tracing::instrument(level = "debug", skip(env))]
-pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Baselines> {
+pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Vec<Content>> {
     (match content {
         Content::File(src) => match src {
             Source::Local(_, pathbuf) => {
@@ -423,7 +420,7 @@ impl<IR: IndexReader> Model<IR> {
     #[tracing::instrument(level = "debug", skip(env))]
     pub fn train<IB: Default + IndexBuilder<Reader = IR>>(
         env: &TargetEnv,
-        mut baselines: Baselines,
+        mut baselines: Vec<Content>,
     ) -> Result<Model<IR>> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
