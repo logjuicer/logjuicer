@@ -371,33 +371,42 @@ fn process_model(
             crate::models::load_model(&penv.storage_dir, &content_id)
         }
         ModelStatus::ToBuild(model_monitor) => {
-            let emit = |msg: Arc<str>| {
-                penv.monitor.emit(msg.clone());
-                model_monitor.emit(msg);
-            };
-            emit("Building the model".into());
-            let model = logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
-                logjuicer_model::FeaturesMatrixBuilder,
-            >(target_env, vec![content])
-            .map_err(|e| {
-                let msg = format!("Training the model failed: {:?}", e);
-                emit(msg.clone().into());
-                msg
-            })?;
-
-            emit("Saving the model".into());
-            let path = crate::models::save_model(&penv.storage_dir, &content_id, &model)?;
-            let size = FileSize::from(path.as_path());
-
-            // Add the model to the db
-            penv.handle
-                .block_on(penv.db.add_model(&content_id, size))
-                .map_err(|e| format!("Adding the model to the db failed: {:?}", e))?;
-
+            let result = do_process_model(model_monitor, penv, target_env, content, &content_id);
             // Remove the monitor
             let _ = penv.models_lock.write().unwrap().remove(&content_id);
-
-            Ok(model)
+            result
         }
     }
+}
+
+fn do_process_model(
+    model_monitor: ProcessMonitor,
+    penv: &ProcessEnv,
+    target_env: &TargetEnv,
+    content: Content,
+    content_id: &ContentID,
+) -> Result<ModelF, String> {
+    let emit = |msg: Arc<str>| {
+        penv.monitor.emit(msg.clone());
+        model_monitor.emit(msg);
+    };
+    emit("Building the model".into());
+    let model = logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
+        logjuicer_model::FeaturesMatrixBuilder,
+    >(target_env, vec![content])
+    .map_err(|e| {
+        let msg = format!("Training the model failed: {:?}", e);
+        emit(msg.clone().into());
+        msg
+    })?;
+
+    emit("Saving the model".into());
+    let path = crate::models::save_model(&penv.storage_dir, content_id, &model)?;
+    let size = FileSize::from(path.as_path());
+
+    // Add the model to the db
+    penv.handle
+        .block_on(penv.db.add_model(content_id, size))
+        .map_err(|e| format!("Adding the model to the db failed: {:?}", e))?;
+    Ok(model)
 }
