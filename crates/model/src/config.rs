@@ -63,6 +63,10 @@ impl Config {
         Config::from_reader(env, path, file)
     }
 
+    pub fn test_from_yaml(env: &Env, s: &str) -> Self {
+        Self::from_reader(Some(env), "test.yaml".into(), std::io::Cursor::new(s)).unwrap()
+    }
+
     fn from_reader<R: std::io::Read>(
         env: Option<&Env>,
         path: PathBuf,
