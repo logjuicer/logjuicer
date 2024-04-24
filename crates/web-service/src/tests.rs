@@ -1,15 +1,16 @@
 // Copyright (C) 2024 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-use logjuicer_model::{config::DiskSizeLimit, env::EnvConfig, Model};
-use logjuicer_report::{Content, ZuulBuild};
+use logjuicer_model::env::EnvConfig;
+use logjuicer_model::{config::DiskSizeLimit, env::Env, Model};
+use logjuicer_report::{Content, Report, ZuulBuild};
 use mockito::Server;
 use std::sync::atomic::Ordering;
 use zuul_build::zuul_manifest;
 
 fn register_build(server: &mut Server, name: &str, content: &str) -> Content {
     let mut build = ZuulBuild::sample(name);
-    let path = format!("/logs/{}/", name);
+    let path = format!("/logs/{}/artifacts/", name);
     build.log_url = url::Url::parse(&server.url()).unwrap().join(&path).unwrap();
     let manifest = zuul_manifest::Manifest {
         tree: vec![zuul_manifest::Tree {
@@ -189,4 +190,70 @@ Second good line
     assert!(amount > 0);
     assert_eq!(model_count, 0);
     assert_eq!(report_count, 1);
+}
+
+#[tokio::test]
+async fn test_api_extra_baselines() {
+    // Create builds results
+    let mut server = mockito::Server::new();
+    let target = register_build(
+        &mut server,
+        "job-target",
+        r#"
+First good line
+Oops this is an error
+Second good line
+"#,
+    );
+    let baseline = register_build(
+        &mut server,
+        "job-success",
+        r#"
+First good line
+Second good line
+"#,
+    );
+    let extra = register_build(
+        &mut server,
+        "job-extra",
+        r#"
+Oops this is an error
+"#,
+    );
+    let extra_url = get_job_url(&extra);
+    use logjuicer_model::config::Config;
+    let gl = Env::new();
+    let config = Config::test_from_yaml(
+        &gl,
+        &format!(
+            "
+- match_job: job-target
+  config:
+    extra_baselines:
+      - {extra_url}
+",
+        ),
+    );
+    let env = EnvConfig { gl, config };
+
+    let tempdir = tempfile::tempdir().unwrap();
+    let temppath = tempdir.path().to_str().unwrap();
+    let workers =
+        crate::worker::Workers::new(true, temppath.into(), DiskSizeLimit::default(), env).await;
+    let target = &get_job_url(&target);
+    let baseline = &get_job_url(&baseline);
+    let rid = workers
+        .db
+        .initialize_report(target, baseline)
+        .await
+        .unwrap();
+    workers.submit(rid, target, Some(baseline));
+    let logs = workers.wait(rid).await;
+    // dbg!(&logs);
+    assert!(logs
+        .iter()
+        .any(|msg: &std::sync::Arc<str>| msg.as_bytes() == b"Building the model"));
+    let report = Report::load(&tempdir.path().join("1.gz")).unwrap();
+    // dbg!(&report);
+    assert_eq!(report.total_anomaly_count, 0);
 }
