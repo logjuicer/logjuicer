@@ -219,11 +219,17 @@ impl<IR: IndexReader> Index<IR> {
         let mut trainer = process::IndexTrainer::new(builder, is_json);
         for source in sources {
             let reader = match source {
-                Source::Local(_, path_buf) => file_open(path_buf.as_path())?,
-                Source::Remote(prefix, url) => url_open(env.gl, *prefix, url)?,
+                Source::Local(_, path_buf) => file_open(path_buf.as_path()),
+                Source::Remote(prefix, url) => url_open(env.gl, *prefix, url),
             };
-            if let Err(e) = trainer.add(env.config, reader) {
-                tracing::error!("{}: failed to load: {}", source, e)
+            // TODO: record training errors?
+            match reader {
+                Ok(reader) => {
+                    if let Err(e) = trainer.add(env.config, reader) {
+                        tracing::error!("{}: failed to load: {}", source, e)
+                    }
+                }
+                Err(e) => tracing::error!("{}: failed to read {}", source, e),
             }
         }
         let line_count = trainer.line_count;
