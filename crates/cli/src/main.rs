@@ -543,7 +543,6 @@ fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix
                     }
                     Err(err) => {
                         println!("Could not read {}: {}", &source, err);
-                        break;
                     }
                 }
             }
