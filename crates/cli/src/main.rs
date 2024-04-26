@@ -435,6 +435,7 @@ fn process(
     }?;
 
     tracing::debug!("Inspecting");
+
     match report {
         None => process_live(env, &content, &model),
         Some((file, open)) => {
@@ -445,6 +446,7 @@ fn process(
                     report
                         .save(file)
                         .context("Failed to write the binary report")?;
+                    tracing::info!("Wrote report {:?}", file);
                     let index = write_html(file, web_package_url)?;
                     if open {
                         let name = file
@@ -457,14 +459,26 @@ fn process(
                     }
                 }
                 .context("Failed to write the report"),
-                Some("json") => serde_json::to_writer(std::fs::File::create(file)?, &report)
-                    .context("Failted to write the json report"),
-                _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
+                Some("json") => write_json_report(file, report),
+                _ => {
+                    tracing::info!(
+                        "Unable to determine report type via the filename's extention {:?}.",
+                        file
+                    );
+                    tracing::info!("Defaulting to report.json");
+                    write_json_report(&PathBuf::from("report.json"), report)
+                }
             }?;
-            tracing::info!("Wrote report {:?}", file);
             Ok(())
         }
     }
+}
+
+fn write_json_report(file: &PathBuf, report: Report) -> Result<()> {
+    let res = serde_json::to_writer(std::fs::File::create(file)?, &report)
+        .context("Failed to write the json report");
+    tracing::info!("Wrote report {:?}", file);
+    res
 }
 
 fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix>) -> Result<()> {
