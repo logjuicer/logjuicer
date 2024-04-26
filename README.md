@@ -14,6 +14,13 @@ LogJuicer implements a custom diffing process to compare logs:
 * Lines are converted into feature vectors using the hashing trick.
 * The logs are compared using cosine similarity.
 
+LogJuicer features a discovery mechanism to automatically find the source of
+the diff for some targets (called baselines):
+
+* A `service.log` file will be compared with the last `service.log-YYYYDDMM`.
+* CI builds baselines may be found through the external service API.
+
+When the baseline discovery fails, the diff's source must be provided.
 
 ## Install
 
