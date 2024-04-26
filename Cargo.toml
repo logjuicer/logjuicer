@@ -63,6 +63,7 @@ tracing-chrome = "0.7"
 # algo
 fxhash = "0"
 flate2 = "1"
+libz-sys = { version = "*", features = ["static"] }
 sha2 = "0"
 rand = "0"
 rand_chacha = "0"
