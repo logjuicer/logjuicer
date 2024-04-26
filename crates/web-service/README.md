@@ -56,7 +56,7 @@ Return the report containing the anomalies.
 ### Create a report
 
 ```ShellSession
-curl localhost:3000/api/report/new?target=$URL
+curl -XPUT localhost:3000/api/report/new?target=$URL
 ```
 
 Returns the ReportID, ReportStatus
