@@ -11,11 +11,19 @@ use web_sys::Url;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
+    // Display a report
     Report(ReportID),
+    // Display a similarity report
     Similarity(ReportID),
+    // Watch a report (from the audit page)
     Watch(ReportID),
+    // Request a new report
     NewReport(Rc<str>, Option<Rc<str>>),
+    // Request a new similarity report
+    NewSimilarity(Rc<str>),
+    // The welcome page
     Welcome,
+    // The audit page
     Audit,
 }
 
@@ -28,6 +36,12 @@ impl Route {
             let baseline = params.get("baseline");
             if let Some(target) = params.get("target") {
                 Route::NewReport(target.into(), baseline.map(|s| s.into()))
+            } else {
+                Route::Welcome
+            }
+        } else if path.ends_with("/similarity/new") {
+            if let Some(reports) = params.get("reports") {
+                Route::NewSimilarity(reports.into())
             } else {
                 Route::Welcome
             }
@@ -57,6 +71,9 @@ impl Route {
             Route::NewReport(target, None) => format!("{}report/new?target={}", base, target),
             Route::NewReport(target, Some(baseline)) => {
                 format!("{}report/new?target={}&baseline={}", base, target, baseline)
+            }
+            Route::NewSimilarity(reports) => {
+                format!("{}similarity/new?reports={reports}", base)
             }
             Route::Watch(report_id) => format!("{}report/watch/{}", base, report_id),
             Route::Report(report_id) => format!("{}report/{}", base, report_id),
@@ -110,6 +127,11 @@ impl App {
             None => format!("{base}api/report/new?target={target}"),
             Some(baseline) => format!("{base}api/report/new?target={target}&baseline={baseline}"),
         }
+    }
+
+    pub fn new_similarity_url(&self, reports: &str) -> String {
+        let base = &self.base_path;
+        format!("{base}api/similarity/new?reports={reports}")
     }
 
     pub fn ws_report_url(&self, report_id: ReportID) -> String {
