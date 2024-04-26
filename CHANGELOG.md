@@ -4,6 +4,7 @@ next-version
 - config: add extra_baselines option.
 - api: save trained models for faster re-use.
 - model: ignore 404 symlinks when training.
+- report: add initial similarity format and api.
 
 0.9.11
 ======

@@ -7,6 +7,8 @@ use dominator::{clone, events, html, link, text, with_node, Dom, EventOptions};
 use futures_signals::signal::Mutable;
 use futures_signals::signal_vec::MutableVec;
 use gloo_console::log;
+use itertools::Itertools;
+use std::collections::HashSet;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
@@ -17,40 +19,83 @@ use crate::dom_utils::*;
 use crate::state::{App, Route};
 
 const TH_CLASS: [&str; 2] = ["px-3", "py-2"];
+const BTN_CLASS: [&str; 8] = [
+    "whitespace-nowrap",
+    "rounded",
+    "px-2",
+    "py-1",
+    "text-white",
+    "font-bold",
+    "bg-blue-500",
+    "hover:bg-blue-700",
+];
 
-fn render_report_row(state: &Rc<App>, report: &ReportRow) -> Dom {
+// The list of selected reports
+type Selected = Mutable<HashSet<ReportID>>;
+
+fn render_report_row(state: &Rc<App>, selected: &Selected, report: &ReportRow) -> Dom {
     let (report_route, name) = match &report.target {
         ReportKind::Similarity => (Route::Similarity(report.id), "similarity"),
         ReportKind::Target(target) => (Route::Report(report.id), target.as_str()),
     };
-    let status = match &report.status {
-        ReportStatus::Pending => {
-            link!(state.to_url(Route::Watch(report.id)), {.text("watch")})
-        }
-        ReportStatus::Completed => {
-            link!(state.to_url(report_route), {.text("read")})
-        }
-        ReportStatus::Error(err) => {
-            link!(state.to_url(report_route), {.text("error").attr("title", &err)})
-        }
+    let rid = report.id;
+    let (m_checkbox, status) = match &report.status {
+        ReportStatus::Pending => (
+            None,
+            if name != "similarity" {
+                link!(state.to_url(Route::Watch(report.id)), {.text("watch")})
+            } else {
+                // These are fast, if needed, improve the Watch route to handle the similarity case
+                html!("div", {.text("pending")})
+            },
+        ),
+        ReportStatus::Completed => (
+            // The selection checkbox updates the selected list on click
+            if name != "similarity" {
+                Some(html!("input" => HtmlInputElement, {
+                    .attr("type", "checkbox")
+                    .with_node!(element => {
+                        .event(clone!(selected => move |_: events::Input| {
+                            let mut lock = selected.lock_mut();
+                            if element.checked() {
+                                lock.insert(rid);
+                            } else {
+                                lock.remove(&rid);
+                            }
+                        }))
+                    })
+                }))
+            } else {
+                None
+            },
+            link!(state.to_url(report_route), {.text("read")}),
+        ),
+        ReportStatus::Error(err) => (
+            None,
+            link!(state.to_url(report_route), {.text("error").attr("title", &err)}),
+        ),
     };
     html!("tr", {.class(["border-b", "px-6"]).children(&mut [
-            html!("td", {.class(TH_CLASS).child(status)}),
-            html!("td", {.class(TH_CLASS).text(&format!("{}", report.anomaly_count))}),
-            html!("td", {.class(TH_CLASS).text(name)}),
-            html!("td", {.class(TH_CLASS).text(&report.baseline)}),
-            html!("td", {.class(TH_CLASS).text(&format!("{}", report.updated_at))}),
-        ])
-    })
+        match m_checkbox {
+            None => html!("td"),
+            Some(dom) => html!("td", {.class(TH_CLASS).child(dom)})
+        },
+        html!("td", {.class(TH_CLASS).child(status)}),
+        html!("td", {.class(TH_CLASS).text(&format!("{}", report.anomaly_count))}),
+        html!("td", {.class(TH_CLASS).text(name)}),
+        html!("td", {.class(TH_CLASS).text(&report.baseline)}),
+        html!("td", {.class(TH_CLASS).text(&format!("{}", report.updated_at))}),
+    ])})
 }
 
-fn render_report_rows(state: &Rc<App>, reports: &[ReportRow]) -> Dom {
+fn render_report_rows(state: &Rc<App>, selected: &Selected, reports: &[ReportRow]) -> Dom {
     let mut tbody = reports
         .iter()
-        .map(|row| render_report_row(state, row))
+        .map(|row| render_report_row(state, selected, row))
         .collect::<Vec<Dom>>();
     html!("table", {.class(["my-6", "w-full", "text-sm", "text-left"]).children(&mut [
         html!("thead", {.class(["bg-slate-100"]).children(&mut [
+            html!("th", {.class(TH_CLASS).text("Select")}),
             html!("th", {.class(TH_CLASS).text("Status")}),
             html!("th", {.class(TH_CLASS).text("Anomaly")}),
             html!("th", {.class(TH_CLASS).text("URL")}),
@@ -95,8 +140,7 @@ fn render_input(state: &Rc<App>) -> Dom {
                 })
         }),
         html!("div", {.class(["flex", "justify-center", "mt-2", "gap-2"]).visible_signal(show_submit.signal()).children(&mut [
-            html!("button", {.class(["whitespace-nowrap", "rounded", "px-2", "py-1", "text-white", "font-bold", "bg-blue-500", "hover:bg-blue-700"])
-                             .text("LogJuicer Search")}),
+            html!("button", {.class(BTN_CLASS).text("LogJuicer Search")}),
             html!("input" => HtmlInputElement, {
                 .class(["w-full", "rounded", "border", "pl-1"])
                     .attr("placeholder", "Baseline URL")
@@ -146,12 +190,28 @@ pub fn do_render_audit(state: &Rc<App>) -> Dom {
         let resp = request_reports(&url).await;
         reports.replace(Some(resp));
     }));
+
+    let selected = Mutable::new(HashSet::new());
+    fn render_selected(state: Rc<App>, xs: &HashSet<ReportID>) -> Option<Dom> {
+        if xs.is_empty() {
+            None
+        } else {
+            let selections = xs.iter().sorted().map(|rid| format!("{rid}")).join(":");
+            Some(
+                html!("button", {.class(BTN_CLASS).text(&format!("Compare: {}", selections)).event(move |_: events::Click| {
+                    state.visit(Route::NewSimilarity(selections.clone().into()));
+                })}),
+            )
+        }
+    }
+
     html!("div", {.class("px-2").children(&mut [
-        html!("div", {.class("p-2").child_signal(reports.signal_ref(clone!(state => move |reports| Some(match reports {
-            Some(Ok(reports)) => render_report_rows(&state, reports),
+        html!("div", {.class("p-2").child_signal(reports.signal_ref(clone!(selected => clone!(state => move |reports| Some(match reports {
+            Some(Ok(reports)) => render_report_rows(&state, &selected, reports),
             Some(Err(err)) => html!("div", {.children(&mut [text("Error: "), text(err)])}),
             None => html!("div", {.text("loading...")}),
-        }))))}),
+        })))))}),
+        html!("div", {.child_signal(selected.signal_ref(clone!(state => move |xs| render_selected(state.clone(), xs))))})
     ])})
 }
 
@@ -172,18 +232,24 @@ async fn request_reports(url: &str) -> Result<Vec<ReportRow>, String> {
     }
 }
 
-pub fn do_render_new(state: &Rc<App>, target: String) -> Dom {
+/// do_render_new is a dom component in charge of managing reports creation.
+/// Once the report is ready, the route is set to the render route,
+/// e.g. to display the report or the similarity report.
+pub fn do_render_new<MkRoute>(state: &Rc<App>, new_url: String, render_route: MkRoute) -> Dom
+where
+    MkRoute: FnOnce(ReportID) -> Route + Copy + 'static,
+{
     let result: Mutable<FetchResult<(ReportID, ReportStatus)>> = Mutable::new(None);
     spawn_local(clone!(result => async move {
-        let resp = request_new_report(&target).await;
+        let resp = request_new_report(&new_url).await;
         result.replace(Some(resp));
     }));
     html!("div", {.child_signal(result.signal_ref(clone!(state => move |data| match data {
             Some(Ok((report_id, ReportStatus::Pending))) => {
-                Some(do_render_run(&state, *report_id))
+                Some(do_render_run(&state, *report_id, render_route(*report_id)))
             },
             Some(Ok((report_id, ReportStatus::Completed))) => {
-                state.replace_url(Route::Report(*report_id));
+                state.replace_url(render_route(*report_id));
                 None
             },
             Some(Ok((_, ReportStatus::Error(e)))) => Some(html!("div", {.children(&mut [
@@ -209,24 +275,27 @@ use futures::StreamExt;
 use futures_signals::signal_vec::SignalVecExt;
 use gloo_net::websocket::futures::WebSocket;
 use gloo_net::websocket::Message;
-pub fn do_render_run(state: &Rc<App>, report_id: ReportID) -> Dom {
+pub fn do_render_run(state: &Rc<App>, report_id: ReportID, render_route: Route) -> Dom {
     let infos: MutableVec<Rc<String>> = MutableVec::new();
     let url = state.ws_report_url(report_id);
     let mut ws = WebSocket::open(&url).unwrap();
 
-    let final_id = report_id;
     let handler = clone!(state => clone!(infos => async move {
-        while let Some(Ok(Message::Text(msg))) = ws.next().await {
-            let done = msg == "Done";
-            infos.lock_mut().push_cloned(Rc::new(msg));
-            if done {
-                gloo_timers::future::TimeoutFuture::new(500).await;
-                state.replace_url(Route::Report(final_id));
+        // Pull progress message from the websocket
+        loop {
+            match ws.next().await {
+                Some(Ok(Message::Text(msg))) if msg == "Done" => break,
+                Some(Ok(Message::Text(msg))) => {
+                    infos.lock_mut().push_cloned(Rc::new(msg));
+                }
+                other => {
+                    log!("WebSocket stream ended!: {}", format!("{:?}", other));
+                    break
+                }
             }
         }
-        log!("WebSocket stream ended!");
         gloo_timers::future::TimeoutFuture::new(1_000).await;
-        state.replace_url(Route::Report(final_id));
+        state.replace_url(render_route);
     }));
 
     let sig = infos
