@@ -220,6 +220,11 @@ impl ProcessMonitor {
         self.events.blocking_write().push(msg.clone());
         let _ = self.chan.send(msg);
     }
+
+    async fn emit_async(&self, msg: Arc<str>) {
+        self.events.write().await.push(msg.clone());
+        let _ = self.chan.send(msg);
+    }
 }
 
 fn process_report_safe(
@@ -364,8 +369,13 @@ fn process_model(
         }
         ModelStatus::Pending(mut model_follower) => {
             penv.handle.block_on(async {
+                // forward previous messages
+                for msg in model_follower.events.read().await.iter() {
+                    penv.monitor.emit_async(Arc::clone(msg)).await;
+                }
+                // forward current messages
                 while let Ok(msg) = model_follower.chan.recv().await {
-                    penv.monitor.emit(msg);
+                    penv.monitor.emit_async(msg).await;
                 }
             });
             crate::models::load_model(&penv.storage_dir, &content_id)
