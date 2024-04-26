@@ -24,6 +24,7 @@ tracing-subscriber = { workspace = true }
 tracing-tree = { workspace = true }
 tracing-chrome = { workspace = true }
 time-humanize = { workspace = true }
+flate2 = { workspace = true, features = ["zlib"] }
 
 # dataset eval
 serde_json = { workspace = true }
