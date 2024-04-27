@@ -5,6 +5,7 @@ next-version
 - web: use a mono space font for log lines.
 - web: add a form to create similarity reports.
 - api: extra_baselines are now stored in a dedicated model to be rebuilt when the files are updated.
+- cli: --open and --report can now be used independently.
 
 0.10.0
 ======

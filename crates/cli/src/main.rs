@@ -133,6 +133,47 @@ enum Commands {
     },
 }
 
+enum ReportKind {
+    Json,
+    Capnp,
+}
+
+impl ReportKind {
+    fn from_path(path: &PathBuf) -> Result<ReportKind> {
+        match path.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("bin") | Some("gz") => Ok(ReportKind::Capnp),
+            Some("json") => Ok(ReportKind::Json),
+            Some(ext) => anyhow::bail!("Unknown extension, expected .gz or .json, got: {}", ext),
+            None => anyhow::bail!("Missing extension, expected .gz or .json {:?}", path),
+        }
+    }
+
+    fn save(&self, path: &PathBuf, report: &Report) -> Result<()> {
+        match self {
+            ReportKind::Json => serde_json::to_writer(std::fs::File::create(path)?, report)
+                .context("Failted to write the json report"),
+            ReportKind::Capnp => report
+                .save(path)
+                .context("Failed to write the binary report"),
+        }
+    }
+}
+
+struct ReportMode<'a> {
+    file: Option<(&'a PathBuf, ReportKind)>,
+    open: bool,
+}
+
+impl<'a> ReportMode<'a> {
+    fn from_cli(report: Option<&PathBuf>, open: bool) -> Result<ReportMode> {
+        let file = match report {
+            Some(path) => Some((path, ReportKind::from_path(path)?)),
+            None => None,
+        };
+        Ok(ReportMode { file, open })
+    }
+}
+
 impl Cli {
     fn run(self, output: OutputMode) -> Result<()> {
         let configured = self.config.is_some();
@@ -145,10 +186,8 @@ impl Cli {
         panic!("stop");
         */
 
-        if self.report.is_none() && self.open {
-            return Err(anyhow::anyhow!("--open needs a --report"));
-        }
-        let report = self.report.as_ref().map(|r| (r, self.open));
+        let report = &ReportMode::from_cli(self.report.as_ref(), self.open)?;
+
         match self.command {
             // Discovery commands
             Commands::Path { path } => process(
@@ -390,11 +429,11 @@ fn main() -> Result<()> {
     })
 }
 
-fn process_similarity(
-    env: &EnvConfig,
-    report: Option<(&PathBuf, bool)>,
-    targets: Vec<String>,
-) -> Result<()> {
+fn process_similarity(env: &EnvConfig, report: &ReportMode, targets: Vec<String>) -> Result<()> {
+    if report.open {
+        anyhow::bail!("similarity report can't be opened, use the logjuicer-api for the web view")
+    }
+
     let total = targets.len();
     let contents: Vec<Content> = targets
         .into_iter()
@@ -424,24 +463,25 @@ fn process_similarity(
         .collect::<Result<Vec<_>>>()?;
     let reports: Vec<&Report> = reports.iter().collect();
     let similarity_report = logjuicer_model::similarity::create_similarity_report(&reports);
-    match report {
+    match &report.file {
         None => Ok(println!("Got similarity report!: {:?}", similarity_report)),
-        Some((file, _)) => match file.extension().and_then(std::ffi::OsStr::to_str) {
-            Some("bin") | Some("gz") => similarity_report
+        Some((file, kind)) => match kind {
+            ReportKind::Capnp => similarity_report
                 .save(file)
                 .context("Failed to write the binary report"),
-            Some("json") => serde_json::to_writer(std::fs::File::create(file)?, &similarity_report)
-                .context("Failed to write the json report"),
-            _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
+            ReportKind::Json => {
+                serde_json::to_writer(std::fs::File::create(file)?, &similarity_report)
+                    .context("Failed to write the json report")
+            }
         },
     }
 }
 
 /// process is the logjuicer implementation after command line parsing.
-#[tracing::instrument(level = "debug", skip(env))]
+#[tracing::instrument(level = "debug", skip(env, report))]
 fn process(
     env: &EnvConfig,
-    report: Option<(&PathBuf, bool)>,
+    report: &ReportMode,
     web_package_url: Option<String>,
     model_path: Option<PathBuf>,
     baselines: Option<Vec<Input>>,
@@ -496,35 +536,38 @@ fn process(
     }?;
 
     tracing::debug!("Inspecting");
-    match report {
-        None => process_live(env, &content, &model),
-        Some((file, open)) => {
-            let report = model.report(env, content)?;
+    if !report.open && report.file.is_none() {
+        // When no report is needed, we can stream the anomaly straight from the iterator.
+        process_live(env, &content, &model)
+    } else {
+        // Otherwise, create a report and display it if needed.
+        let final_report = model.report(env, content)?;
 
-            match file.extension().and_then(std::ffi::OsStr::to_str) {
-                Some("bin") | Some("gz") => {
-                    report
-                        .save(file)
-                        .context("Failed to write the binary report")?;
-                    let index = write_html(file, web_package_url)?;
-                    if open {
-                        let name = file
-                            .file_stem()
-                            .and_then(std::ffi::OsStr::to_str)
-                            .unwrap_or("");
-                        serve::serve(name, &index, &report)
-                    } else {
-                        Ok(())
-                    }
-                }
-                .context("Failed to write the report"),
-                Some("json") => serde_json::to_writer(std::fs::File::create(file)?, &report)
-                    .context("Failted to write the json report"),
-                _ => Err(anyhow::anyhow!("Unknown report extension {:?}", file)),
-            }?;
-            tracing::info!("Wrote report {:?}", file);
-            Ok(())
+        // Save to disk
+        if let Some((path, kind)) = &report.file {
+            kind.save(path, &final_report)?;
         }
+
+        // Add html file
+        let (path, index) = match report.file {
+            Some((path, ReportKind::Capnp)) => (path.as_path(), write_html(path, web_package_url)?),
+            _ => {
+                // Only capnp proto can be web rendered so we don't save the html in that case.
+                let path = std::path::Path::new("report.bin");
+                (path, render_html(path, web_package_url)?)
+            }
+        };
+
+        // Serve the html
+        if report.open {
+            let name = path
+                .file_stem()
+                .and_then(std::ffi::OsStr::to_str)
+                .unwrap_or("");
+            serve::serve(name, &index, &final_report)?;
+        }
+
+        Ok(())
     }
 }
 
