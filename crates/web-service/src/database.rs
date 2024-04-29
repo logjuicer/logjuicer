@@ -289,12 +289,15 @@ impl Db {
         .await
     }
 
-    pub async fn lookup_model(&self, content_id: &ContentID) -> sqlx::Result<Option<()>> {
+    pub async fn lookup_model(
+        &self,
+        content_id: &ContentID,
+    ) -> sqlx::Result<Option<chrono::NaiveDateTime>> {
         sqlx::query!(
-            "select version from models where content_id = ?",
+            "select created_at from models where content_id = ?",
             content_id.0
         )
-        .map(|_row| ())
+        .map(|row| row.created_at)
         .fetch_optional(&self.pool)
         .await
     }
