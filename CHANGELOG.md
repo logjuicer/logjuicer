@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.10.0
+======
+
 - config: add extra_baselines option.
 - api: save trained models for faster re-use.
 - model: ignore 404 symlinks when training.

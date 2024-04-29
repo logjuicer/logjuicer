@@ -17,7 +17,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.9.11"
+version = "0.10.0"
 license = "Apache-2.0"
 repository = "https://github.com/logjuicer/logjuicer"
 documentation = "https://docs.rs/logjuicer/"
@@ -28,7 +28,7 @@ edition = "2021"
 anyhow = "*"
 thiserror = "*"
 bytes = "1"
-itertools = "*"
+itertools = "0.12"
 xdg = "2"
 threadpool = "1"
 regex = "1"
