@@ -366,7 +366,11 @@ enum ModelStatus {
     ToBuild(ProcessMonitor),
 }
 
-fn model_lock(penv: &ProcessEnv, content_id: &ContentID) -> Result<ModelStatus, String> {
+fn model_lock(
+    penv: &ProcessEnv,
+    content: &Content,
+    content_id: &ContentID,
+) -> Result<ModelStatus, String> {
     let mut models_lock = penv.models_lock.write().unwrap();
     match models_lock.get(content_id) {
         // Someone is already building it
@@ -380,14 +384,14 @@ fn model_lock(penv: &ProcessEnv, content_id: &ContentID) -> Result<ModelStatus, 
             .block_on(penv.db.lookup_model(content_id))
             .map_err(|e| format!("db model lookup: {}", e))?
         {
-            // The model is not in the database
-            None => {
+            // The model was already built and the content did not change.
+            Some(created_at) if content.older_than(created_at) => Ok(ModelStatus::Existing),
+            // The model is not in the database, or the content is newer than the previous model.
+            _ => {
                 let monitor = ProcessMonitor::new();
                 models_lock.insert(content_id.clone(), monitor.clone());
                 Ok(ModelStatus::ToBuild(monitor))
             }
-            // The model was already built
-            Some(()) => Ok(ModelStatus::Existing),
         },
     }
 }
@@ -398,7 +402,7 @@ fn process_model(
     content: Content,
 ) -> Result<ModelF, String> {
     let content_id = (&content).into();
-    match model_lock(penv, &content_id)? {
+    match model_lock(penv, &content, &content_id)? {
         ModelStatus::Existing => {
             penv.monitor.emit("Loading existing model".into());
             crate::models::load_model(&penv.storage_dir, &content_id)

@@ -318,6 +318,10 @@ impl ZuulBuild {
             change: name.len() as u64,
         }
     }
+
+    pub fn older_than(&self, date: chrono::NaiveDateTime) -> bool {
+        self.end_time.timestamp() < date.timestamp()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -368,6 +372,16 @@ impl Content {
     pub fn sample_job(name: &str) -> Self {
         Content::Zuul(Box::new(ZuulBuild::sample(name)))
     }
+
+    pub fn older_than(&self, date: chrono::NaiveDateTime) -> bool {
+        match self {
+            Content::File(source) => source.older_than(date),
+            Content::Directory(source) => source.older_than(date),
+            Content::Zuul(build) => build.older_than(date),
+            Content::LocalZuulBuild(_, build) => build.older_than(date),
+            Content::Prow(_) => true, // todo
+        }
+    }
 }
 
 impl std::fmt::Display for Content {
@@ -416,6 +430,25 @@ impl Source {
         match content {
             Content::LocalZuulBuild(_, _) => self.get_relative(),
             _ => self.as_str(),
+        }
+    }
+
+    pub fn older_than(&self, date: chrono::NaiveDateTime) -> bool {
+        match self {
+            // todo: check with HEAD request?
+            Source::Remote(_, _) => true,
+            Source::Local(_, pb) => pb
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .ok()
+                .map(|system_time| {
+                    system_time
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0)
+                        < date.timestamp() as u64
+                })
+                .unwrap_or(true),
         }
     }
 }
