@@ -340,9 +340,16 @@ fn process_models(
     target_env: &TargetEnv,
     baselines: Vec<Content>,
 ) -> Result<ModelF, String> {
-    let mut models = baselines
+    let baselines_iter = baselines
         .into_iter()
-        .map(|content| process_model(penv, target_env, content))
+        .map(|content| process_model(penv, target_env, content));
+    let extra_iter = target_env
+        .config
+        .extra_baselines
+        .iter()
+        .map(|content| process_model(penv, target_env, content.clone()));
+    let mut models = baselines_iter
+        .chain(extra_iter)
         .collect::<Result<Vec<ModelF>, String>>()?;
     if let Some(model) = models.pop() {
         Ok(if models.is_empty() {
