@@ -193,7 +193,7 @@ impl Cli {
                         "A output file path is required, please add a `--model FILE` argument"
                     )
                 })?;
-                let baselines = baselines
+                let mut baselines = baselines
                     .into_iter()
                     .map(Input::from_string)
                     .map(|x| content_from_input(&env.gl, x))
@@ -201,6 +201,11 @@ impl Cli {
 
                 // Use the first baseline for the target config
                 let env = env.get_target_env(&baselines[0]);
+
+                // add extra baselines
+                for baseline in &env.config.extra_baselines {
+                    baselines.push(baseline.clone());
+                }
 
                 let model = Model::train::<FeaturesMatrixBuilder>(&env, baselines)?;
                 model.save(&model_path)
@@ -397,8 +402,12 @@ fn process_similarity(
         .collect::<Result<Vec<_>>>()?;
     let (model, env) = match contents.first() {
         Some(content) => {
-            let baselines = content_discover_baselines(content, &env.gl)?;
+            let mut baselines = content_discover_baselines(content, &env.gl)?;
             let env = env.get_target_env(content);
+            for baseline in &env.config.extra_baselines {
+                baselines.push(baseline.clone());
+            }
+
             tracing::debug!("Building model");
             let model = Model::<FeaturesMatrix>::train::<FeaturesMatrixBuilder>(&env, baselines)?;
             Ok((model, env))
@@ -445,13 +454,18 @@ fn process(
     let train_model = |baselines: Option<Vec<Input>>| {
         // Lookup baselines.
         tracing::debug!("Finding baselines");
-        let baselines = match baselines {
+        let mut baselines = match baselines {
             None => content_discover_baselines(&content, env.gl),
             Some(baselines) => baselines
                 .into_iter()
                 .map(|x| content_from_input(env.gl, x))
                 .collect::<Result<Vec<_>>>(),
         }?;
+
+        // add extra baselines
+        for baseline in &env.config.extra_baselines {
+            baselines.push(baseline.clone());
+        }
 
         // Create the model. TODO: enable custom index.
         tracing::debug!("Building model");

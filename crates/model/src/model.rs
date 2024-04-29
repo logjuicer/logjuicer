@@ -427,15 +427,10 @@ impl<IR: IndexReader> Model<IR> {
     #[tracing::instrument(level = "debug", skip(env))]
     pub fn train<IB: Default + IndexBuilder<Reader = IR>>(
         env: &TargetEnv,
-        mut baselines: Vec<Content>,
+        baselines: Vec<Content>,
     ) -> Result<Model<IR>> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
-
-        // add extra baselines
-        for baseline in &env.config.extra_baselines {
-            baselines.push(baseline.clone());
-        }
 
         for (index_name, sources) in group_sources(env, &baselines)?.drain() {
             env.gl.debug_or_progress(&format!(
