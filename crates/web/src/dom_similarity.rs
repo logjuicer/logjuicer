@@ -85,64 +85,31 @@ fn render_similarity_reports(gl_pos: &mut usize, report: &SimilarityReport) -> D
 }
 
 fn render_similarity_matrix(report: &SimilarityReport) -> Dom {
-    // initialize the matrix to count shared anomalies
-    let mut matrix: Vec<Vec<usize>> = Vec::from_iter(
-        report
-            .targets
-            .iter()
-            .map(|_| Vec::from_iter((0..report.targets.len()).map(|_| 0))),
-    );
-
-    // initialize the total anomaly count per target
-    let mut totals: Vec<usize> = Vec::from_iter((0..report.targets.len()).map(|_| 0));
-
-    for slr in &report.similarity_reports {
-        for anomaly in &slr.anomalies {
-            // Update the total
-            for source in &anomaly.sources {
-                let tid = slr.sources[source.0].target.0;
-                totals[tid] += 1;
-            }
-            // Update the matrix
-            for pair in anomaly
-                .sources
-                .iter()
-                // do pairwise comparaison
-                .permutations(2)
-                // only do the lower part of the matrix
-                .filter(|pair| pair[0] < pair[1])
-            {
-                let t1 = slr.sources[pair[0].0].target.0;
-                let t2 = slr.sources[pair[1].0].target.0;
-                matrix[t1][t2] += 1;
-            }
-        }
-    }
-
+    let infos = report.infos();
     // compute the relative similarity between two targets
     let get_similarity = |t1: usize, t2: usize| {
         let shared = match t1.cmp(&t2) {
-            Ordering::Equal => totals[t1],
-            Ordering::Less => matrix[t1][t2],
-            Ordering::Greater => matrix[t2][t1],
+            Ordering::Equal => infos.totals[t1],
+            Ordering::Less => infos.matrix[t1][t2],
+            Ordering::Greater => infos.matrix[t2][t1],
         };
-        let percent = (shared as f32 * 100.0) / (totals[t2] as f32);
+        let percent = (shared as f32 * 100.0) / (infos.totals[t2] as f32);
         format!("{:.1}%", percent)
     };
 
     let headers = chain(
         once("Target info".to_string()),
-        (0..matrix.len()).map(|col| format!("T-{}", col + 1)),
+        (0..infos.matrix.len()).map(|col| format!("T-{}", col + 1)),
     )
     .map(|n| html!("th", {.text(&n)}));
 
-    let rows = (0..matrix.len()).map(|row| {
+    let rows = (0..infos.matrix.len()).map(|row| {
         html!("tr", {.children(chain(
             once(html!("td", {.class(["p-1", "flex", "flex-row", "justify-end"]).children(&mut [
                 render_content(&report.targets[row]),
                 html!("span", {.class(["font-semibold", "pl-1"]).text(&format!("T-{}", row + 1))}),
             ])})),
-            (0..matrix.len()).map(
+            (0..infos.matrix.len()).map(
                 |col| html!("td", {.class(["p-1", "text-right"])
                                    .text(&get_similarity(row, col))})
             )))
