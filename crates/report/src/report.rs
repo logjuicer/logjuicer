@@ -37,6 +37,51 @@ pub struct SimilarityReport {
     pub similarity_reports: Vec<SimilarityLogReport>,
 }
 
+pub struct SimilarityInfos {
+    pub totals: Vec<usize>,
+    pub matrix: Vec<Vec<usize>>,
+}
+
+impl SimilarityReport {
+    pub fn infos(&self) -> SimilarityInfos {
+        use std::iter::FromIterator;
+
+        // initialize the matrix to count shared anomalies
+        let mut matrix: Vec<Vec<usize>> = Vec::from_iter(
+            self.targets
+                .iter()
+                .map(|_| Vec::from_iter((0..self.targets.len()).map(|_| 0))),
+        );
+
+        // initialize the total anomaly count per target
+        let mut totals: Vec<usize> = Vec::from_iter((0..self.targets.len()).map(|_| 0));
+
+        for slr in &self.similarity_reports {
+            for anomaly in &slr.anomalies {
+                // Update the total
+                for source in &anomaly.sources {
+                    let tid = slr.sources[source.0].target.0;
+                    totals[tid] += 1;
+                }
+                // Update the matrix
+                for pair in anomaly
+                    .sources
+                    .iter()
+                    // do pairwise comparaison
+                    .permutations(2)
+                    // only do the lower part of the matrix
+                    .filter(|pair| pair[0] < pair[1])
+                {
+                    let t1 = slr.sources[pair[0].0].target.0;
+                    let t2 = slr.sources[pair[1].0].target.0;
+                    matrix[t1][t2] += 1;
+                }
+            }
+        }
+        SimilarityInfos { totals, matrix }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SimilaritySource {
     pub target: TargetID,
