@@ -28,9 +28,9 @@ fn render_anomaly(
     let info = html!("span", {.text("Found in targets: ")});
     let targets = anomaly.sources.iter().map(|sid| {
         let source = &slr.sources[sid.0];
-        let target_str = &format!("{}", source.target.0);
+        let target_str = &format!("{}", source.target.0 + 1);
         let target_url = source.source.as_str();
-        html!("span", {.class("pl-1").children(&mut [
+        html!("span", {.class("pl-2").children(&mut [
             render_link(target_url, target_str)
         ])})
     });
@@ -99,6 +99,14 @@ fn render_similarity_matrix(report: &SimilarityReport, urls: &[String]) -> Dom {
         let percent = (shared as f32 * 100.0) / (infos.totals[t2] as f32);
         format!("{:.1}%", percent)
     };
+    let get_similarity_info = |t1: usize, t2: usize| {
+        format!(
+            "T-{} is {} similar to T-{}",
+            t1 + 1,
+            get_similarity(t1, t2),
+            t2 + 1
+        )
+    };
 
     let headers = chain(
         ["Report".to_string(), "Target info".to_string()],
@@ -117,6 +125,7 @@ fn render_similarity_matrix(report: &SimilarityReport, urls: &[String]) -> Dom {
             ])})],
             (0..infos.matrix.len()).map(
                 |col| html!("td", {.class(["p-1", "text-right"])
+                                   .attr("title", &get_similarity_info(row, col))
                                    .text(&get_similarity(row, col))})
             )))
         })
