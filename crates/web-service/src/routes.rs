@@ -161,18 +161,8 @@ pub async fn similarity_new(
         Some(report) => Ok(Json(report)),
         None => {
             tracing::info!(reports = args.reports, "Creating a new similarity report");
-            let rids = args
-                .reports
-                .split(':')
-                .map(|id| {
-                    <ReportID as std::str::FromStr>::from_str(id).map_err(|e| {
-                        (
-                            StatusCode::SERVICE_UNAVAILABLE,
-                            format!("{id}: invalid id: {e}"),
-                        )
-                    })
-                })
-                .collect::<Result<Vec<_>>>()?;
+            let rids = ReportID::from_sep(&args.reports)
+                .map_err(|e| (StatusCode::SERVICE_UNAVAILABLE, e))?;
             let report_id = workers
                 .db
                 .initialize_report("similarity", &args.reports)
