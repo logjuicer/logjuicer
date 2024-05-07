@@ -81,7 +81,7 @@ fn render_line(gl_pos: &mut usize, pos: usize, distance: f32, line: &str) -> Dom
 
     html!("tr", {.children(&mut [
         html!("td", {.class("pos").attr("id", &gl_str).text(&pos_str).event(click_handler)}),
-        html!("td", {.class(["pl-2", "break-all", "whitespace-pre-wrap", color]).text(line)})
+        html!("td", {.class(["pl-2", "font-mono", "break-all", "whitespace-pre-wrap", color]).text(line)})
     ])})
 }
 

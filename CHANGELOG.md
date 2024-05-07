@@ -1,6 +1,9 @@
 next-version
 ============
 
+- web: improved similarity page render.
+- web: use a mono space font for log lines.
+
 0.10.0
 ======
 
