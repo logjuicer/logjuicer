@@ -39,7 +39,7 @@ pub async fn fetch_data(path: &str) -> Result<ReportAndBaselines, String> {
 }
 
 pub fn render_link(href: &str, text: &str) -> Dom {
-    html!("a", {.class("cursor-pointer").attr("href", href).attr("target", "_black").text(text)})
+    html!("a", {.class("cursor-pointer").attr("href", href).attr("target", "_blank").text(text)})
 }
 
 pub fn data_attr_html(name: &str, value: &mut [Dom]) -> Dom {

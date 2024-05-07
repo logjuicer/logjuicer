@@ -16,7 +16,7 @@ use crate::{
     dom_report::{render_anomaly_context, render_content, render_source_link},
     dom_utils::{fetch_data, mk_card, render_link},
     selection::{put_hash_into_view, Selection},
-    state::App,
+    state::{App, Route},
 };
 
 fn render_anomaly(
@@ -139,7 +139,11 @@ fn render_similarity_matrix(report: &SimilarityReport, urls: &[String]) -> Dom {
 
 fn render_similarity_report(state: &Rc<App>, resp: &SimilarityReportResp) -> Dom {
     let mut gl_pos = 0;
-    let urls: Vec<String> = resp.rids.iter().map(|rid| state.report_url(*rid)).collect();
+    let urls: Vec<String> = resp
+        .rids
+        .iter()
+        .map(|rid| state.to_url(Route::Report(*rid)))
+        .collect();
     html!("div", {.children(&mut [
         mk_card("Targets comparaisons", render_similarity_matrix(&resp.report, &urls)),
         mk_card("Top 100 most common anomalies", render_top(&mut gl_pos, &resp.report, 100)),
