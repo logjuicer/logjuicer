@@ -10,7 +10,12 @@ pub fn mk_card(title: &str, body: Dom) -> Dom {
     ])})
 }
 
-pub async fn fetch_data(path: &str) -> Result<Vec<u8>, String> {
+pub struct ReportAndBaselines {
+    pub data: Vec<u8>,
+    pub baselines: Option<String>,
+}
+
+pub async fn fetch_data(path: &str) -> Result<ReportAndBaselines, String> {
     let resp = gloo_net::http::Request::get(path)
         .send()
         .await
@@ -24,9 +29,12 @@ pub async fn fetch_data(path: &str) -> Result<Vec<u8>, String> {
     } else if !resp.ok() {
         Err(format!("Bad status: {}", resp.status()))
     } else {
-        resp.binary()
+        let data = resp
+            .binary()
             .await
-            .map_err(|e| format!("Response error: {}", e))
+            .map_err(|e| format!("Response error: {}", e))?;
+        let baselines = resp.headers().get("x-baselines");
+        Ok(ReportAndBaselines { data, baselines })
     }
 }
 
