@@ -132,8 +132,8 @@ fn render_similarity_report(report: &SimilarityReport) -> Dom {
 }
 
 async fn get_report(path: &str) -> Result<SimilarityReport, String> {
-    let data = fetch_data(path).await?;
-    logjuicer_report::SimilarityReport::load_bytes(&data)
+    let resp = fetch_data(path).await?;
+    logjuicer_report::SimilarityReport::load_bytes(&resp.data)
         .map_err(|e| format!("Decode error: {}", e))
 }
 

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "select status, baseline from reports where id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "status",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "baseline",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "62febcdf2d247e0d904a2228e8a5c61adff34d6aec1ef0a4e2a9ca4bac236e37"
+}

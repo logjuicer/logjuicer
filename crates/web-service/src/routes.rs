@@ -40,18 +40,7 @@ pub async fn report_get(
     State(workers): State<Workers>,
     Path(report_id): Path<ReportID>,
 ) -> Result<axum::response::Response> {
-    let fp = report_path(&workers.storage_dir, report_id);
-    if let Ok(file) = File::open(&fp).await {
-        // The file exists, stream its content...
-
-        // Wrap to a tokio_util::io::ReaderStream
-        let reader_stream = tokio_util::io::ReaderStream::new(file);
-
-        Ok(axum::response::Response::builder()
-            .header("Content-Encoding", "gzip")
-            .body(axum::body::Body::from_stream(reader_stream))
-            .unwrap())
-    } else if let Some(status) = workers
+    if let Some((status, baseline)) = workers
         .db
         .get_report_status(report_id)
         .await
@@ -67,7 +56,21 @@ pub async fn report_get(
                 format!("Report creation failed:\n {s}"),
             )),
             ReportStatus::Completed => {
-                Err((StatusCode::NOT_FOUND, "Report is file is missing".into()))
+                let fp = report_path(&workers.storage_dir, report_id);
+                if let Ok(file) = File::open(&fp).await {
+                    // The file exists, stream its content...
+
+                    // Wrap to a tokio_util::io::ReaderStream
+                    let reader_stream = tokio_util::io::ReaderStream::new(file);
+
+                    Ok(axum::response::Response::builder()
+                        .header("Content-Encoding", "gzip")
+                        .header("x-baselines", &baseline)
+                        .body(axum::body::Body::from_stream(reader_stream))
+                        .unwrap())
+                } else {
+                    Err((StatusCode::NOT_FOUND, "Report is file is missing".into()))
+                }
             }
         }
     } else {

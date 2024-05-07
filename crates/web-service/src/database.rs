@@ -211,11 +211,14 @@ impl Db {
     pub async fn get_report_status(
         &self,
         report_id: ReportID,
-    ) -> sqlx::Result<Option<ReportStatus>> {
-        sqlx::query!("select status from reports where id = ?", report_id.0)
-            .map(|row| row.status.into())
-            .fetch_optional(&self.pool)
-            .await
+    ) -> sqlx::Result<Option<(ReportStatus, String)>> {
+        sqlx::query!(
+            "select status, baseline from reports where id = ?",
+            report_id.0
+        )
+        .map(|row| (row.status.into(), row.baseline))
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn lookup_report(

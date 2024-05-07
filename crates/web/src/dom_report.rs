@@ -360,8 +360,8 @@ pub fn render_report_card(report: &Report, toggle_info: &Mutable<bool>) -> Dom {
 }
 
 async fn get_report(path: &str) -> Result<Report, String> {
-    let data = fetch_data(path).await?;
-    logjuicer_report::Report::load_bytes(&data).map_err(|e| format!("Decode error: {}", e))
+    let resp = fetch_data(path).await?;
+    logjuicer_report::Report::load_bytes(&resp.data).map_err(|e| format!("Decode error: {}", e))
 }
 
 pub fn fetch_and_render_report(state: &Rc<App>, path: String) -> Dom {
