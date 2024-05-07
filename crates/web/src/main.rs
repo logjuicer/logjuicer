@@ -93,6 +93,7 @@ fn render_app(state: &Rc<App>) -> Dom {
         Route::Similarity(report_id) => dom_similarity::fetch_and_render_similarity_report(&state, state.report_url(*report_id)),
         Route::NewReport(target, baseline) => do_render_new(&state, state.new_report_url(target, baseline.as_deref()), Route::Report),
         Route::NewSimilarity(reports) => do_render_new(&state, state.new_similarity_url(reports), Route::Similarity),
+        Route::MakeSimilarity(targets, baseline) => make_similarity(&state, targets, baseline),
         Route::Watch(report_id) => do_render_run(&state, *report_id, Route::Report(*report_id)),
         Route::Welcome => do_render_welcome(&state),
         Route::Audit => do_render_audit(&state),

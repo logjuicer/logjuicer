@@ -223,6 +223,14 @@ fn render_input(state: &Rc<App>) -> Dom {
             if is_valid_url(target_url) {
                 state.visit(Route::NewReport(target_url.into(), baseline));
             }
+        } else {
+            // Otherwise make a new similarity report
+            let mut targets_str: Vec<Rc<str>> = Vec::new();
+            for target in targets.iter() {
+                let target_url: &str = &(target.lock_mut());
+                targets_str.push(target_url.into());
+            }
+            state.visit(Route::MakeSimilarity(targets_str, baseline));
         }
         ev.prevent_default();
         ev.stop_propagation();
@@ -233,6 +241,41 @@ pub fn do_render_welcome(state: &Rc<App>) -> Dom {
     html!("div", {.class("px-2").children(&mut [
         html!("div", {.class(["font-semibold", "mt-2"]).text("Welcome to the logjuicer web interface!")}),
         render_input(state),
+    ])})
+}
+
+/// Create all the reports then create the similarity report
+pub fn make_similarity(state: &Rc<App>, targets: &[Rc<str>], baseline: &Option<Rc<str>>) -> Dom {
+    // Keep track of the completed reports (None when they fails)
+    let completed = Mutable::new(HashSet::new());
+    let expected = targets.len();
+
+    let update_status = clone!(state => clone!(completed => move |s: &HashSet<Option<ReportID>>| {
+        if s.len() == expected {
+            let reports = completed
+                .lock_ref()
+                .iter()
+                .flatten()
+                .sorted()
+                .map(|rid| format!("{rid}"))
+                .join(":");
+            if reports.find(':').is_some() {
+                state.visit(Route::NewSimilarity(reports.into()));
+                "completed".to_string()
+            } else {
+                "Failed to create a similarity report, need at least 2 completed reports".to_string()
+            }
+        } else {
+            format!("Progress {}/{expected}", s.len())
+        }
+    }));
+
+    html!("div", {.children(&mut [
+        html!("div", {.text_signal(completed.signal_ref(update_status))}),
+        html!("div", {.children(
+            targets.iter().map(
+                |target| do_render_tail(state, state.new_report_url(target, baseline.as_deref()), completed.clone())
+        ))})
     ])})
 }
 
@@ -351,6 +394,104 @@ pub fn do_render_run(state: &Rc<App>, report_id: ReportID, render_route: Route) 
         state.replace_url(render_route);
     }));
 
+    let sig = infos
+        .signal_vec_cloned()
+        .map(|ev| html!("pre", {.class(["font-mono", "m-2", "ml-4"]).text(&ev)}));
+
+    html!("div", {.future(handler).class("px-2").children_signal_vec(sig)})
+}
+
+/// Create a single report and wait for it's completion
+fn do_render_tail(
+    state: &Rc<App>,
+    url: String,
+    completed: Mutable<HashSet<Option<ReportID>>>,
+) -> Dom {
+    let title_dom =
+        html!("p", {.class(["px-1", "py-2", "font-bold", "w-full", "bg-slate-100"]).text(&url)});
+
+    // Request the target status
+    let result: Mutable<FetchResult<(ReportID, ReportStatus)>> = Mutable::new(None);
+    spawn_local(clone!(completed => clone!(result => async move {
+        let resp = request_new_report(&url).await;
+        match resp {
+            Ok((rid, ReportStatus::Completed)) => {completed.lock_mut().insert(Some(rid));},
+            Ok((_, ReportStatus::Error(_))) => {completed.lock_mut().insert(None);},
+            Err(_) => {completed.lock_mut().insert(None);},
+            Ok((_, ReportStatus::Pending)) => {},
+        }
+        result.replace(Some(resp));
+    })));
+
+    html!("div", {.children(&mut [
+        title_dom,
+        html!("div", {.child_signal(result.signal_ref(clone!(state => clone!(completed => move |data| match data {
+            // The report is in progress, tail it's status
+            Some(Ok((report_id, ReportStatus::Pending))) => {
+                Some(do_tail(&state, *report_id, completed.clone()))
+            },
+            Some(Ok((_, ReportStatus::Completed))) => {
+                Some(html!("p", {.text("completed")}))
+            },
+            Some(Ok((_, ReportStatus::Error(e)))) => Some(html!("div", {.children(&mut [
+                text("Processing error: "),
+                text(e)
+            ])})),
+            Some(Err(err)) => Some(html!("div", {.children(&mut [text("Error: "), text(err)])})),
+            None => Some(html!("div", {.text("loading...")}))
+        }))))})
+    ])})
+}
+
+fn do_tail(
+    state: &Rc<App>,
+    report_id: ReportID,
+    completed: Mutable<HashSet<Option<ReportID>>>,
+) -> Dom {
+    let infos: MutableVec<Rc<String>> = MutableVec::new();
+    let url = state.ws_report_url(report_id);
+    let mut ws = WebSocket::open(&url).unwrap();
+
+    let handler = clone!(state => clone!(infos => async move {
+            // Pull progress message from the websocket
+            loop {
+                match ws.next().await {
+                    Some(Ok(Message::Text(msg))) if msg == "Done" => break,
+                    Some(Ok(Message::Text(msg))) => {
+                        infos.lock_mut().push_cloned(Rc::new(msg));
+                    }
+                    other => {
+                        log!("WebSocket stream ended!: {}", format!("{:?}", other));
+                        break
+                    }
+                }
+            }
+            gloo_timers::future::TimeoutFuture::new(1_000).await;
+
+            // Check the status from the API
+            let status_url = state.status_url(report_id);
+            match gloo_net::http::Request::get(&status_url).send().await {
+                Ok(resp) => {
+                    match resp.json().await {
+                        Err(err) => {
+                            infos.lock_mut().push_cloned(format!("Failed to get the status {err}").into());
+                            completed.lock_mut().insert(None);
+                        },
+                        Ok(status) => {
+                            infos.lock_mut().push_cloned(Rc::new(format!("{:?}", status)));
+                            match status {
+                                ReportStatus::Completed => {completed.lock_mut().insert(Some(report_id));},
+                                _ => {completed.lock_mut().insert(None);},
+                            }
+                        }
+                    };
+                },
+                Err(err) => {
+                    infos.lock_mut().push_cloned(format!("Failed to get the status {err}").into());
+                    completed.lock_mut().insert(None);
+                }
+            }
+    }));
     let sig = infos
         .signal_vec_cloned()
         .map(|ev| html!("pre", {.class(["font-mono", "m-2", "ml-4"]).text(&ev)}));
