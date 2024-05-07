@@ -18,6 +18,18 @@ impl std::str::FromStr for ReportID {
     }
 }
 
+impl ReportID {
+    pub fn from_sep(baselines: &str) -> Result<Vec<ReportID>, String> {
+        baselines
+            .split(':')
+            .map(|id| {
+                <ReportID as std::str::FromStr>::from_str(id)
+                    .map_err(|e| format!("{id}: invalid id: {e}"))
+            })
+            .collect::<Result<Vec<_>, _>>()
+    }
+}
+
 impl std::fmt::Display for ReportID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

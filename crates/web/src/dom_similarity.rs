@@ -3,17 +3,20 @@
 
 //! This module contains the logic to render a similarity report.
 
-use std::{cmp::Ordering, iter::once};
+use std::{cmp::Ordering, iter::once, rc::Rc};
 
 use dominator::{clone, html, Dom};
 use futures_signals::signal::Mutable;
 use itertools::{chain, Itertools};
-use logjuicer_report::{SimilarityAnomalyContext, SimilarityLogReport, SimilarityReport};
+use logjuicer_report::{
+    report_row::ReportID, SimilarityAnomalyContext, SimilarityLogReport, SimilarityReport,
+};
 
 use crate::{
     dom_report::{render_anomaly_context, render_content, render_source_link},
     dom_utils::{fetch_data, mk_card, render_link},
     selection::{put_hash_into_view, Selection},
+    state::App,
 };
 
 fn render_anomaly(
@@ -84,7 +87,7 @@ fn render_similarity_reports(gl_pos: &mut usize, report: &SimilarityReport) -> D
     html!("div", {.children(childs)})
 }
 
-fn render_similarity_matrix(report: &SimilarityReport) -> Dom {
+fn render_similarity_matrix(report: &SimilarityReport, urls: &[String]) -> Dom {
     let infos = report.infos();
     // compute the relative similarity between two targets
     let get_similarity = |t1: usize, t2: usize| {
@@ -98,17 +101,20 @@ fn render_similarity_matrix(report: &SimilarityReport) -> Dom {
     };
 
     let headers = chain(
-        once("Target info".to_string()),
+        ["Report".to_string(), "Target info".to_string()],
         (0..infos.matrix.len()).map(|col| format!("T-{}", col + 1)),
     )
     .map(|n| html!("th", {.text(&n)}));
 
     let rows = (0..infos.matrix.len()).map(|row| {
         html!("tr", {.children(chain(
-            once(html!("td", {.class(["p-1", "flex", "flex-row", "justify-end"]).children(&mut [
+            [html!("td", {.class(["p-1"]).children(&mut [
+                render_link(&urls[row], "view")
+            ])}),
+             html!("td", {.class(["p-1", "flex", "flex-row", "justify-end"]).children(&mut [
                 render_content(&report.targets[row]),
                 html!("span", {.class(["font-semibold", "pl-1"]).text(&format!("T-{}", row + 1))}),
-            ])})),
+            ])})],
             (0..infos.matrix.len()).map(
                 |col| html!("td", {.class(["p-1", "text-right"])
                                    .text(&get_similarity(row, col))})
@@ -122,22 +128,38 @@ fn render_similarity_matrix(report: &SimilarityReport) -> Dom {
     ])})
 }
 
-fn render_similarity_report(report: &SimilarityReport) -> Dom {
+fn render_similarity_report(state: &Rc<App>, resp: &SimilarityReportResp) -> Dom {
     let mut gl_pos = 0;
+    let urls: Vec<String> = resp.rids.iter().map(|rid| state.report_url(*rid)).collect();
     html!("div", {.children(&mut [
-        mk_card("Targets comparaisons", render_similarity_matrix(report)),
-        mk_card("Top 100 most common anomalies", render_top(&mut gl_pos, report, 100)),
-        mk_card("All anomalies", render_similarity_reports(&mut gl_pos, report)),
+        mk_card("Targets comparaisons", render_similarity_matrix(&resp.report, &urls)),
+        mk_card("Top 100 most common anomalies", render_top(&mut gl_pos, &resp.report, 100)),
+        mk_card("All anomalies", render_similarity_reports(&mut gl_pos, &resp.report)),
     ])})
 }
 
-async fn get_report(path: &str) -> Result<SimilarityReport, String> {
-    let resp = fetch_data(path).await?;
-    logjuicer_report::SimilarityReport::load_bytes(&resp.data)
-        .map_err(|e| format!("Decode error: {}", e))
+struct SimilarityReportResp {
+    report: SimilarityReport,
+    rids: Vec<ReportID>,
 }
 
-pub fn fetch_and_render_similarity_report(path: String) -> Dom {
+async fn get_report(path: &str) -> Result<SimilarityReportResp, String> {
+    let resp = fetch_data(path).await?;
+    let rids = ReportID::from_sep(&resp.baselines.ok_or("Missing baselines".to_string())?)?;
+    let report = logjuicer_report::SimilarityReport::load_bytes(&resp.data)
+        .map_err(|e| format!("Decode error: {}", e))?;
+    if rids.len() != report.targets.len() {
+        Err(format!(
+            "Missmatch between baselines and targets: {} != {}",
+            rids.len(),
+            report.targets.len()
+        ))
+    } else {
+        Ok(SimilarityReportResp { report, rids })
+    }
+}
+
+pub fn fetch_and_render_similarity_report(state: &Rc<App>, path: String) -> Dom {
     let report = Mutable::new(None);
     wasm_bindgen_futures::spawn_local(clone!(report => async move {
         // gloo_timers::future::TimeoutFuture::new(3_000).await;
@@ -147,9 +169,9 @@ pub fn fetch_and_render_similarity_report(path: String) -> Dom {
             put_hash_into_view(selection).await
         }
     }));
-    html!("div", {.child_signal(report.signal_ref(|data| Some(match data {
-        Some(Ok(report)) => render_similarity_report(report),
+    html!("div", {.child_signal(report.signal_ref(clone!(state => move |data| Some(match data {
+        Some(Ok(report)) => render_similarity_report(&state, report),
         Some(Err(err)) => html!("pre", {.class(["font-mono", "m-2", "ml-4"]).text(err)}),
         None => html!("div", {.text("loading...")}),
-    })))})
+    }))))})
 }
