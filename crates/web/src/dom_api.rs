@@ -9,6 +9,7 @@ use futures_signals::signal_vec::MutableVec;
 use gloo_console::log;
 use itertools::Itertools;
 use std::collections::HashSet;
+use std::ops::Deref;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
@@ -111,35 +112,79 @@ fn is_valid_url(url: &str) -> bool {
         || (url.chars().filter(|c| *c == '/').count() > 2 && web_sys::Url::new(url).is_ok())
 }
 
+/// Render the target form input, adding a buton to add/remove extra target for comparaison.
+fn target_input(
+    show_submit: &Mutable<bool>,
+    targets: &MutableVec<Mutable<String>>,
+    url: Mutable<String>,
+    first: bool,
+) -> Dom {
+    let button = if first {
+        // The first target has a button to add more target
+        html!("div", {.visible_signal(show_submit.signal()).class(BTN_CLASS).text("Compare")
+        .event(clone!(targets => move |_: events::Click| {
+            targets.lock_mut().push_cloned(Mutable::new("".to_string()));
+        }))})
+    } else {
+        // The other target has a button to remove the current target
+        html!("div", {.class(BTN_CLASS).text("Remove")
+        .event(clone!(url => clone!(targets => move |_: events::Click| {
+            let mut targets = targets.lock_mut();
+            if let Some(pos) = targets.iter().rposition(
+                |x| x.lock_ref().deref() == url.lock_ref().deref()) {
+                if pos > 0 {
+                    // Check that we are not removing the top target
+                    // when it has the same content as the current one
+                    targets.remove(pos);
+                }
+            }
+        })))})
+    };
+    html!("div", {.class("flex").children(&mut [
+        html!("input" => HtmlInputElement, {
+            .focused(true)
+            .class(["w-full", "rounded", "border", "px-1", "my-1"])
+            .attr("placeholder", "Target URL")
+            .prop_signal("value", url.signal_cloned())
+
+            .with_node!(element => {
+                .event(clone!(show_submit => clone!(url => move |_: events::Input| {
+                    let url_value: String = element.value();
+                    let _ = if is_valid_url(&url_value) {
+                        if !url_value.is_empty() {
+                            show_submit.set_neq(true);
+                        }
+                        element.class_list().remove_1("border-red-500")
+                    } else {
+                        show_submit.set_neq(false);
+                        element.class_list().add_1("border-red-500")
+                    };
+                    url.set_neq(url_value);
+                })))
+            })
+        }),
+        button
+    ])})
+}
+
 fn render_input(state: &Rc<App>) -> Dom {
-    let url = Mutable::new("".to_string());
     let baseline = Mutable::new("".to_string());
     let show_submit = Mutable::new(false);
 
-    html!("form", {.class("grid").class(["shadow-lg", "rounded-md", "py-3", "px-5"]).children(&mut [
-        html!("input" => HtmlInputElement, {
-            .focused(true)
-                .class(["w-full", "rounded", "border", "pl-1"])
-                .attr("placeholder", "Target URL")
-                .prop_signal("value", url.signal_cloned())
+    // Store the list of target values (Mutable<String>).
+    let targets = MutableVec::new_with_values(vec![Mutable::new("".to_string())]);
 
-                .with_node!(element => {
-                    .event(clone!(show_submit => clone!(url => move |_: events::Input| {
-                        let url_value: String = element.value();
-                        let _ = if is_valid_url(&url_value) {
-                            if !url_value.is_empty() {
-                                show_submit.set_neq(true);
-                            }
-                            element.class_list().remove_1("border-red-500")
-                        } else {
-                            show_submit.set_neq(false);
-                            element.class_list().add_1("border-red-500")
-                        };
-                        url.set_neq(url_value);
-                    })))
-                })
-        }),
-        html!("div", {.class(["flex", "justify-center", "mt-2", "gap-2"]).visible_signal(show_submit.signal()).children(&mut [
+    // Render the dom for each target value
+    let targets_dom = targets
+        .signal_vec_cloned()
+        .enumerate()
+        .map(clone!(targets => clone!(show_submit => move |url|
+                                     target_input(&show_submit, &targets, url.1, url.0.get().unwrap_or(0) == 0))));
+
+    html!("form", {.class("grid").class(["shadow-lg", "rounded-md", "py-3", "px-5"]).children(&mut [
+        html!("div", {.children_signal_vec(targets_dom)}),
+        html!("div", {.class(["flex", "justify-center", "mt-2", "gap-2"])
+                      .visible_signal(show_submit.signal()).children(&mut [
             html!("button", {.class(BTN_CLASS).text("LogJuicer Search")}),
             html!("input" => HtmlInputElement, {
                 .class(["w-full", "rounded", "border", "pl-1"])
@@ -159,17 +204,25 @@ fn render_input(state: &Rc<App>) -> Dom {
                     })
             })
         ])}),
-    ]).event_with_options(&EventOptions::preventable(), clone!(state => clone!(url => move |ev : events::Submit| {
+    ]).event_with_options(&EventOptions::preventable(), clone!(state => clone!(targets => move |ev : events::Submit| {
+        // Form submission logic
+        let targets = targets.lock_ref();
 
-        let target_url: &str = &(url.lock_mut());
+        // Get the baseline
         let baseline_url: &str = &(baseline.lock_mut());
         let baseline = if baseline_url.is_empty() || !is_valid_url(baseline_url) {
             None
         } else {
             Some(baseline_url.into())
         };
-        if is_valid_url(target_url) {
-            state.visit(Route::NewReport(target_url.into(), baseline));
+
+        if targets.len() == 1 {
+            // Only one target, create a new report
+            let url = &targets[0];
+            let target_url: &str = &(url.lock_mut());
+            if is_valid_url(target_url) {
+                state.visit(Route::NewReport(target_url.into(), baseline));
+            }
         }
         ev.prevent_default();
         ev.stop_propagation();
