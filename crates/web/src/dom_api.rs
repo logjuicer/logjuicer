@@ -93,7 +93,7 @@ fn render_report_rows(state: &Rc<App>, selected: &Selected, reports: &[ReportRow
         .iter()
         .map(|row| render_report_row(state, selected, row))
         .collect::<Vec<Dom>>();
-    html!("table", {.class(["my-6", "w-full", "text-sm", "text-left"]).children(&mut [
+    html!("table", {.class(["w-full", "text-sm", "text-left"]).children(&mut [
         html!("thead", {.class(["bg-slate-100"]).children(&mut [
             html!("th", {.class(TH_CLASS).text("Select")}),
             html!("th", {.class(TH_CLASS).text("Status")}),
@@ -198,20 +198,20 @@ pub fn do_render_audit(state: &Rc<App>) -> Dom {
         } else {
             let selections = xs.iter().sorted().map(|rid| format!("{rid}")).join(":");
             Some(
-                html!("button", {.class(BTN_CLASS).text(&format!("Compare: {}", selections)).event(move |_: events::Click| {
+                html!("button", {.class(BTN_CLASS).text(&format!("Compare reports: {}", selections)).event(move |_: events::Click| {
                     state.visit(Route::NewSimilarity(selections.clone().into()));
                 })}),
             )
         }
     }
 
-    html!("div", {.class("px-2").children(&mut [
-        html!("div", {.class("p-2").child_signal(reports.signal_ref(clone!(selected => clone!(state => move |reports| Some(match reports {
+    html!("div", {.class("p-2").children(&mut [
+        html!("div", {.class("pb-2").child_signal(selected.signal_ref(clone!(state => move |xs| render_selected(state.clone(), xs))))}),
+        html!("div", {.child_signal(reports.signal_ref(clone!(selected => clone!(state => move |reports| Some(match reports {
             Some(Ok(reports)) => render_report_rows(&state, &selected, reports),
             Some(Err(err)) => html!("div", {.children(&mut [text("Error: "), text(err)])}),
             None => html!("div", {.text("loading...")}),
         })))))}),
-        html!("div", {.child_signal(selected.signal_ref(clone!(state => move |xs| render_selected(state.clone(), xs))))})
     ])})
 }
 
