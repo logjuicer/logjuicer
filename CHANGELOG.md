@@ -3,6 +3,7 @@ next-version
 
 - web: improved similarity page render.
 - web: use a mono space font for log lines.
+- web: add a form to create similarity reports.
 - api: extra_baselines are now stored in a dedicated model to be rebuilt when the files are updated.
 
 0.10.0

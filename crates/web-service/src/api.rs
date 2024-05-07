@@ -91,6 +91,7 @@ async fn main() {
         .route("/api/reports", get(routes::reports_list))
         .route("/api/report/:report_id", get(routes::report_get))
         .route("/api/report/new", put(routes::report_new))
+        .route("/api/report/:report_id/status", get(routes::report_status))
         .route("/api/similarity/new", put(routes::similarity_new))
         .route("/wsapi/report/:report_id", get(routes::report_watch))
         .route(

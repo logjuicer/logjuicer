@@ -21,6 +21,8 @@ pub enum Route {
     NewReport(Rc<str>, Option<Rc<str>>),
     // Request a new similarity report
     NewSimilarity(Rc<str>),
+    // Make a new similary report
+    MakeSimilarity(Vec<Rc<str>>, Option<Rc<str>>),
     // The welcome page
     Welcome,
     // The audit page
@@ -42,6 +44,14 @@ impl Route {
         } else if path.ends_with("/similarity/new") {
             if let Some(reports) = params.get("reports") {
                 Route::NewSimilarity(reports.into())
+            } else {
+                Route::Welcome
+            }
+        } else if path.ends_with("/similarity/make") {
+            let baseline = params.get("baseline");
+            if let Some(targets) = params.get("targets") {
+                let targets = targets.split(',').map(|s| s.into()).collect();
+                Route::MakeSimilarity(targets, baseline.map(|s| s.into()))
             } else {
                 Route::Welcome
             }
@@ -74,6 +84,17 @@ impl Route {
             }
             Route::NewSimilarity(reports) => {
                 format!("{}similarity/new?reports={reports}", base)
+            }
+            Route::MakeSimilarity(targets, None) => {
+                format!("{}similarity/make?targets={}", base, targets.join(","))
+            }
+            Route::MakeSimilarity(targets, Some(baseline)) => {
+                format!(
+                    "{}similarity/make?targets={}&baseline={}",
+                    base,
+                    targets.join(","),
+                    baseline
+                )
             }
             Route::Watch(report_id) => format!("{}report/watch/{}", base, report_id),
             Route::Report(report_id) => format!("{}report/{}", base, report_id),
@@ -119,6 +140,10 @@ impl App {
 
     pub fn report_url(&self, report_id: ReportID) -> String {
         format!("{}api/report/{}", self.base_path, report_id)
+    }
+
+    pub fn status_url(&self, report_id: ReportID) -> String {
+        format!("{}api/report/{}/status", self.base_path, report_id)
     }
 
     pub fn new_report_url(&self, target: &str, baseline: Option<&str>) -> String {

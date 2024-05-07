@@ -78,6 +78,22 @@ pub async fn report_get(
     }
 }
 
+pub async fn report_status(
+    State(workers): State<Workers>,
+    Path(report_id): Path<ReportID>,
+) -> Result<Json<ReportStatus>> {
+    if let Some((status, _)) = workers
+        .db
+        .get_report_status(report_id)
+        .await
+        .map_err(handle_db_error)?
+    {
+        Ok(Json(status))
+    } else {
+        Err((StatusCode::NOT_FOUND, "Report Not Found".into()))
+    }
+}
+
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct NewReportQuery {
