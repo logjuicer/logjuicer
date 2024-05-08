@@ -3,9 +3,9 @@
 
 use dominator::{html, Dom};
 
-pub fn mk_card(title: &str, body: Dom) -> Dom {
+pub fn mk_card(title: &str, id: &str, body: Dom) -> Dom {
     html!("div", {.class(["mt-2"]).children(&mut [
-        html!("div", {.class(["bg-slate-100", "w-full", "font-semibold", "pl-2"]).text(title)}),
+        html!("div", {.class(["bg-slate-100", "w-full", "font-semibold", "pl-2"]).text(title).attr("id", id)}),
         body
     ])})
 }
