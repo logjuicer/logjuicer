@@ -5,7 +5,7 @@
 
 use std::{cmp::Ordering, iter::once, rc::Rc};
 
-use dominator::{clone, html, Dom};
+use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
 use itertools::{chain, Itertools};
 use logjuicer_report::{
@@ -36,7 +36,7 @@ fn render_anomaly(
     });
     lines.push(html!("tr", {.children(&mut [
         html!("td"),
-        html!("td", {.children(chain(once(info), targets))})
+        html!("td", {.children(chain(chain(once(info), targets), once(text("."))))})
     ])}));
     render_anomaly_context(gl_pos, &mut None, lines, &anomaly.anomaly)
 }
@@ -47,14 +47,19 @@ fn render_top(gl_pos: &mut usize, report: &SimilarityReport, count: usize) -> Do
     for (_count, slr, anomaly) in report
         .similarity_reports
         .iter()
+        // Extract the (anomalies source count, slr, anomaly) from every slr into a flat list of event
         .flat_map(|slr| {
             slr.anomalies
                 .iter()
                 .map(move |anomaly| (anomaly.sources.len(), slr, anomaly))
         })
+        // Keep anomalies with more than one source
         .filter(|(count, _, _)| *count > 1)
+        // Order by decreasing count
         .sorted_by(|a, b| b.0.cmp(&a.0))
+        // Keep the top most entries
         .take(count)
+        // Order by source name
         .sorted_by(|a, b| a.1.sources[0].source.cmp(&b.1.sources[0].source))
     {
         if current_src != Some(&slr.sources[0]) {
@@ -144,10 +149,26 @@ fn render_similarity_report(state: &Rc<App>, resp: &SimilarityReportResp) -> Dom
         .iter()
         .map(|rid| state.to_url(Route::Report(*rid)))
         .collect();
+    let menu_cls = ["cursor-pointer", "bg-slate-100", "font-semibold", "px-2"];
+    let menu = [
+        html!("a", {.class(menu_cls).attr("href", "#matrix").text("Summary")}),
+        html!("a", {.class(menu_cls).attr("href", "#top100").text("Top 100")}),
+        html!("a", {.class(menu_cls).attr("href", "#all").text("All")}),
+    ];
+    let nav_cls = [
+        "sticky",
+        "flex",
+        "top-[24px]",
+        "gap-1",
+        "w-full",
+        "justify-end",
+        "pr-2",
+    ];
     html!("div", {.children(&mut [
-        mk_card("Targets comparaisons", render_similarity_matrix(&resp.report, &urls)),
-        mk_card("Top 100 most common anomalies", render_top(&mut gl_pos, &resp.report, 100)),
-        mk_card("All anomalies", render_similarity_reports(&mut gl_pos, &resp.report)),
+        html!("nav", {.class(nav_cls).children(menu)}),
+        mk_card("Targets comparaisons", "matrix", render_similarity_matrix(&resp.report, &urls)),
+        mk_card("Top 100 most common anomalies", "top100", render_top(&mut gl_pos, &resp.report, 100)),
+        mk_card("All anomalies", "all", render_similarity_reports(&mut gl_pos, &resp.report)),
     ])})
 }
 
