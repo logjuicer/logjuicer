@@ -3,7 +3,7 @@
 
 //! This module contains the logic to render a similarity report.
 
-use std::{cmp::Ordering, iter::once, rc::Rc};
+use std::{cmp::Ordering, collections::HashSet, iter::once, rc::Rc};
 
 use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
@@ -14,10 +14,14 @@ use logjuicer_report::{
 
 use crate::{
     dom_report::{render_anomaly_context, render_content, render_source_link},
-    dom_utils::{fetch_data, mk_card, render_link},
+    dom_utils::{fetch_data, mk_card, render_link, RenderState},
     selection::{put_hash_into_view, Selection},
     state::{App, Route},
 };
+
+fn is_unique(uniques: &mut HashSet<Rc<str>>, anomaly: &SimilarityAnomalyContext) -> bool {
+    uniques.insert(anomaly.anomaly.anomaly.line.clone())
+}
 
 fn render_anomaly(
     gl_pos: &mut usize,
@@ -41,7 +45,7 @@ fn render_anomaly(
     render_anomaly_context(gl_pos, &mut None, lines, &anomaly.anomaly)
 }
 
-fn render_top(gl_pos: &mut usize, report: &SimilarityReport, count: usize) -> Dom {
+fn render_top(render_state: &mut RenderState, report: &SimilarityReport, count: usize) -> Dom {
     let mut current_src = None;
     let mut lines = Vec::new();
     for (_count, slr, anomaly) in report
@@ -59,6 +63,7 @@ fn render_top(gl_pos: &mut usize, report: &SimilarityReport, count: usize) -> Do
         .sorted_by(|a, b| b.0.cmp(&a.0))
         // Keep the top most entries
         .take(count)
+        .filter(|(_, _, anomaly)| is_unique(&mut render_state.uniques, anomaly))
         // Order by source name
         .sorted_by(|a, b| a.1.sources[0].source.cmp(&b.1.sources[0].source))
     {
@@ -74,20 +79,23 @@ fn render_top(gl_pos: &mut usize, report: &SimilarityReport, count: usize) -> Do
                 ])})
             ])}));
         }
-        render_anomaly(gl_pos, &mut lines, slr, anomaly);
+        render_anomaly(&mut render_state.gl_pos, &mut lines, slr, anomaly);
     }
     html!("table", {.children(&mut lines)})
 }
 
-fn render_similarity_reports(gl_pos: &mut usize, report: &SimilarityReport) -> Dom {
+fn render_similarity_reports(render_state: &mut RenderState, report: &SimilarityReport) -> Dom {
     let mut childs = Vec::new();
     for slr in &report.similarity_reports {
         childs.push(render_source_link(&slr.sources[0].source));
         let mut lines = Vec::new();
-        for anomaly in &slr.anomalies {
-            render_anomaly(gl_pos, &mut lines, slr, anomaly);
+        slr.anomalies
+            .iter()
+            .filter(|anomaly| is_unique(&mut render_state.uniques, anomaly))
+            .for_each(|anomaly| render_anomaly(&mut render_state.gl_pos, &mut lines, slr, anomaly));
+        if !lines.is_empty() {
+            childs.push(html!("table", {.children(&mut lines)}));
         }
-        childs.push(html!("table", {.children(&mut lines)}));
     }
     html!("div", {.children(childs)})
 }
@@ -143,7 +151,7 @@ fn render_similarity_matrix(report: &SimilarityReport, urls: &[String]) -> Dom {
 }
 
 fn render_similarity_report(state: &Rc<App>, resp: &SimilarityReportResp) -> Dom {
-    let mut gl_pos = 0;
+    let mut render_state = RenderState::default();
     let urls: Vec<String> = resp
         .rids
         .iter()
@@ -167,8 +175,8 @@ fn render_similarity_report(state: &Rc<App>, resp: &SimilarityReportResp) -> Dom
     html!("div", {.children(&mut [
         html!("nav", {.class(nav_cls).children(menu)}),
         mk_card("Targets comparaisons", "matrix", render_similarity_matrix(&resp.report, &urls)),
-        mk_card("Top 100 most common anomalies", "top100", render_top(&mut gl_pos, &resp.report, 100)),
-        mk_card("All anomalies", "all", render_similarity_reports(&mut gl_pos, &resp.report)),
+        mk_card("Top 100 most common anomalies", "top100", render_top(&mut render_state, &resp.report, 100)),
+        mk_card("All anomalies", "all", render_similarity_reports(&mut render_state, &resp.report)),
     ])})
 }
 

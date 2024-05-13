@@ -1,6 +1,8 @@
 // Copyright (C) 2023 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
+use std::{collections::HashSet, rc::Rc};
+
 use dominator::{html, Dom};
 
 pub fn mk_card(title: &str, id: &str, body: Dom) -> Dom {
@@ -55,3 +57,12 @@ pub fn data_attr(name: &str, value: &str) -> Dom {
 
 #[cfg(feature = "api_client")]
 pub type FetchResult<Value> = Option<Result<Value, String>>;
+
+/// A state used for rendering purpose
+#[derive(Default)]
+pub struct RenderState {
+    /// The global line position for the anchor selector
+    pub gl_pos: usize,
+    /// The set of already displayed anomalies
+    pub uniques: HashSet<Rc<str>>,
+}

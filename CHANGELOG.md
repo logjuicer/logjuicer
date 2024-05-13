@@ -4,6 +4,7 @@ next-version
 - web: improved similarity page render.
 - web: use a mono space font for log lines.
 - web: add a form to create similarity reports.
+- web: hide duplicated anomalies.
 - api: extra_baselines are now stored in a dedicated model to be rebuilt when the files are updated.
 - cli: --open and --report can now be used independently.
 

@@ -5,7 +5,7 @@
 
 use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
@@ -13,7 +13,7 @@ use logjuicer_report::{
     bytes_to_mb, AnomalyContext, Content, Epoch, IndexName, LogReport, Report, Source,
 };
 
-use crate::dom_utils::{data_attr, data_attr_html, fetch_data, render_link};
+use crate::dom_utils::{data_attr, data_attr_html, fetch_data, render_link, RenderState};
 use crate::selection::{put_hash_into_view, Selection};
 
 #[cfg(feature = "api_client")]
@@ -30,6 +30,10 @@ impl App {
             report: Mutable::new(None),
         }
     }
+}
+
+fn is_unique(uniques: &mut HashSet<Rc<str>>, anomaly: &AnomalyContext) -> bool {
+    uniques.insert(anomaly.anomaly.line.clone())
 }
 
 pub fn render_source_link(source: &Source) -> Dom {
@@ -136,7 +140,7 @@ fn log_name(path: &str) -> &str {
 }
 
 fn render_log_report(
-    gl_pos: &mut usize,
+    render_state: &mut RenderState,
     anchor: &str,
     report: &Report,
     log_report: &LogReport,
@@ -198,7 +202,10 @@ fn render_log_report(
     log_report
         .anomalies
         .iter()
-        .for_each(|anomaly| render_anomaly_context(gl_pos, &mut last_pos, &mut lines, anomaly));
+        .filter(|anomaly| is_unique(&mut render_state.uniques, anomaly))
+        .for_each(|anomaly| {
+            render_anomaly_context(&mut render_state.gl_pos, &mut last_pos, &mut lines, anomaly)
+        });
 
     html!("div", {.class(["content", "pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
         header,
@@ -231,29 +238,33 @@ fn render_unknown(target: &Content, source: &Source, index: &IndexName) -> Dom {
 }
 
 fn render_timeline(
-    gl_pos: &mut usize,
+    render_state: &mut RenderState,
     anchors: &ReportAnchors<'_>,
     timeline: BTreeMap<Epoch, (&LogReport, &AnomalyContext)>,
 ) -> Dom {
     let mut lines = Vec::with_capacity(timeline.len() * 2);
     let mut current_source = None;
     let mut last_pos = None;
-    for (lr, anomaly) in timeline.into_values() {
-        if Some(&lr.source) != current_source {
-            current_source = Some(&lr.source);
-            let link = anchors.get(&lr.source).expect("known source anchor");
-            last_pos = None;
-            lines.push(html!("tr", {.children(&mut [
-                html!("td", {.class(["header2", "text-end", "bg-slate-50", "px-2", "pb-1"])
-                             .attr("colspan", "2")
-                             .children(&mut [
-                                 html!("a", {.class("cursor-pointer").attr("href", &link.1)
-                                             .text(lr.source.get_relative())})
-                             ])})
-            ])}))
-        }
-        render_anomaly_context(gl_pos, &mut last_pos, &mut lines, anomaly);
-    }
+
+    timeline
+        .into_values()
+        .filter(|(_, anomaly)| is_unique(&mut render_state.uniques, anomaly))
+        .for_each(|(lr, anomaly)| {
+            if Some(&lr.source) != current_source {
+                current_source = Some(&lr.source);
+                let link = anchors.get(&lr.source).expect("known source anchor");
+                last_pos = None;
+                lines.push(html!("tr", {.children(&mut [
+                    html!("td", {.class(["header2", "text-end", "bg-slate-50", "px-2", "pb-1"])
+                                 .attr("colspan", "2")
+                                 .children(&mut [
+                                     html!("a", {.class("cursor-pointer").attr("href", &link.1)
+                                                 .text(lr.source.get_relative())})
+                                 ])})
+                ])}))
+            }
+            render_anomaly_context(&mut render_state.gl_pos, &mut last_pos, &mut lines, anomaly);
+        });
     let header = html!("header", {.class(["header", "bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
         html!("div", {.class(["grow", "flex"]).text(
             "Timeline"
@@ -275,7 +286,7 @@ type ReportAnchors<'a> = HashMap<&'a Source, (String, String)>;
 
 fn render_report<'a>(report: &'a Report) -> Dom {
     let mut childs = Vec::new();
-    let mut gl_pos = 0;
+    let mut render_state = RenderState::default();
 
     let anchors: ReportAnchors<'a> =
         HashMap::from_iter(report.log_reports.iter().enumerate().map(|lr| {
@@ -311,13 +322,13 @@ fn render_report<'a>(report: &'a Report) -> Dom {
             }
         }
         if lr_count > 1 {
-            childs.push(render_timeline(&mut gl_pos, &anchors, timeline));
+            childs.push(render_timeline(&mut render_state, &anchors, timeline));
         }
     }
 
     for lr in &report.log_reports {
         let anchor = anchors.get(&lr.source).expect("Known source anchor");
-        childs.push(render_log_report(&mut gl_pos, &anchor.0, report, lr))
+        childs.push(render_log_report(&mut render_state, &anchor.0, report, lr))
     }
 
     if !report.read_errors.is_empty() || !report.unknown_files.is_empty() {
