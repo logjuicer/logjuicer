@@ -320,7 +320,9 @@ fn process_report(
             .map_err(|e| format!("discovery failed: {:?}", e))?,
     };
 
-    monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
+    if baseline.is_none() {
+        monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
+    }
     if !penv.allow_any_sources {
         baselines.iter().try_for_each(check_content)?;
     }
@@ -416,6 +418,9 @@ fn process_model(
         }
         ModelStatus::Pending(mut model_follower) => {
             penv.handle.block_on(async {
+                penv.monitor
+                    .emit_async("Waiting for model build".into())
+                    .await;
                 // forward previous messages
                 for msg in model_follower.events.read().await.iter() {
                     penv.monitor.emit_async(Arc::clone(msg)).await;
