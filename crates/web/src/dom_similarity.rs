@@ -49,7 +49,7 @@ fn render_top(
     render_state: &mut RenderState,
     report: &SimilarityReport,
     count: usize,
-    cmp: fn(Uss, Uss) -> Ordering,
+    cmp: fn(usize, usize) -> Ordering,
 ) -> Dom {
     let mut current_src = None;
     let mut lines = Vec::new();
@@ -62,10 +62,8 @@ fn render_top(
                 .iter()
                 .map(move |anomaly| (anomaly.sources.len(), slr, anomaly))
         })
-        // Keep anomalies with more than one source
-        .filter(|(count, _, _)| *count > 1)
-        // Order by decreasing count
-        .sorted_by(cmp)
+        // Order by count
+        .sorted_by(|a, b| cmp(a.0, b.0))
         // Keep the top most entries
         .take(count)
         .filter(|(_, _, anomaly)| is_unique(&mut render_state.uniques, anomaly))
@@ -89,14 +87,12 @@ fn render_top(
     html!("table", {.children(&mut lines)})
 }
 
-type Uss<'a, 'b> = &'a (usize, &'b SimilarityLogReport, &'b SimilarityAnomalyContext);
-
-fn most(a: Uss, b: Uss) -> Ordering {
-    b.0.cmp(&a.0)
+fn most(a: usize, b: usize) -> Ordering {
+    b.cmp(&a)
 }
 
-fn least(a: Uss, b: Uss) -> Ordering {
-    b.0.cmp(&a.0).reverse()
+fn least(a: usize, b: usize) -> Ordering {
+    b.cmp(&a).reverse()
 }
 
 fn render_top_most(render_state: &mut RenderState, report: &SimilarityReport, count: usize) -> Dom {
