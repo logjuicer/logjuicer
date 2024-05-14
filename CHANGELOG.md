@@ -2,6 +2,7 @@ next-version
 ============
 
 - web: improved similarity page render.
+- web: add top 100 least common anomalies section in similarity report.
 - web: use a mono space font for log lines.
 - web: add a form to create similarity reports.
 - web: hide duplicated anomalies.
