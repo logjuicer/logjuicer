@@ -45,7 +45,12 @@ fn render_anomaly(
     render_anomaly_context(gl_pos, &mut None, lines, &anomaly.anomaly)
 }
 
-fn render_top(render_state: &mut RenderState, report: &SimilarityReport, count: usize) -> Dom {
+fn render_top(
+    render_state: &mut RenderState,
+    report: &SimilarityReport,
+    count: usize,
+    cmp: fn(Uss, Uss) -> Ordering,
+) -> Dom {
     let mut current_src = None;
     let mut lines = Vec::new();
     for (_count, slr, anomaly) in report
@@ -60,7 +65,7 @@ fn render_top(render_state: &mut RenderState, report: &SimilarityReport, count: 
         // Keep anomalies with more than one source
         .filter(|(count, _, _)| *count > 1)
         // Order by decreasing count
-        .sorted_by(|a, b| b.0.cmp(&a.0))
+        .sorted_by(cmp)
         // Keep the top most entries
         .take(count)
         .filter(|(_, _, anomaly)| is_unique(&mut render_state.uniques, anomaly))
@@ -82,6 +87,28 @@ fn render_top(render_state: &mut RenderState, report: &SimilarityReport, count: 
         render_anomaly(&mut render_state.gl_pos, &mut lines, slr, anomaly);
     }
     html!("table", {.children(&mut lines)})
+}
+
+type Uss<'a, 'b> = &'a (usize, &'b SimilarityLogReport, &'b SimilarityAnomalyContext);
+
+fn most(a: Uss, b: Uss) -> Ordering {
+    b.0.cmp(&a.0)
+}
+
+fn least(a: Uss, b: Uss) -> Ordering {
+    b.0.cmp(&a.0).reverse()
+}
+
+fn render_top_most(render_state: &mut RenderState, report: &SimilarityReport, count: usize) -> Dom {
+    render_top(render_state, report, count, most)
+}
+
+fn render_top_least(
+    render_state: &mut RenderState,
+    report: &SimilarityReport,
+    count: usize,
+) -> Dom {
+    render_top(render_state, report, count, least)
 }
 
 fn render_similarity_reports(render_state: &mut RenderState, report: &SimilarityReport) -> Dom {
@@ -161,6 +188,7 @@ fn render_similarity_report(state: &Rc<App>, resp: &SimilarityReportResp) -> Dom
     let menu = [
         html!("a", {.class(menu_cls).attr("href", "#matrix").text("Summary")}),
         html!("a", {.class(menu_cls).attr("href", "#top100").text("Top 100")}),
+        html!("a", {.class(menu_cls).attr("href", "#least100").text("Least 100")}),
         html!("a", {.class(menu_cls).attr("href", "#all").text("All")}),
     ];
     let nav_cls = [
@@ -175,7 +203,8 @@ fn render_similarity_report(state: &Rc<App>, resp: &SimilarityReportResp) -> Dom
     html!("div", {.children(&mut [
         html!("nav", {.class(nav_cls).children(menu)}),
         mk_card("Targets comparaisons", "matrix", render_similarity_matrix(&resp.report, &urls)),
-        mk_card("Top 100 most common anomalies", "top100", render_top(&mut render_state, &resp.report, 100)),
+        mk_card("Top 100 most common anomalies", "top100", render_top_most(&mut render_state, &resp.report, 100)),
+        mk_card("Top 100 least common anomalies", "least100", render_top_least(&mut render_state, &resp.report, 100)),
         mk_card("All anomalies", "all", render_similarity_reports(&mut render_state, &resp.report)),
     ])})
 }
