@@ -258,8 +258,7 @@ fn render_timeline(
                     html!("td", {.class(["header2", "text-end", "bg-slate-50", "px-2", "pb-1"])
                                  .attr("colspan", "2")
                                  .children(&mut [
-                                     html!("a", {.class("cursor-pointer").attr("href", &link.1)
-                                                 .text(lr.source.get_relative())})
+                                     render_link(&link.1, lr.source.get_relative())
                                  ])})
                 ])}))
             }

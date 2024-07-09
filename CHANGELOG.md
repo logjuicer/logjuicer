@@ -1,6 +1,8 @@
 next-version
 ============
 
+- web: improved external link styling.
+
 0.11.0
 ======
 

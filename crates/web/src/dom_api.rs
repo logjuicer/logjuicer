@@ -69,7 +69,7 @@ fn render_report_row(state: &Rc<App>, selected: &Selected, report: &ReportRow) -
             } else {
                 None
             },
-            link!(state.to_url(report_route), {.text("read")}),
+            link!(state.to_url(report_route), {.text("read").class("internal")}),
         ),
         ReportStatus::Error(err) => (
             None,
