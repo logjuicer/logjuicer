@@ -97,7 +97,7 @@ Oops this is an error
 
 #[tokio::test]
 async fn test_api_basic() {
-    let mut server = mockito::Server::new();
+    let mut server = mockito::Server::new_async().await;
     let env = EnvConfig::new();
 
     // Create builds
@@ -200,7 +200,7 @@ Second good line
 #[tokio::test]
 async fn test_api_extra_baselines() {
     // Create builds results
-    let mut server = mockito::Server::new();
+    let mut server = mockito::Server::new_async().await;
     let target = register_build(
         &mut server,
         "job-target",
