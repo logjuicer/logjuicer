@@ -1,6 +1,11 @@
 next-version
 ============
 
+0.12.0
+======
+
+- api: add report/json route to fetch the plain text version of an existing report.
+
 0.11.1
 ======
 

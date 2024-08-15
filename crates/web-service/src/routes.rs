@@ -36,7 +36,8 @@ pub async fn models_list(State(workers): State<Workers>) -> Result<Json<Vec<Mode
     Ok(Json(models))
 }
 
-pub async fn report_get(
+async fn do_report_get(
+    json: bool,
     State(workers): State<Workers>,
     Path(report_id): Path<ReportID>,
 ) -> Result<axum::response::Response> {
@@ -57,7 +58,9 @@ pub async fn report_get(
             )),
             ReportStatus::Completed => {
                 let fp = report_path(&workers.storage_dir, report_id);
-                if let Ok(file) = File::open(&fp).await {
+                if json {
+                    report_convert_json(std::path::Path::new(&fp), &baseline)
+                } else if let Ok(file) = File::open(&fp).await {
                     // The file exists, stream its content...
 
                     // Wrap to a tokio_util::io::ReaderStream
@@ -76,6 +79,43 @@ pub async fn report_get(
     } else {
         Err((StatusCode::NOT_FOUND, "Report Not Found".into()))
     }
+}
+
+pub fn report_convert_json(
+    fp: &std::path::Path,
+    baseline: &str,
+) -> Result<axum::response::Response> {
+    match logjuicer_report::Report::load(fp) {
+        Ok(report) => match serde_json::to_vec(&report) {
+            Ok(buf) => Ok(axum::response::Response::builder()
+                .header("Content-Type", "application/json")
+                .header("x-baselines", baseline)
+                .body(buf.into())
+                .unwrap()),
+            Err(error) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Encode failed: {}", error),
+            )),
+        },
+        Err(error) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Load failed: {}", error),
+        )),
+    }
+}
+
+pub async fn report_get(
+    workers: State<Workers>,
+    report_id: Path<ReportID>,
+) -> Result<axum::response::Response> {
+    do_report_get(false, workers, report_id).await
+}
+
+pub async fn report_get_json(
+    workers: State<Workers>,
+    report_id: Path<ReportID>,
+) -> Result<axum::response::Response> {
+    do_report_get(true, workers, report_id).await
 }
 
 pub async fn report_status(

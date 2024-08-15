@@ -48,7 +48,7 @@ pub struct ReportRow {
 ### Get a report
 
 ```ShellSession
-curl localhost:3000/api/report/$REPORT_ID
+curl localhost:3000/api/report/$REPORT_ID/json
 ```
 
 Return the report containing the anomalies.
