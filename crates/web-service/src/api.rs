@@ -89,6 +89,7 @@ async fn main() {
         .route("/ready", get(|| async { "ok" }))
         .route("/api/models", get(routes::models_list))
         .route("/api/reports", get(routes::reports_list))
+        .route("/api/report/:report_id/json", get(routes::report_get_json))
         .route("/api/report/:report_id", get(routes::report_get))
         .route("/api/report/new", put(routes::report_new))
         .route("/api/report/:report_id/status", get(routes::report_status))
