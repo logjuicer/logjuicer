@@ -22,42 +22,23 @@ pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
 }
 
 #[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
-pub fn url_open(env: &Env, prefix: usize, url: &Url) -> Result<crate::reader::DecompressReader> {
+pub fn url_open(env: &Env, url: &Url) -> Result<crate::reader::DecompressReader> {
     tracing::debug!(url = url.as_str(), "Requesting url");
-    crate::reader::from_url(env, prefix, url)
+    crate::reader::get_url(env, url)
 }
 
 #[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
 pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     let base_len = url.as_str().trim_end_matches('/').len() + 1;
-    // TODO: fix the httpdir cache to work with iterator
-    let maybe_cached = if let Some(cache) = &env.cache {
-        cache.httpdir_get(url)
-    } else {
-        None
-    };
-    let urls = if let Some(cached) = maybe_cached {
-        cached
-    } else {
-        let request_max = 2500;
-        let urls = httpdir::list_with_client(env.client.clone(), request_max, url.clone())
+    let request_max = 2500;
+    Box::new(
+        httpdir::list_with_client(env.client.clone(), request_max, url.clone())
             .into_iter()
-            // Convert httpdir error into cachable error
-            .map(|url_result| url_result.map_err(|e| format!("{:?}", e).into()))
-            .collect::<Vec<logjuicer_cache::UrlResult>>();
-        if let Some(cache) = &env.cache {
-            cache.httpdir_add(url, &urls).map(|()| urls)
-        } else {
-            Ok(urls)
-        }
-    };
-
-    match urls {
-        Ok(urls) => Box::new(urls.into_iter().map(move |url_result| {
-            url_result
-                .map_err(anyhow::Error::msg)
-                .map(|url| Source::Remote(base_len, url))
-        })),
-        Err(e) => Box::new(std::iter::once(Err(e))),
-    }
+            // Convert httpdir result into source item
+            .map(move |url_result| {
+                url_result
+                    .map_err(anyhow::Error::msg)
+                    .map(|url| Source::Remote(base_len, url))
+            }),
+    )
 }

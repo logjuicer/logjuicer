@@ -139,7 +139,7 @@ fn baseline_score(build: &ZuulBuild, target: &zuul_build::Build, now: &NaiveDate
 fn logs_available(env: &Env, target: &zuul_build::Build) -> bool {
     match target.log_url {
         None => false,
-        Some(ref url) => match crate::reader::head_url(env, 0, url) {
+        Some(ref url) => match crate::reader::head_url(env, url) {
             Err(e) => {
                 tracing::info!(
                     url = url.as_str(),
@@ -178,7 +178,7 @@ pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Vec<Content>> 
 pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     let prefix = build.log_url.as_str().trim_end_matches('/').len() + 1;
     let manifest_url = build.log_url.join("zuul-manifest.json").expect("good url");
-    if let Ok(mut reader) = crate::url_open(env, prefix, &manifest_url) {
+    if let Ok(mut reader) = crate::url_open(env, &manifest_url) {
         let mut manifest = Vec::new();
         match reader.read_to_end(&mut manifest).and_then(|_| {
             Ok(serde_json::from_reader::<
@@ -222,23 +222,13 @@ fn new_content(api: ApiUrl, build: zuul_build::Build) -> Content {
 
 fn get_build(env: &Env, api: &ApiUrl, uuid: &str) -> Result<zuul_build::Build> {
     let url = api.as_url().join(&format!("build/{}", uuid))?;
-    let reader = crate::reader::from_url(env, 0, &url)?;
-    match zuul_build::decode_build(reader).context("Can't decode zuul build api") {
-        Ok(x) => Ok(x),
-        Err(e) => {
-            crate::reader::drop_url(env, 0, &url).map_or_else(Err, |_| Err(e).context(url.clone()))
-        }
-    }
+    let reader = crate::reader::get_url(env, &url)?;
+    zuul_build::decode_build(reader).context("Can't decode zuul build api")
 }
 
 fn get_builds(env: &Env, url: &Url) -> Result<Vec<zuul_build::Build>> {
-    let reader = crate::reader::from_url(env, 0, url)?;
-    match zuul_build::decode_builds(reader).context("Can't decode zuul builds api") {
-        Ok(xs) => Ok(xs),
-        Err(e) => {
-            crate::reader::drop_url(env, 0, url).map_or_else(Err, |_| Err(e).context(url.clone()))
-        }
-    }
+    let reader = crate::reader::get_url(env, url)?;
+    zuul_build::decode_builds(reader).context("Can't decode zuul builds api")
 }
 
 fn is_uid(s: &str) -> bool {
@@ -359,7 +349,6 @@ fn test_zuul_api() -> Result<()> {
         .expect(0)
         .create();
 
-    crate::reader::drop_url(&env, 0, &url.as_url().join(api_path)?)?;
     let content = content_from_zuul_url(&env, &build_url).unwrap()?;
     let expected = Content::Zuul(Box::new(ZuulBuild {
         api: url.join("/zuul/api/")?,

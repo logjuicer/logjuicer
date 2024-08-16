@@ -221,7 +221,7 @@ impl<IR: IndexReader> Index<IR> {
         for source in sources {
             let reader = match source {
                 Source::Local(_, path_buf) => file_open(path_buf.as_path()),
-                Source::Remote(prefix, url) => url_open(env.gl, *prefix, url),
+                Source::Remote(_, url) => url_open(env.gl, url),
             };
             // TODO: record training errors?
             match reader {
@@ -257,7 +257,7 @@ impl<IR: IndexReader> Index<IR> {
     ) -> Result<process::ChunkProcessor<IR, crate::reader::DecompressReader>> {
         let fp = match source {
             Source::Local(_, path_buf) => file_open(path_buf.as_path()),
-            Source::Remote(prefix, url) => url_open(env.gl, *prefix, url),
+            Source::Remote(_, url) => url_open(env.gl, url),
         }?;
         let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
             file_name.starts_with("job-output")
