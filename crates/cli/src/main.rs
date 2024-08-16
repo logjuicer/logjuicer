@@ -314,9 +314,7 @@ impl Cli {
                             Source::Local(_, path_buf) => {
                                 logjuicer_model::files::file_open(path_buf.as_path())?
                             }
-                            Source::Remote(prefix, url) => {
-                                logjuicer_model::urls::url_open(env.gl, *prefix, url)?
-                            }
+                            Source::Remote(_, url) => logjuicer_model::urls::url_open(env.gl, url)?,
                         };
                         for line in logjuicer_iterator::BytesLines::new(reader, source.is_json()) {
                             match line {

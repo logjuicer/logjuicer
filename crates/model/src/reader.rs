@@ -13,21 +13,6 @@ use std::fs::File;
 use crate::env::Env;
 use flate2::read::GzDecoder;
 
-/// Handle remote object.
-use ureq::{Agent, Response};
-mod remote {
-    use super::*;
-
-    pub fn get_url(client: &Agent, url: &Url) -> Result<Response> {
-        Ok(client.request_url("GET", url).call()?)
-    }
-
-    pub fn head(client: &Agent, url: &Url) -> Result<bool> {
-        let resp = client.request_url("HEAD", url).call()?;
-        Ok(is_success(resp.status()))
-    }
-}
-
 fn is_success(code: u16) -> bool {
     (200..400).contains(&code)
 }
@@ -39,7 +24,6 @@ pub enum DecompressReader {
     Gz(GzDecoder<File>),
     // TODO: support BZIP2 compression
     Remote(UreqReader),
-    Cached(logjuicer_cache::CacheReader<UreqReader>),
 }
 use DecompressReader::*;
 
@@ -55,49 +39,14 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
     })
 }
 
-pub fn head_url(env: &Env, prefix: usize, url: &Url) -> Result<bool> {
-    if let Some(cache) = &env.cache {
-        match cache.head(prefix, url) {
-            Some(result) => {
-                tracing::debug!("Cache hit for {}", url);
-                Ok(result)
-            }
-            None => {
-                tracing::debug!("Cache miss for {}", url);
-                cache.head_set(prefix, url, remote::head(&env.client, url)?)
-            }
-        }
-    } else {
-        remote::head(&env.client, url)
-    }
+pub fn head_url(env: &Env, url: &Url) -> Result<bool> {
+    let resp = env.client.request_url("HEAD", url).call()?;
+    Ok(is_success(resp.status()))
 }
 
-/// Read a url, using a prefix size for cache grouping directory.
-pub fn from_url(env: &Env, prefix: usize, url: &Url) -> Result<DecompressReader> {
-    if let Some(cache) = &env.cache {
-        match cache.remote_get(prefix, url) {
-            Some(cache) => {
-                tracing::debug!("Cache hit for {}", url);
-                cache.map(Gz)
-            }
-            None => {
-                tracing::debug!("Cache miss for {}", url);
-                let resp = remote::get_url(&env.client, url)?;
-                let cache = cache.remote_add(prefix, url, resp.into_reader())?;
-                Ok(Cached(cache))
-            }
-        }
-    } else {
-        Ok(Remote(remote::get_url(&env.client, url)?.into_reader()))
-    }
-}
-
-pub fn drop_url(env: &Env, prefix: usize, url: &Url) -> Result<()> {
-    if let Some(cache) = &env.cache {
-        cache.remote_drop(prefix, url)
-    } else {
-        Ok(())
-    }
+pub fn get_url(env: &Env, url: &Url) -> Result<DecompressReader> {
+    let resp = env.client.request_url("GET", url).call()?;
+    Ok(Remote(resp.into_reader()))
 }
 
 impl Read for DecompressReader {
@@ -107,7 +56,6 @@ impl Read for DecompressReader {
             Flat(r) => r.read(buf),
             Gz(r) => r.read(buf),
             Remote(r) => r.read(buf),
-            Cached(r) => r.read(buf),
         }
     }
 }

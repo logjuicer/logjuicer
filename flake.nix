@@ -220,7 +220,6 @@
             sqlite
             capnproto
           ];
-          LOGJUICER_CACHE = "1";
           UPDATE_GOLDENFILES = "1";
           # `cargo sqlx prepare` needs an absolute path (`database create` and `migrate run` don't)
           shellHook = ''

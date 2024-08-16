@@ -11,7 +11,6 @@ use anyhow::Result;
 use logjuicer_report::Content;
 
 pub struct Env {
-    pub cache: Option<logjuicer_cache::Cache>,
     pub client: ureq::Agent,
     pub output: OutputMode,
 }
@@ -22,13 +21,7 @@ impl Env {
     }
 
     pub fn new_with_settings(output: OutputMode) -> Self {
-        let cache = if std::env::var("LOGJUICER_CACHE").is_ok() {
-            Some(logjuicer_cache::Cache::new().expect("Cache"))
-        } else {
-            None
-        };
         Env {
-            cache,
             client: new_agent(),
             output,
         }

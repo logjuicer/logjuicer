@@ -7,7 +7,6 @@ members = [
   "crates/report",
   "crates/zuul",
   "crates/prow",
-  "crates/cache",
   "crates/httpdir",
   "crates/cli",
   "crates/generate",
@@ -29,7 +28,6 @@ anyhow = "*"
 thiserror = "*"
 bytes = "1"
 itertools = "0.12"
-xdg = "2"
 threadpool = "1"
 regex = "1"
 lazy_static = "1"

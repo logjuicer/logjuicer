@@ -24,7 +24,6 @@ logjuicer-report = { path = "../report" }
 logjuicer-tokenizer = { path = "../tokenizer" }
 logjuicer-iterator = { path = "../iterator" }
 httpdir = { path = "../httpdir" }
-logjuicer-cache = { path = "../cache" }
 zuul-build = { path = "../zuul" }
 prow-build = { path = "../prow" }
 url = { workspace = true }
