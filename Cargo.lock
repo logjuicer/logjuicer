@@ -1569,7 +1569,7 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "logjuicer-cli"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -1688,7 +1688,7 @@ dependencies = [
 
 [[package]]
 name = "logjuicer-web"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -1708,7 +1708,7 @@ dependencies = [
 
 [[package]]
 name = "logjuicer-web-service"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "axum",
