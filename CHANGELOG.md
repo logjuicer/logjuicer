@@ -1,6 +1,8 @@
 next-version
 ============
 
+- api: fix LOGJUICER_CA_EXTRA usage when a bundle already exists.
+
 0.12.0
 ======
 
