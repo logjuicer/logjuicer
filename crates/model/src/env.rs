@@ -135,14 +135,16 @@ fn new_agent_safe() -> Result<ureq::Agent, std::io::Error> {
     };
     let ca_bundle = tls_ca_bundle();
     let ca_extra = tls_ca_extra();
-    if let Some(ca_path) = ca_bundle.as_ref().or(ca_extra.as_ref()) {
-        let mut reader = std::io::BufReader::new(std::fs::File::open(ca_path)?);
-        let certs = rustls_pemfile::certs(&mut reader)?;
+    if ca_bundle.is_some() || ca_extra.is_some() {
         let mut root_certs = rustls::RootCertStore::empty();
-        root_certs.add_parsable_certificates(&certs);
 
-        if ca_extra.is_some() {
-            // Add mozilla certificates too, as done by ureq:rtls:root_certs
+        if let Some(ca_path) = ca_bundle {
+            // Load provided ca
+            let mut reader = std::io::BufReader::new(std::fs::File::open(ca_path)?);
+            let certs = rustls_pemfile::certs(&mut reader)?;
+            root_certs.add_parsable_certificates(&certs);
+        } else {
+            // Add default ca
             root_certs.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
                 rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
                     ta.subject,
@@ -150,6 +152,12 @@ fn new_agent_safe() -> Result<ureq::Agent, std::io::Error> {
                     ta.name_constraints,
                 )
             }));
+        }
+        if let Some(ca_path) = ca_extra {
+            // Add extra ca
+            let mut reader = std::io::BufReader::new(std::fs::File::open(ca_path)?);
+            let certs = rustls_pemfile::certs(&mut reader)?;
+            root_certs.add_parsable_certificates(&certs);
         }
 
         let client_config = rustls::ClientConfig::builder()
