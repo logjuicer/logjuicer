@@ -142,7 +142,10 @@ fn new_agent_safe() -> Result<ureq::Agent, std::io::Error> {
     };
     let ca_bundle = tls_ca_bundle();
     let ca_extra = tls_ca_extra();
-    let config = if ca_bundle.is_some() || ca_extra.is_some() {
+    let config = if std::env::var_os("LOGJUICER_SSL_NO_VERIFY").is_some() {
+        let client_config = ureq::tls::TlsConfig::builder().disable_verification(true);
+        builder.tls_config(client_config.build()).build()
+    } else if ca_bundle.is_some() || ca_extra.is_some() {
         let mut root_certs = Vec::new();
 
         if let Some(ca_path) = ca_bundle {

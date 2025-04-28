@@ -2,6 +2,7 @@ next-version
 ============
 
 - api: fix LOGJUICER_CA_EXTRA usage when a bundle already exists.
+- model: add LOGJUICER_SSL_NO_VERIFY to disable certificate verification.
 
 0.12.0
 ======
