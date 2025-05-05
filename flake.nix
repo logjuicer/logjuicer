@@ -7,16 +7,10 @@
 
     flake-utils.url = "github:numtide/flake-utils";
 
-    crane = {
-      url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    crane.url = "github:ipetkov/crane";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -63,6 +57,7 @@
         };
         static-exe = craneLib.buildPackage (cli-static-info // {
           cargoArtifacts = craneLib.buildDepsOnly cli-static-info;
+          strictDeps = true;
         });
 
         web-info = base-info // {
@@ -100,17 +95,23 @@
         });
         mk-web = api_client:
           craneLib.buildTrunkPackage (web-info // {
-            wasm-bindgen-cli = pkgs.wasm-bindgen-cli.override {
-              version = "0.2.90";
-              hash = "sha256-X8+DVX7dmKh7BgXqP7Fp0smhup5OO8eWEhn26ODYbkQ=";
-              cargoHash = "sha256-ckJxAR20GuVGstzXzIj1M0WBFj5eJjrO2/DRMUK5dwM=";
+            wasm-bindgen-cli =  pkgs.buildWasmBindgenCli rec {
+              src = pkgs.fetchCrate {
+                pname = "wasm-bindgen-cli";
+                version = "0.2.90";
+                hash = "sha256-X8+DVX7dmKh7BgXqP7Fp0smhup5OO8eWEhn26ODYbkQ=";
+              };
+              cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
+                inherit src;
+                inherit (src) pname version;
+                hash = "sha256-ti2jA4+GlczghJUOzvaUklomjpuanCNuk0sTNCUgk8k=";
+              };
             };
             cargoArtifacts = cargoArtifactsWasm;
-            trunkIndexPath = "./index.html";
             # Start the build relative to the crate to take the tailwind.config.js into account.
             preBuild = "cd crates/web";
             trunkExtraBuildArgs =
-              if api_client then "" else "--no-default-features";
+              if api_client then "" else "--no-default-features=true";
             buildInputs = [ pkgs.tailwindcss ];
             # Fixup the dist output for a publishable package.
             postInstall = ''
