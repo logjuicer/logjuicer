@@ -26,10 +26,10 @@ url = { workspace = true, features = ["serde"] }
 # For IndexName...
 logjuicer-tokenizer = { path = "../tokenizer" }
 
-capnp = "0.18"
+capnp = "0.21"
 
 [build-dependencies]
-capnpc = "0.18"
+capnpc = "0.21"
 
 [dev-dependencies]
 criterion = { workspace = true }
