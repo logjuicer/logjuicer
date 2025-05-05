@@ -749,8 +749,9 @@ checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
 
 [[package]]
 name = "dominator"
-version = "0.5.34"
-source = "git+https://github.com/Pauan/rust-dominator.git?rev=d40e526843576925c18e57c3c0ee31f1b4c4f789#d40e526843576925c18e57c3c0ee31f1b4c4f789"
+version = "0.5.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "763ad909c52fb5dc28e4301b35e7c6f4e018e08a207a58974578cdf163d7b929"
 dependencies = [
  "discard",
  "futures-channel",
