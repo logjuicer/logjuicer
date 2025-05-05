@@ -254,7 +254,7 @@ impl<IR: IndexReader> Index<IR> {
         source: &Source,
         skip_lines: &'a mut Option<KnownLines>,
         gl_date: Option<Epoch>,
-    ) -> Result<process::ChunkProcessor<IR, crate::reader::DecompressReader>> {
+    ) -> Result<process::ChunkProcessor<'a, IR, crate::reader::DecompressReader>> {
         let fp = match source {
             Source::Local(_, path_buf) => file_open(path_buf.as_path()),
             Source::Remote(_, url) => url_open(env.gl, url),
