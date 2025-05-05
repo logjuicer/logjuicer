@@ -29,8 +29,7 @@ prow-build = { path = "../prow" }
 url = { workspace = true }
 ureq = { workspace = true }
 rustls = { workspace = true }
-rustls-pemfile = "1"
-webpki-roots = "0.25"
+webpki-roots = "0.26"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
