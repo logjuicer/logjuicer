@@ -52,7 +52,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-          toolchain: 1.75.0
+          toolchain: 1.86.0
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
