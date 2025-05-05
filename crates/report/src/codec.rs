@@ -53,7 +53,7 @@ impl ReportEncoder {
                 .init_index_reports(report.index_reports.len() as u32);
             for (idx, (index, index_report)) in report.index_reports.iter().enumerate() {
                 let mut property = builder.reborrow().get(idx as u32);
-                property.set_key(index.as_str().into());
+                property.set_key(index.as_str());
                 self.write_index_report(index_report, property.init_value())?;
             }
         }
@@ -63,7 +63,7 @@ impl ReportEncoder {
                 .init_unknown_files(report.unknown_files.len() as u32);
             for (idx, (index, sources)) in report.unknown_files.iter().enumerate() {
                 let mut property = builder.reborrow().get(idx as u32);
-                property.set_key(index.as_str().into());
+                property.set_key(index.as_str());
                 self.write_sources(sources, property.initn_value(sources.len() as u32))?;
             }
         }
@@ -73,7 +73,7 @@ impl ReportEncoder {
                 .init_read_errors(report.read_errors.len() as u32);
             for (idx, read_error) in report.read_errors.iter().enumerate() {
                 let mut error_builder = builder.reborrow().get(idx as u32);
-                error_builder.set_error(read_error.1.as_ref().into());
+                error_builder.set_error(read_error.1.as_ref());
                 self.write_source(&read_error.0, error_builder.init_source())?;
             }
         }
@@ -100,7 +100,7 @@ impl ReportEncoder {
             }
         }
         self.write_source(&log_report.source, builder.reborrow().init_source())?;
-        builder.set_index_name(log_report.index_name.as_str().into());
+        builder.set_index_name(log_report.index_name.as_str());
         Ok(())
     }
 
@@ -114,7 +114,7 @@ impl ReportEncoder {
                 .reborrow()
                 .init_before(anomaly_context.before.len() as u32);
             for (idx, ctx) in anomaly_context.before.iter().enumerate() {
-                builder.set(idx as u32, ctx.as_ref().into());
+                builder.set(idx as u32, ctx.as_ref());
             }
         }
         self.write_anomaly(
@@ -126,7 +126,7 @@ impl ReportEncoder {
                 .reborrow()
                 .init_after(anomaly_context.after.len() as u32);
             for (idx, ctx) in anomaly_context.after.iter().enumerate() {
-                builder.set(idx as u32, ctx.as_ref().into());
+                builder.set(idx as u32, ctx.as_ref());
             }
         }
         Ok(())
@@ -140,7 +140,7 @@ impl ReportEncoder {
         // builder.set_distance((255.0 * anomaly.distance) as u8);
         builder.set_distance(anomaly.distance);
         builder.set_pos(anomaly.pos as u32);
-        builder.set_line(anomaly.line.as_ref().into());
+        builder.set_line(anomaly.line.as_ref());
         builder.set_timestamp(anomaly.timestamp.unwrap_or(Epoch(0)).0);
         Ok(())
     }
@@ -160,8 +160,7 @@ impl ReportEncoder {
                 builder.set_path(
                     path.as_os_str()
                         .to_str()
-                        .ok_or(capnp::Error::failed("Bad time".into()))?
-                        .into(),
+                        .ok_or(capnp::Error::failed("Bad time".into()))?,
                 );
                 self.write_zuul(build, builder.init_build())
             }
@@ -173,15 +172,15 @@ impl ReportEncoder {
         zuul: &ZuulBuild,
         mut builder: schema_capnp::content::zuul::Builder,
     ) -> Result<()> {
-        builder.set_api(zuul.api.as_str().into());
-        builder.set_uuid(zuul.uuid.as_ref().into());
-        builder.set_job_name(zuul.job_name.as_ref().into());
-        builder.set_project(zuul.project.as_ref().into());
-        builder.set_branch(zuul.branch.as_ref().into());
-        builder.set_result(zuul.result.as_ref().into());
-        builder.set_pipeline(zuul.pipeline.as_ref().into());
-        builder.set_log_url(zuul.log_url.as_str().into());
-        builder.set_ref_url(zuul.ref_url.as_str().into());
+        builder.set_api(zuul.api.as_str());
+        builder.set_uuid(zuul.uuid.as_ref());
+        builder.set_job_name(zuul.job_name.as_ref());
+        builder.set_project(zuul.project.as_ref());
+        builder.set_branch(zuul.branch.as_ref());
+        builder.set_result(zuul.result.as_ref());
+        builder.set_pipeline(zuul.pipeline.as_ref());
+        builder.set_log_url(zuul.log_url.as_str());
+        builder.set_ref_url(zuul.ref_url.as_str());
         builder.set_end_time(write_datetime(&zuul.end_time)?);
         builder.set_change(zuul.change);
         Ok(())
@@ -192,13 +191,13 @@ impl ReportEncoder {
         prow: &ProwBuild,
         mut builder: schema_capnp::content::prow::Builder,
     ) -> Result<()> {
-        builder.set_url(prow.url.as_str().into());
-        builder.set_uid(prow.uid.as_ref().into());
-        builder.set_job_name(prow.job_name.as_ref().into());
-        builder.set_project(prow.project.as_ref().into());
+        builder.set_url(prow.url.as_str());
+        builder.set_uid(prow.uid.as_ref());
+        builder.set_job_name(prow.job_name.as_ref());
+        builder.set_project(prow.project.as_ref());
         builder.set_pr(prow.pr);
-        builder.set_storage_type(prow.storage_type.as_ref().into());
-        builder.set_storage_path(prow.storage_path.as_ref().into());
+        builder.set_storage_type(prow.storage_type.as_ref());
+        builder.set_storage_path(prow.storage_path.as_ref());
         Ok(())
     }
 
@@ -214,8 +213,7 @@ impl ReportEncoder {
                 builder.set_loc(
                     path.as_os_str()
                         .to_str()
-                        .ok_or(capnp::Error::failed("Bad time".into()))?
-                        .into(),
+                        .ok_or(capnp::Error::failed("Bad time".into()))?,
                 )
             }
             Source::Remote(prefix, url) => {
@@ -225,7 +223,7 @@ impl ReportEncoder {
                         .try_into()
                         .map_err(|_| capnp::Error::failed("Bad prefix".into()))?,
                 );
-                builder.set_loc(url.as_str().into())
+                builder.set_loc(url.as_str())
             }
         };
 

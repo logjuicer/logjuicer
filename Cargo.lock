@@ -462,18 +462,18 @@ checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 
 [[package]]
 name = "capnp"
-version = "0.18.13"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "384b671a5b39eadb909b0c2b81d22a400d446526e651e64be9eb6674b33644a4"
+checksum = "b1d1b4a00e80b7c4b1a49e845365f25c9d8fd0a19c9cd8d66f68afea47b1f020"
 dependencies = [
  "embedded-io",
 ]
 
 [[package]]
 name = "capnpc"
-version = "0.18.1"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a642faaaa78187e70bdcc0014c593c213553cfeda3b15054426d0d596048b131"
+checksum = "5af589f7a7f3e6d920120b913345bd9a2fc65dfd76c5053a142852a5ea2e8609"
 dependencies = [
  "capnp",
 ]
@@ -916,9 +916,9 @@ dependencies = [
 
 [[package]]
 name = "embedded-io"
-version = "0.5.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658bbadc628dc286b9ae02f0cb0f5411c056eb7487b72f0083203f115de94060"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
 name = "encode_unicode"
@@ -2017,7 +2017,7 @@ version = "0.12.0"
 dependencies = [
  "anyhow",
  "axum",
- "base64 0.21.7",
+ "base64 0.22.1",
  "chrono",
  "flate2",
  "futures",

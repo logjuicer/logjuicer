@@ -17,12 +17,12 @@ pub mod property { /* Value */
     reader: ::capnp::private::layout::StructReader<'a>,
     _phantom: ::core::marker::PhantomData<Value>
   }
-  impl <'a,Value> ::core::marker::Copy for Reader<'a,Value> where Value: ::capnp::traits::Owned  {}
-  impl <'a,Value> ::core::clone::Clone for Reader<'a,Value> where Value: ::capnp::traits::Owned  {
+  impl <Value> ::core::marker::Copy for Reader<'_,Value> where Value: ::capnp::traits::Owned  {}
+  impl <Value> ::core::clone::Clone for Reader<'_,Value> where Value: ::capnp::traits::Owned  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,Value> ::capnp::traits::HasTypeId for Reader<'a,Value> where Value: ::capnp::traits::Owned  {
+  impl <Value> ::capnp::traits::HasTypeId for Reader<'_,Value> where Value: ::capnp::traits::Owned  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,Value> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,Value> where Value: ::capnp::traits::Owned  {
@@ -37,7 +37,7 @@ pub mod property { /* Value */
     }
   }
 
-  impl <'a,Value> ::core::fmt::Debug for Reader<'a,Value> where Value: ::capnp::traits::Owned  {
+  impl <Value> ::core::fmt::Debug for Reader<'_,Value> where Value: ::capnp::traits::Owned  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -91,10 +91,10 @@ pub mod property { /* Value */
     builder: ::capnp::private::layout::StructBuilder<'a>,
     _phantom: ::core::marker::PhantomData<Value>
   }
-  impl <'a,Value> ::capnp::traits::HasStructSize for Builder<'a,Value> where Value: ::capnp::traits::Owned  {
+  impl <Value> ::capnp::traits::HasStructSize for Builder<'_,Value> where Value: ::capnp::traits::Owned  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 0, pointers: 2 };
   }
-  impl <'a,Value> ::capnp::traits::HasTypeId for Builder<'a,Value> where Value: ::capnp::traits::Owned  {
+  impl <Value> ::capnp::traits::HasTypeId for Builder<'_,Value> where Value: ::capnp::traits::Owned  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,Value> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,Value> where Value: ::capnp::traits::Owned  {
@@ -124,7 +124,7 @@ pub mod property { /* Value */
     }
   }
 
-  impl <'a,Value> ::capnp::traits::SetPointerBuilder for Reader<'a,Value> where Value: ::capnp::traits::Owned  {
+  impl <Value> ::capnp::traits::SetterInput<Owned<Value>> for Reader<'_,Value> where Value: ::capnp::traits::Owned  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -147,8 +147,8 @@ pub mod property { /* Value */
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_key(&mut self, value: ::capnp::text::Reader<'_>)  {
-      self.builder.reborrow().get_pointer_field(0).set_text(value);
+    pub fn set_key(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false).unwrap()
     }
     #[inline]
     pub fn init_key(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -167,8 +167,8 @@ pub mod property { /* Value */
       ::capnp::any_pointer::Builder::new(self.builder.get_pointer_field(1)).initn_as(length)
     }
     #[inline]
-    pub fn set_value(&mut self, value: <Value as ::capnp::traits::Owned>::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
+    pub fn set_value(&mut self, value: impl ::capnp::traits::SetterInput<Value>) -> ::capnp::Result<()> {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
     }
     #[inline]
     pub fn init_value(self, ) -> <Value as ::capnp::traits::Owned>::Builder<'a> {
@@ -195,13 +195,14 @@ pub mod property { /* Value */
     }
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 50] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 51] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(117, 233, 19, 24, 26, 114, 66, 231),
       ::capnp::word(13, 0, 0, 0, 1, 0, 0, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(2, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 1, 0, 0, 0),
+      ::capnp::word(22, 0, 0, 0, 85, 0, 0, 0),
       ::capnp::word(21, 0, 0, 0, 178, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -261,9 +262,11 @@ pub mod property { /* Value */
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[0,1];
     pub const TYPE_ID: u64 = 0xe742_721a_1813_e975;
   }
 }
@@ -277,12 +280,12 @@ pub mod similarity_report {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -297,7 +300,7 @@ pub mod similarity_report {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -356,10 +359,10 @@ pub mod similarity_report {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 0, pointers: 3 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -389,7 +392,7 @@ pub mod similarity_report {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -413,7 +416,7 @@ pub mod similarity_report {
     }
     #[inline]
     pub fn set_targets(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::content::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_targets(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::content::Owned> {
@@ -429,7 +432,7 @@ pub mod similarity_report {
     }
     #[inline]
     pub fn set_baselines(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::content::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
     }
     #[inline]
     pub fn init_baselines(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::content::Owned> {
@@ -445,7 +448,7 @@ pub mod similarity_report {
     }
     #[inline]
     pub fn set_similarity_reports(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::similarity_log_report::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false)
     }
     #[inline]
     pub fn init_similarity_reports(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::similarity_log_report::Owned> {
@@ -466,13 +469,14 @@ pub mod similarity_report {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 78] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 79] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(7, 101, 203, 4, 97, 240, 18, 255),
       ::capnp::word(13, 0, 0, 0, 1, 0, 0, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(3, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(87, 0, 0, 0, 243, 0, 0, 0),
       ::capnp::word(21, 0, 0, 0, 242, 0, 0, 0),
       ::capnp::word(33, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -561,9 +565,11 @@ pub mod similarity_report {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1,2];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[1,2,0];
     pub const TYPE_ID: u64 = 0xff12_f061_04cb_6507;
   }
 }
@@ -577,12 +583,12 @@ pub mod similarity_log_report {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -597,7 +603,7 @@ pub mod similarity_log_report {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -648,10 +654,10 @@ pub mod similarity_log_report {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 0, pointers: 2 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -681,7 +687,7 @@ pub mod similarity_log_report {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -705,7 +711,7 @@ pub mod similarity_log_report {
     }
     #[inline]
     pub fn set_sources(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::similarity_source::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_sources(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::similarity_source::Owned> {
@@ -721,7 +727,7 @@ pub mod similarity_log_report {
     }
     #[inline]
     pub fn set_anomalies(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::similarity_anomaly_context::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
     }
     #[inline]
     pub fn init_anomalies(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::similarity_anomaly_context::Owned> {
@@ -742,13 +748,14 @@ pub mod similarity_log_report {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 58] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 59] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(120, 114, 141, 152, 134, 87, 153, 241),
       ::capnp::word(13, 0, 0, 0, 1, 0, 0, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(2, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(245, 0, 0, 0, 123, 1, 0, 0),
       ::capnp::word(21, 0, 0, 0, 10, 1, 0, 0),
       ::capnp::word(37, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -816,9 +823,11 @@ pub mod similarity_log_report {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[1,0];
     pub const TYPE_ID: u64 = 0xf199_5786_988d_7278;
   }
 }
@@ -832,12 +841,12 @@ pub mod similarity_source {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -852,7 +861,7 @@ pub mod similarity_source {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -899,10 +908,10 @@ pub mod similarity_source {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 1, pointers: 1 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -932,7 +941,7 @@ pub mod similarity_source {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -964,7 +973,7 @@ pub mod similarity_source {
     }
     #[inline]
     pub fn set_source(&mut self, value: crate::schema_capnp::source::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_source(self, ) -> crate::schema_capnp::source::Builder<'a> {
@@ -988,13 +997,14 @@ pub mod similarity_source {
     }
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 48] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 49] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(94, 185, 0, 213, 165, 184, 75, 185),
       ::capnp::word(13, 0, 0, 0, 1, 0, 1, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(1, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(125, 1, 0, 0, 216, 1, 0, 0),
       ::capnp::word(21, 0, 0, 0, 242, 0, 0, 0),
       ::capnp::word(33, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -1052,9 +1062,11 @@ pub mod similarity_source {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[1,0];
     pub const TYPE_ID: u64 = 0xb94b_b8a5_d500_b95e;
   }
 }
@@ -1068,12 +1080,12 @@ pub mod similarity_anomaly_context {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -1088,7 +1100,7 @@ pub mod similarity_anomaly_context {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -1139,10 +1151,10 @@ pub mod similarity_anomaly_context {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 0, pointers: 2 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -1172,7 +1184,7 @@ pub mod similarity_anomaly_context {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -1195,8 +1207,8 @@ pub mod similarity_anomaly_context {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_sources(&mut self, value: ::capnp::primitive_list::Reader<'_,u32>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+    pub fn set_sources(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::primitive_list::Owned<u32>>) -> ::capnp::Result<()> {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_sources(self, size: u32) -> ::capnp::primitive_list::Builder<'a,u32> {
@@ -1212,7 +1224,7 @@ pub mod similarity_anomaly_context {
     }
     #[inline]
     pub fn set_anomaly(&mut self, value: crate::schema_capnp::anomaly_context::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
     }
     #[inline]
     pub fn init_anomaly(self, ) -> crate::schema_capnp::anomaly_context::Builder<'a> {
@@ -1236,13 +1248,14 @@ pub mod similarity_anomaly_context {
     }
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 53] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 54] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(115, 41, 25, 105, 254, 25, 142, 219),
       ::capnp::word(13, 0, 0, 0, 1, 0, 0, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(2, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(218, 1, 0, 0, 75, 2, 0, 0),
       ::capnp::word(21, 0, 0, 0, 50, 1, 0, 0),
       ::capnp::word(37, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -1305,9 +1318,11 @@ pub mod similarity_anomaly_context {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[1,0];
     pub const TYPE_ID: u64 = 0xdb8e_19fe_6919_2973;
   }
 }
@@ -1321,12 +1336,12 @@ pub mod report {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -1341,7 +1356,7 @@ pub mod report {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -1440,10 +1455,10 @@ pub mod report {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 3, pointers: 6 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -1473,7 +1488,7 @@ pub mod report {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -1513,7 +1528,7 @@ pub mod report {
     }
     #[inline]
     pub fn set_target(&mut self, value: crate::schema_capnp::content::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_target(self, ) -> crate::schema_capnp::content::Builder<'a> {
@@ -1529,7 +1544,7 @@ pub mod report {
     }
     #[inline]
     pub fn set_baselines(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::content::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
     }
     #[inline]
     pub fn init_baselines(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::content::Owned> {
@@ -1545,7 +1560,7 @@ pub mod report {
     }
     #[inline]
     pub fn set_log_reports(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::log_report::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false)
     }
     #[inline]
     pub fn init_log_reports(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::log_report::Owned> {
@@ -1561,7 +1576,7 @@ pub mod report {
     }
     #[inline]
     pub fn set_index_reports(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::property::Owned<crate::schema_capnp::index_report::Owned>>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(3), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(3), value, false)
     }
     #[inline]
     pub fn init_index_reports(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::property::Owned<crate::schema_capnp::index_report::Owned>> {
@@ -1577,7 +1592,7 @@ pub mod report {
     }
     #[inline]
     pub fn set_unknown_files(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::property::Owned<::capnp::struct_list::Owned<crate::schema_capnp::source::Owned>>>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(4), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(4), value, false)
     }
     #[inline]
     pub fn init_unknown_files(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::property::Owned<::capnp::struct_list::Owned<crate::schema_capnp::source::Owned>>> {
@@ -1593,7 +1608,7 @@ pub mod report {
     }
     #[inline]
     pub fn set_read_errors(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::read_error::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(5), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(5), value, false)
     }
     #[inline]
     pub fn init_read_errors(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::read_error::Owned> {
@@ -1633,13 +1648,14 @@ pub mod report {
     }
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 224] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 225] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(254, 50, 200, 87, 57, 239, 81, 129),
       ::capnp::word(13, 0, 0, 0, 1, 0, 3, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(6, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(77, 2, 0, 0, 227, 3, 0, 0),
       ::capnp::word(21, 0, 0, 0, 162, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -1881,9 +1897,11 @@ pub mod report {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1,2,3,4,5,6,7,8,9];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[3,0,5,4,7,1,2,9,8,6];
     pub const TYPE_ID: u64 = 0x8151_ef39_57c8_32fe;
   }
 }
@@ -1899,12 +1917,12 @@ pub mod content {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -1919,7 +1937,7 @@ pub mod content {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -2010,10 +2028,10 @@ pub mod content {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 1, pointers: 1 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -2043,7 +2061,7 @@ pub mod content {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -2064,7 +2082,7 @@ pub mod content {
     #[inline]
     pub fn set_file(&mut self, value: crate::schema_capnp::source::Reader<'_>) -> ::capnp::Result<()> {
       self.builder.set_data_field::<u16>(0, 0);
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_file(self, ) -> crate::schema_capnp::source::Builder<'a> {
@@ -2079,7 +2097,7 @@ pub mod content {
     #[inline]
     pub fn set_dir(&mut self, value: crate::schema_capnp::source::Reader<'_>) -> ::capnp::Result<()> {
       self.builder.set_data_field::<u16>(0, 1);
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_dir(self, ) -> crate::schema_capnp::source::Builder<'a> {
@@ -2094,7 +2112,7 @@ pub mod content {
     #[inline]
     pub fn set_zuul(&mut self, value: crate::schema_capnp::content::zuul::Reader<'_>) -> ::capnp::Result<()> {
       self.builder.set_data_field::<u16>(0, 2);
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_zuul(self, ) -> crate::schema_capnp::content::zuul::Builder<'a> {
@@ -2109,7 +2127,7 @@ pub mod content {
     #[inline]
     pub fn set_prow(&mut self, value: crate::schema_capnp::content::prow::Reader<'_>) -> ::capnp::Result<()> {
       self.builder.set_data_field::<u16>(0, 3);
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_prow(self, ) -> crate::schema_capnp::content::prow::Builder<'a> {
@@ -2124,7 +2142,7 @@ pub mod content {
     #[inline]
     pub fn set_local_zuul(&mut self, value: crate::schema_capnp::content::local_zuul::Reader<'_>) -> ::capnp::Result<()> {
       self.builder.set_data_field::<u16>(0, 4);
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_local_zuul(self, ) -> crate::schema_capnp::content::local_zuul::Builder<'a> {
@@ -2178,13 +2196,14 @@ pub mod content {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 103] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 104] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(16, 16, 80, 228, 123, 14, 38, 172),
       ::capnp::word(13, 0, 0, 0, 1, 0, 1, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(1, 0, 7, 0, 0, 0, 5, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(229, 3, 0, 0, 201, 6, 0, 0),
       ::capnp::word(21, 0, 0, 0, 170, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 55, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -2300,9 +2319,11 @@ pub mod content {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[0,1,2,3,4];
+    pub static MEMBERS_BY_NAME : &[u16] = &[1,0,4,3,2];
     pub const TYPE_ID: u64 = 0xac26_0e7b_e450_1010;
   }
   pub enum Which<A0,A1,A2,A3,A4> {
@@ -2324,12 +2345,12 @@ pub mod content {
     impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
     pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-    impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-    impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+    impl <> ::core::marker::Copy for Reader<'_,>  {}
+    impl <> ::core::clone::Clone for Reader<'_,>  {
       fn clone(&self) -> Self { *self }
     }
 
-    impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+    impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
       const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -2344,7 +2365,7 @@ pub mod content {
       }
     }
 
-    impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+    impl <> ::core::fmt::Debug for Reader<'_,>  {
       fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
         core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
       }
@@ -2459,10 +2480,10 @@ pub mod content {
     }
 
     pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-    impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+    impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
       const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 2, pointers: 9 };
     }
-    impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+    impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
       const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -2492,7 +2513,7 @@ pub mod content {
       }
     }
 
-    impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+    impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
       fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
     }
 
@@ -2515,8 +2536,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_api(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(0).set_text(value);
+      pub fn set_api(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false).unwrap()
       }
       #[inline]
       pub fn init_api(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2531,8 +2552,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(1), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_uuid(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(1).set_text(value);
+      pub fn set_uuid(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false).unwrap()
       }
       #[inline]
       pub fn init_uuid(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2547,8 +2568,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(2), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_job_name(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(2).set_text(value);
+      pub fn set_job_name(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false).unwrap()
       }
       #[inline]
       pub fn init_job_name(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2563,8 +2584,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(3), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_project(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(3).set_text(value);
+      pub fn set_project(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(3), value, false).unwrap()
       }
       #[inline]
       pub fn init_project(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2579,8 +2600,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(4), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_branch(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(4).set_text(value);
+      pub fn set_branch(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(4), value, false).unwrap()
       }
       #[inline]
       pub fn init_branch(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2595,8 +2616,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(5), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_result(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(5).set_text(value);
+      pub fn set_result(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(5), value, false).unwrap()
       }
       #[inline]
       pub fn init_result(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2611,8 +2632,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(6), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_pipeline(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(6).set_text(value);
+      pub fn set_pipeline(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(6), value, false).unwrap()
       }
       #[inline]
       pub fn init_pipeline(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2627,8 +2648,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(7), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_log_url(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(7).set_text(value);
+      pub fn set_log_url(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(7), value, false).unwrap()
       }
       #[inline]
       pub fn init_log_url(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2643,8 +2664,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(8), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_ref_url(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(8).set_text(value);
+      pub fn set_ref_url(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(8), value, false).unwrap()
       }
       #[inline]
       pub fn init_ref_url(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -2681,13 +2702,14 @@ pub mod content {
     impl Pipeline  {
     }
     mod _private {
-      pub static ENCODED_NODE: [::capnp::Word; 184] = [
-        ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+      pub static ENCODED_NODE: [::capnp::Word; 185] = [
+        ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
         ::capnp::word(123, 113, 120, 87, 112, 123, 67, 223),
         ::capnp::word(21, 0, 0, 0, 1, 0, 2, 0),
         ::capnp::word(16, 16, 80, 228, 123, 14, 38, 172),
         ::capnp::word(9, 0, 7, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+        ::capnp::word(136, 4, 0, 0, 172, 5, 0, 0),
         ::capnp::word(21, 0, 0, 0, 210, 0, 0, 0),
         ::capnp::word(33, 0, 0, 0, 7, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -2890,9 +2912,11 @@ pub mod content {
         encoded_node: &ENCODED_NODE,
         nonunion_members: NONUNION_MEMBERS,
         members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+        members_by_name: MEMBERS_BY_NAME,
       };
       pub static NONUNION_MEMBERS : &[u16] = &[0,1,2,3,4,5,6,7,8,9,10];
       pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+      pub static MEMBERS_BY_NAME : &[u16] = &[0,4,10,9,2,7,6,3,8,5,1];
       pub const TYPE_ID: u64 = 0xdf43_7b70_5778_717b;
     }
   }
@@ -2906,12 +2930,12 @@ pub mod content {
     impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
     pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-    impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-    impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+    impl <> ::core::marker::Copy for Reader<'_,>  {}
+    impl <> ::core::clone::Clone for Reader<'_,>  {
       fn clone(&self) -> Self { *self }
     }
 
-    impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+    impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
       const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -2926,7 +2950,7 @@ pub mod content {
       }
     }
 
-    impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+    impl <> ::core::fmt::Debug for Reader<'_,>  {
       fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
         core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
       }
@@ -3013,10 +3037,10 @@ pub mod content {
     }
 
     pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-    impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+    impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
       const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 1, pointers: 6 };
     }
-    impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+    impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
       const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -3046,7 +3070,7 @@ pub mod content {
       }
     }
 
-    impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+    impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
       fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
     }
 
@@ -3069,8 +3093,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_url(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(0).set_text(value);
+      pub fn set_url(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false).unwrap()
       }
       #[inline]
       pub fn init_url(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -3085,8 +3109,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(1), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_uid(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(1).set_text(value);
+      pub fn set_uid(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false).unwrap()
       }
       #[inline]
       pub fn init_uid(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -3101,8 +3125,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(2), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_job_name(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(2).set_text(value);
+      pub fn set_job_name(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false).unwrap()
       }
       #[inline]
       pub fn init_job_name(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -3117,8 +3141,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(3), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_project(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(3).set_text(value);
+      pub fn set_project(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(3), value, false).unwrap()
       }
       #[inline]
       pub fn init_project(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -3141,8 +3165,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(4), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_storage_type(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(4).set_text(value);
+      pub fn set_storage_type(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(4), value, false).unwrap()
       }
       #[inline]
       pub fn init_storage_type(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -3157,8 +3181,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(5), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_storage_path(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(5).set_text(value);
+      pub fn set_storage_path(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(5), value, false).unwrap()
       }
       #[inline]
       pub fn init_storage_path(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -3179,13 +3203,14 @@ pub mod content {
     impl Pipeline  {
     }
     mod _private {
-      pub static ENCODED_NODE: [::capnp::Word; 125] = [
-        ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+      pub static ENCODED_NODE: [::capnp::Word; 126] = [
+        ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
         ::capnp::word(58, 87, 150, 237, 54, 120, 39, 172),
         ::capnp::word(21, 0, 0, 0, 1, 0, 1, 0),
         ::capnp::word(16, 16, 80, 228, 123, 14, 38, 172),
         ::capnp::word(6, 0, 7, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+        ::capnp::word(176, 5, 0, 0, 121, 6, 0, 0),
         ::capnp::word(21, 0, 0, 0, 210, 0, 0, 0),
         ::capnp::word(33, 0, 0, 0, 7, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -3325,9 +3350,11 @@ pub mod content {
         encoded_node: &ENCODED_NODE,
         nonunion_members: NONUNION_MEMBERS,
         members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+        members_by_name: MEMBERS_BY_NAME,
       };
       pub static NONUNION_MEMBERS : &[u16] = &[0,1,2,3,4,5,6];
       pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+      pub static MEMBERS_BY_NAME : &[u16] = &[2,4,3,6,5,1,0];
       pub const TYPE_ID: u64 = 0xac27_7836_ed96_573a;
     }
   }
@@ -3341,12 +3368,12 @@ pub mod content {
     impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
     pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-    impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-    impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+    impl <> ::core::marker::Copy for Reader<'_,>  {}
+    impl <> ::core::clone::Clone for Reader<'_,>  {
       fn clone(&self) -> Self { *self }
     }
 
-    impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+    impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
       const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -3361,7 +3388,7 @@ pub mod content {
       }
     }
 
-    impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+    impl <> ::core::fmt::Debug for Reader<'_,>  {
       fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
         core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
       }
@@ -3412,10 +3439,10 @@ pub mod content {
     }
 
     pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-    impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+    impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
       const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 0, pointers: 2 };
     }
-    impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+    impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
       const TYPE_ID: u64 = _private::TYPE_ID;
     }
     impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -3445,7 +3472,7 @@ pub mod content {
       }
     }
 
-    impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+    impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
       fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
     }
 
@@ -3468,8 +3495,8 @@ pub mod content {
         ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
       }
       #[inline]
-      pub fn set_path(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(0).set_text(value);
+      pub fn set_path(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false).unwrap()
       }
       #[inline]
       pub fn init_path(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -3485,7 +3512,7 @@ pub mod content {
       }
       #[inline]
       pub fn set_build(&mut self, value: crate::schema_capnp::content::zuul::Reader<'_>) -> ::capnp::Result<()> {
-        ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
+        ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
       }
       #[inline]
       pub fn init_build(self, ) -> crate::schema_capnp::content::zuul::Builder<'a> {
@@ -3509,13 +3536,14 @@ pub mod content {
       }
     }
     mod _private {
-      pub static ENCODED_NODE: [::capnp::Word; 48] = [
-        ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+      pub static ENCODED_NODE: [::capnp::Word; 49] = [
+        ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
         ::capnp::word(137, 19, 255, 34, 225, 108, 80, 212),
         ::capnp::word(21, 0, 0, 0, 1, 0, 0, 0),
         ::capnp::word(16, 16, 80, 228, 123, 14, 38, 172),
         ::capnp::word(2, 0, 7, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+        ::capnp::word(125, 6, 0, 0, 199, 6, 0, 0),
         ::capnp::word(21, 0, 0, 0, 250, 0, 0, 0),
         ::capnp::word(33, 0, 0, 0, 7, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -3573,9 +3601,11 @@ pub mod content {
         encoded_node: &ENCODED_NODE,
         nonunion_members: NONUNION_MEMBERS,
         members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+        members_by_name: MEMBERS_BY_NAME,
       };
       pub static NONUNION_MEMBERS : &[u16] = &[0,1];
       pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+      pub static MEMBERS_BY_NAME : &[u16] = &[1,0];
       pub const TYPE_ID: u64 = 0xd450_6ce1_22ff_1389;
     }
   }
@@ -3592,12 +3622,12 @@ pub mod source {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -3612,7 +3642,7 @@ pub mod source {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -3673,10 +3703,10 @@ pub mod source {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 1, pointers: 1 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -3706,7 +3736,7 @@ pub mod source {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -3727,7 +3757,7 @@ pub mod source {
     #[inline]
     pub fn set_local(&mut self, value: crate::schema_capnp::source_ref::Reader<'_>) -> ::capnp::Result<()> {
       self.builder.set_data_field::<u16>(0, 0);
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_local(self, ) -> crate::schema_capnp::source_ref::Builder<'a> {
@@ -3742,7 +3772,7 @@ pub mod source {
     #[inline]
     pub fn set_remote(&mut self, value: crate::schema_capnp::source_ref::Reader<'_>) -> ::capnp::Result<()> {
       self.builder.set_data_field::<u16>(0, 1);
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_remote(self, ) -> crate::schema_capnp::source_ref::Builder<'a> {
@@ -3781,13 +3811,14 @@ pub mod source {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 47] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 48] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(222, 213, 144, 36, 61, 222, 179, 180),
       ::capnp::word(13, 0, 0, 0, 1, 0, 1, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(1, 0, 7, 0, 0, 0, 2, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(203, 6, 0, 0, 34, 7, 0, 0),
       ::capnp::word(21, 0, 0, 0, 162, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -3844,9 +3875,11 @@ pub mod source {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[0,1];
+    pub static MEMBERS_BY_NAME : &[u16] = &[0,1];
     pub const TYPE_ID: u64 = 0xb4b3_de3d_2490_d5de;
   }
   pub enum Which<A0,A1> {
@@ -3866,12 +3899,12 @@ pub mod source_ref {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -3886,7 +3919,7 @@ pub mod source_ref {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -3933,10 +3966,10 @@ pub mod source_ref {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 1, pointers: 1 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -3966,7 +3999,7 @@ pub mod source_ref {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -3997,8 +4030,8 @@ pub mod source_ref {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_loc(&mut self, value: ::capnp::text::Reader<'_>)  {
-      self.builder.reborrow().get_pointer_field(0).set_text(value);
+    pub fn set_loc(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false).unwrap()
     }
     #[inline]
     pub fn init_loc(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -4019,13 +4052,14 @@ pub mod source_ref {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 47] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 48] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(68, 163, 41, 130, 155, 95, 183, 255),
       ::capnp::word(13, 0, 0, 0, 1, 0, 1, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(1, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(36, 7, 0, 0, 104, 7, 0, 0),
       ::capnp::word(21, 0, 0, 0, 186, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -4082,9 +4116,11 @@ pub mod source_ref {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[1,0];
     pub const TYPE_ID: u64 = 0xffb7_5f9b_8229_a344;
   }
 }
@@ -4098,12 +4134,12 @@ pub mod log_report {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -4118,7 +4154,7 @@ pub mod log_report {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -4189,10 +4225,10 @@ pub mod log_report {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 2, pointers: 3 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -4222,7 +4258,7 @@ pub mod log_report {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -4270,7 +4306,7 @@ pub mod log_report {
     }
     #[inline]
     pub fn set_anomalies(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::anomaly_context::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_anomalies(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::anomaly_context::Owned> {
@@ -4286,7 +4322,7 @@ pub mod log_report {
     }
     #[inline]
     pub fn set_source(&mut self, value: crate::schema_capnp::source::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
     }
     #[inline]
     pub fn init_source(self, ) -> crate::schema_capnp::source::Builder<'a> {
@@ -4301,8 +4337,8 @@ pub mod log_report {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(2), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_index_name(&mut self, value: ::capnp::text::Reader<'_>)  {
-      self.builder.reborrow().get_pointer_field(2).set_text(value);
+    pub fn set_index_name(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false).unwrap()
     }
     #[inline]
     pub fn init_index_name(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -4326,13 +4362,14 @@ pub mod log_report {
     }
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 116] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 117] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(160, 145, 4, 135, 148, 238, 224, 246),
       ::capnp::word(13, 0, 0, 0, 1, 0, 2, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(3, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(106, 7, 0, 0, 32, 8, 0, 0),
       ::capnp::word(21, 0, 0, 0, 186, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -4462,9 +4499,11 @@ pub mod log_report {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1,2,3,4,5];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[3,2,5,1,4,0];
     pub const TYPE_ID: u64 = 0xf6e0_ee94_8704_91a0;
   }
 }
@@ -4478,12 +4517,12 @@ pub mod anomaly_context {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -4498,7 +4537,7 @@ pub mod anomaly_context {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -4557,10 +4596,10 @@ pub mod anomaly_context {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 0, pointers: 3 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -4590,7 +4629,7 @@ pub mod anomaly_context {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -4613,8 +4652,8 @@ pub mod anomaly_context {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_before(&mut self, value: ::capnp::text_list::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+    pub fn set_before(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text_list::Owned>) -> ::capnp::Result<()> {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_before(self, size: u32) -> ::capnp::text_list::Builder<'a> {
@@ -4630,7 +4669,7 @@ pub mod anomaly_context {
     }
     #[inline]
     pub fn set_anomaly(&mut self, value: crate::schema_capnp::anomaly::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false)
     }
     #[inline]
     pub fn init_anomaly(self, ) -> crate::schema_capnp::anomaly::Builder<'a> {
@@ -4645,8 +4684,8 @@ pub mod anomaly_context {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(2), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_after(&mut self, value: ::capnp::text_list::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false)
+    pub fn set_after(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text_list::Owned>) -> ::capnp::Result<()> {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(2), value, false)
     }
     #[inline]
     pub fn init_after(self, size: u32) -> ::capnp::text_list::Builder<'a> {
@@ -4670,13 +4709,14 @@ pub mod anomaly_context {
     }
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 71] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 72] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(220, 101, 16, 127, 148, 128, 178, 233),
       ::capnp::word(13, 0, 0, 0, 1, 0, 0, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(3, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(34, 8, 0, 0, 143, 8, 0, 0),
       ::capnp::word(21, 0, 0, 0, 226, 0, 0, 0),
       ::capnp::word(33, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -4758,9 +4798,11 @@ pub mod anomaly_context {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1,2];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[2,1,0];
     pub const TYPE_ID: u64 = 0xe9b2_8094_7f10_65dc;
   }
 }
@@ -4774,12 +4816,12 @@ pub mod anomaly {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -4794,7 +4836,7 @@ pub mod anomaly {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -4849,10 +4891,10 @@ pub mod anomaly {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 2, pointers: 1 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -4882,7 +4924,7 @@ pub mod anomaly {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -4921,8 +4963,8 @@ pub mod anomaly {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_line(&mut self, value: ::capnp::text::Reader<'_>)  {
-      self.builder.reborrow().get_pointer_field(0).set_text(value);
+    pub fn set_line(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false).unwrap()
     }
     #[inline]
     pub fn init_line(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -4951,13 +4993,14 @@ pub mod anomaly {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 79] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 80] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(138, 6, 206, 1, 232, 24, 86, 227),
       ::capnp::word(13, 0, 0, 0, 1, 0, 2, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(1, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(145, 8, 0, 0, 6, 9, 0, 0),
       ::capnp::word(21, 0, 0, 0, 170, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -5048,9 +5091,11 @@ pub mod anomaly {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1,2,3];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[0,2,1,3];
     pub const TYPE_ID: u64 = 0xe356_18e8_01ce_068a;
   }
 }
@@ -5064,12 +5109,12 @@ pub mod index_report {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -5084,7 +5129,7 @@ pub mod index_report {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -5131,10 +5176,10 @@ pub mod index_report {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 1, pointers: 1 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -5164,7 +5209,7 @@ pub mod index_report {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -5196,7 +5241,7 @@ pub mod index_report {
     }
     #[inline]
     pub fn set_sources(&mut self, value: ::capnp::struct_list::Reader<'_,crate::schema_capnp::source::Owned>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_sources(self, size: u32) -> ::capnp::struct_list::Builder<'a,crate::schema_capnp::source::Owned> {
@@ -5217,13 +5262,14 @@ pub mod index_report {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 53] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 54] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(170, 61, 29, 191, 73, 91, 176, 201),
       ::capnp::word(13, 0, 0, 0, 1, 0, 1, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(1, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(8, 9, 0, 0, 86, 9, 0, 0),
       ::capnp::word(21, 0, 0, 0, 202, 0, 0, 0),
       ::capnp::word(33, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -5286,9 +5332,11 @@ pub mod index_report {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[1,0];
     pub const TYPE_ID: u64 = 0xc9b0_5b49_bf1d_3daa;
   }
 }
@@ -5302,12 +5350,12 @@ pub mod read_error {
   impl ::capnp::traits::Pipelined for Owned { type Pipeline = Pipeline; }
 
   pub struct Reader<'a> { reader: ::capnp::private::layout::StructReader<'a> }
-  impl <'a,> ::core::marker::Copy for Reader<'a,>  {}
-  impl <'a,> ::core::clone::Clone for Reader<'a,>  {
+  impl <> ::core::marker::Copy for Reader<'_,>  {}
+  impl <> ::core::clone::Clone for Reader<'_,>  {
     fn clone(&self) -> Self { *self }
   }
 
-  impl <'a,> ::capnp::traits::HasTypeId for Reader<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Reader<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructReader<'a>> for Reader<'a,>  {
@@ -5322,7 +5370,7 @@ pub mod read_error {
     }
   }
 
-  impl <'a,> ::core::fmt::Debug for Reader<'a,>  {
+  impl <> ::core::fmt::Debug for Reader<'_,>  {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::result::Result<(), ::core::fmt::Error> {
       core::fmt::Debug::fmt(&::core::convert::Into::<::capnp::dynamic_value::Reader<'_>>::into(*self), f)
     }
@@ -5373,10 +5421,10 @@ pub mod read_error {
   }
 
   pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
-  impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
+  impl <> ::capnp::traits::HasStructSize for Builder<'_,>  {
     const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 0, pointers: 2 };
   }
-  impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
+  impl <> ::capnp::traits::HasTypeId for Builder<'_,>  {
     const TYPE_ID: u64 = _private::TYPE_ID;
   }
   impl <'a,> ::core::convert::From<::capnp::private::layout::StructBuilder<'a>> for Builder<'a,>  {
@@ -5406,7 +5454,7 @@ pub mod read_error {
     }
   }
 
-  impl <'a,> ::capnp::traits::SetPointerBuilder for Reader<'a,>  {
+  impl <> ::capnp::traits::SetterInput<Owned<>> for Reader<'_,>  {
     fn set_pointer_builder(mut pointer: ::capnp::private::layout::PointerBuilder<'_>, value: Self, canonicalize: bool) -> ::capnp::Result<()> { pointer.set_struct(&value.reader, canonicalize) }
   }
 
@@ -5430,7 +5478,7 @@ pub mod read_error {
     }
     #[inline]
     pub fn set_source(&mut self, value: crate::schema_capnp::source::Reader<'_>) -> ::capnp::Result<()> {
-      ::capnp::traits::SetPointerBuilder::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(0), value, false)
     }
     #[inline]
     pub fn init_source(self, ) -> crate::schema_capnp::source::Builder<'a> {
@@ -5445,8 +5493,8 @@ pub mod read_error {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(1), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_error(&mut self, value: ::capnp::text::Reader<'_>)  {
-      self.builder.reborrow().get_pointer_field(1).set_text(value);
+    pub fn set_error(&mut self, value: impl ::capnp::traits::SetterInput<::capnp::text::Owned>)  {
+      ::capnp::traits::SetterInput::set_pointer_builder(self.builder.reborrow().get_pointer_field(1), value, false).unwrap()
     }
     #[inline]
     pub fn init_error(self, size: u32) -> ::capnp::text::Builder<'a> {
@@ -5470,13 +5518,14 @@ pub mod read_error {
     }
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 47] = [
-      ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
+    pub static ENCODED_NODE: [::capnp::Word; 48] = [
+      ::capnp::word(0, 0, 0, 0, 6, 0, 6, 0),
       ::capnp::word(3, 217, 176, 207, 4, 136, 141, 157),
       ::capnp::word(13, 0, 0, 0, 1, 0, 0, 0),
       ::capnp::word(105, 176, 124, 221, 123, 244, 235, 248),
       ::capnp::word(2, 0, 7, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(88, 9, 0, 0, 156, 9, 0, 0),
       ::capnp::word(21, 0, 0, 0, 186, 0, 0, 0),
       ::capnp::word(29, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -5533,9 +5582,11 @@ pub mod read_error {
       encoded_node: &ENCODED_NODE,
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
+      members_by_name: MEMBERS_BY_NAME,
     };
     pub static NONUNION_MEMBERS : &[u16] = &[0,1];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
+    pub static MEMBERS_BY_NAME : &[u16] = &[1,0];
     pub const TYPE_ID: u64 = 0x9d8d_8804_cfb0_d903;
   }
 }
