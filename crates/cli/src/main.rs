@@ -289,7 +289,9 @@ impl Cli {
 
             // Debug handlers
             Commands::HttpLs { url } => {
-                for url in httpdir::Crawler::new().walk(url::Url::parse(&url)?) {
+                for url in httpdir::Crawler::new_with_client(env.gl.client, 20000)
+                    .walk(url::Url::parse(&url)?)
+                {
                     println!("{}", url?.as_str());
                 }
                 Ok(())
