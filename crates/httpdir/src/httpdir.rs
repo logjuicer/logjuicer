@@ -61,7 +61,7 @@ pub enum Error {
 
     /// Bad server reply.
     #[error("bad httpdir response: {0}: {1}")]
-    ResponseError(Url, std::io::Error),
+    ResponseError(Url, Box<ureq::Error>),
 }
 
 /// Helper function to walk a single url and list all the available files.
@@ -128,7 +128,7 @@ struct CrawlerWorker {
 impl Crawler {
     /// Initialize the Crawler state.
     pub fn new() -> Crawler {
-        Crawler::new_with_client(Agent::new(), 2500)
+        Crawler::new_with_client(ureq::agent(), 2500)
     }
 
     /// Initialize the Crawler state with the ureq client.
@@ -320,12 +320,12 @@ fn path_dir(url: &Url) -> Option<Url> {
 /// List the files and directories of a single url.
 pub fn http_list(client: &Agent, url: &Url) -> Vec<Result<Url, Error>> {
     // dbg!(&url);
-    match client.request_url("GET", url).call() {
-        Ok(resp) => match resp.into_string() {
+    match client.get(url.as_str()).call() {
+        Ok(resp) => match resp.into_body().read_to_string() {
             Ok(body) => parse_index_of(url, &body),
-            Err(e) => vec![Err(Error::ResponseError(url.clone(), e))],
+            Err(e) => vec![Err(Error::ResponseError(url.clone(), Box::new(e)))],
         },
-        Err(ureq::Error::Status(404, _)) => vec![],
+        Err(ureq::Error::StatusCode(404)) => vec![],
         Err(e) => vec![Err(Error::RequestError(url.clone(), Box::new(e)))],
     }
 }

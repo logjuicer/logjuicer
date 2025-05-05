@@ -10,7 +10,7 @@
 //! ```no_run
 //! # fn main() {
 //! let client = prow_build::Client {
-//!   client: ureq::Agent::new(),
+//!   client: ureq::agent(),
 //!   api_url: url::Url::parse("https://prow.ci.openshift.org/").unwrap(),
 //!   storage_type: "gs".into(),
 //!   storage_path: "origin-ci-test".into(),
@@ -201,9 +201,10 @@ pub fn get_prow_job_history(
     tracing::debug!(url = api_url.as_str(), "Querying prow job history");
     let reader = client
         .client
-        .request_url("GET", &api_url)
+        .get(api_url.as_str())
         .call()
         .map_err(|e| Error::BadQuery(Box::new(e)))?
+        .into_body()
         .into_reader();
     let js_objs = std::io::BufReader::new(reader).lines().find(|le| {
         le.as_ref()
@@ -262,7 +263,7 @@ fn test_get_prow_job_history() {
         .create();
 
     let client = Client {
-        client: ureq::Agent::new(),
+        client: ureq::agent(),
         api_url: Url::parse(&server.url()).unwrap(),
         storage_type: "gs".into(),
         storage_path: "origin-ci-test".into(),

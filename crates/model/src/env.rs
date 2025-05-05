@@ -87,13 +87,6 @@ fn new_agent() -> ureq::Agent {
     new_agent_safe().expect("ureq agent creation failed")
 }
 
-fn http_proxy() -> Result<String, std::env::VarError> {
-    std::env::var("HTTPS_PROXY")
-        .or_else(|_| std::env::var("https_proxy"))
-        .or_else(|_| std::env::var("HTTP_PROXY"))
-        .or_else(|_| std::env::var("http_proxy"))
-}
-
 fn default_ca_bundle() -> Option<std::ffi::OsString> {
     let path = std::path::Path::new("/etc/pki/tls/certs/ca-bundle.crt");
     if path.exists() {
@@ -123,51 +116,57 @@ fn tls_ca_extra() -> Option<std::ffi::OsString> {
     std::env::var_os("LOGJUICER_CA_EXTRA").or_else(default_ca_extra)
 }
 
+fn add_certs(
+    root_certs: &mut Vec<ureq::tls::Certificate<'static>>,
+    fp: std::ffi::OsString,
+) -> Result<(), std::io::Error> {
+    let data = std::fs::read(fp)?;
+    for pem in ureq::tls::parse_pem(&data) {
+        if let Ok(ureq::tls::PemItem::Certificate(cert)) = pem {
+            root_certs.push(cert)
+        } else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Invalid cert"),
+            ));
+        }
+    }
+    Ok(())
+}
+
 // Copied from https://github.com/PyO3/maturin/blob/23158969c97418b07a3c4d31282d220ec08c3c10/src/upload.rs#L395-L418
 fn new_agent_safe() -> Result<ureq::Agent, std::io::Error> {
-    use std::sync::Arc;
-
-    let mut builder = ureq::builder();
-    if let Ok(proxy) = http_proxy() {
-        let proxy = ureq::Proxy::new(proxy)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        builder = builder.proxy(proxy);
+    let mut builder = ureq::Agent::config_builder();
+    if let Some(proxy) = ureq::Proxy::try_from_env() {
+        builder = builder.proxy(Some(proxy));
     };
     let ca_bundle = tls_ca_bundle();
     let ca_extra = tls_ca_extra();
-    if ca_bundle.is_some() || ca_extra.is_some() {
-        let mut root_certs = rustls::RootCertStore::empty();
+    let config = if ca_bundle.is_some() || ca_extra.is_some() {
+        let mut root_certs = Vec::new();
 
         if let Some(ca_path) = ca_bundle {
-            // Load provided ca
-            let mut reader = std::io::BufReader::new(std::fs::File::open(ca_path)?);
-            let certs = rustls_pemfile::certs(&mut reader)?;
-            root_certs.add_parsable_certificates(&certs);
+            add_certs(&mut root_certs, ca_path)?;
         } else {
             // Add default ca
-            root_certs.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-                rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                    ta.subject,
-                    ta.spki,
-                    ta.name_constraints,
-                )
-            }));
+            for ta in webpki_roots::TLS_SERVER_ROOTS.iter() {
+                root_certs.push(ureq::tls::Certificate::from_der(
+                    &ta.subject_public_key_info,
+                ))
+            }
         }
         if let Some(ca_path) = ca_extra {
-            // Add extra ca
-            let mut reader = std::io::BufReader::new(std::fs::File::open(ca_path)?);
-            let certs = rustls_pemfile::certs(&mut reader)?;
-            root_certs.add_parsable_certificates(&certs);
+            add_certs(&mut root_certs, ca_path)?;
         }
 
-        let client_config = rustls::ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(root_certs)
-            .with_no_client_auth();
-        Ok(builder.tls_config(Arc::new(client_config)).build())
+        let client_config = ureq::tls::TlsConfig::builder().root_certs(
+            ureq::tls::RootCerts::Specific(std::sync::Arc::new(root_certs)),
+        );
+        builder.tls_config(client_config.build()).build()
     } else {
-        Ok(builder.build())
-    }
+        builder.build()
+    };
+    Ok(config.new_agent())
 }
 
 impl Default for EnvConfig {

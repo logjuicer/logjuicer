@@ -13,8 +13,8 @@ use std::fs::File;
 use crate::env::Env;
 use flate2::read::GzDecoder;
 
-fn is_success(code: u16) -> bool {
-    (200..400).contains(&code)
+fn is_success(code: ureq::http::StatusCode) -> bool {
+    (200..400).contains(&code.as_u16())
 }
 
 // allow large enum for gzdecoder, which are the most used
@@ -40,13 +40,13 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
 }
 
 pub fn head_url(env: &Env, url: &Url) -> Result<bool> {
-    let resp = env.client.request_url("HEAD", url).call()?;
+    let resp = env.client.head(url.as_str()).call()?;
     Ok(is_success(resp.status()))
 }
 
 pub fn get_url(env: &Env, url: &Url) -> Result<DecompressReader> {
-    let resp = env.client.request_url("GET", url).call()?;
-    Ok(Remote(resp.into_reader()))
+    let resp = env.client.get(url.as_str()).call()?;
+    Ok(Remote(Box::new(resp.into_body().into_reader())))
 }
 
 impl Read for DecompressReader {

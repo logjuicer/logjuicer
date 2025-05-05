@@ -42,9 +42,8 @@ sprs = { version = "0", features = ["serde"] }
 
 # network
 url = "2"
-ureq = { version = "2", default-features = false, features = ["tls", "json", "gzip", "brotli"] }
-# rustls 0.22 is still not available for ureq
-rustls = { version = "0.21" }
+ureq = { version = "3", default-features = false, features = ["rustls", "json", "gzip", "brotli"] }
+rustls = { version = "0.23" }
 
 # serde
 serde_yaml = "*"
