@@ -304,7 +304,7 @@ fn is_refs(word: &str) -> bool {
 }
 
 fn is_key_value(word: &str) -> Option<(&str, &str)> {
-    match word.split_once(|c| c == '=' || c == ':') {
+    match word.split_once(['=', ':']) {
         Some((k, v)) => {
             if k.starts_with(|c| (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_')) {
                 Some((k, v))
@@ -322,8 +322,8 @@ fn test_is_key_value() {
 
 /// Separate attached words like `DHCPOFFER(ipaddr)` in `DHCPOFFER ipaddr`
 fn is_two_words(word: &str) -> Option<(&str, &str)> {
-    word.split_once(|c| matches!(c, '[' | '(' | '\\' | '@'))
-        .map(|(k, v)| (k, v.trim_end_matches(|c| c == ']' || c == ')')))
+    word.split_once(['[', '(', '\\', '@'])
+        .map(|(k, v)| (k, v.trim_end_matches([']', ')'])))
 }
 
 fn is_key_for_id(word: &str) -> bool {
