@@ -127,7 +127,7 @@ enum LastTS {
     KnownTS(Option<Epoch>, usize),
 }
 
-impl<'a, IR: IndexReader, R: Read> Iterator for ChunkProcessor<'a, IR, R> {
+impl<IR: IndexReader, R: Read> Iterator for ChunkProcessor<'_, IR, R> {
     type Item = Result<AnomalyContext>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -410,11 +410,7 @@ fn collect_before(
     } else {
         CTX_DISTANCE
     };
-    let min_pos = if buffer_pos < ctx_distance {
-        0
-    } else {
-        buffer_pos - ctx_distance
-    };
+    let min_pos = buffer_pos.saturating_sub(ctx_distance);
     // The before context starts either at the last context pos, or the min pos.
     let before_context_pos = last_context_pos.max(min_pos);
     let mut before = buffer[before_context_pos..buffer_pos]

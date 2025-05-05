@@ -164,7 +164,7 @@ struct ReportMode<'a> {
     open: bool,
 }
 
-impl<'a> ReportMode<'a> {
+impl ReportMode<'_> {
     fn from_cli(report: Option<&PathBuf>, open: bool) -> Result<ReportMode> {
         let file = match report {
             Some(path) => Some((path, ReportKind::from_path(path)?)),
@@ -418,12 +418,11 @@ fn main() -> Result<()> {
     } else {
         OutputMode::Quiet
     };
-    Cli::parse().run(output_mode).map_err(|e| {
+    Cli::parse().run(output_mode).inspect_err(|_| {
         // Ensure the exception happens on a new line
         if output_mode.inlined() {
             println!();
         }
-        e
     })
 }
 
@@ -462,7 +461,10 @@ fn process_similarity(env: &EnvConfig, report: &ReportMode, targets: Vec<String>
     let reports: Vec<&Report> = reports.iter().collect();
     let similarity_report = logjuicer_model::similarity::create_similarity_report(&reports);
     match &report.file {
-        None => Ok(println!("Got similarity report!: {:?}", similarity_report)),
+        None => {
+            println!("Got similarity report!: {:?}", similarity_report);
+            Ok(())
+        }
         Some((file, kind)) => match kind {
             ReportKind::Capnp => similarity_report
                 .save(file)

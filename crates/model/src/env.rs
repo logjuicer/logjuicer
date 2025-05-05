@@ -42,7 +42,7 @@ pub struct TargetEnv<'a> {
     pub gl: &'a Env,
 }
 
-impl<'a> TargetEnv<'a> {
+impl TargetEnv<'_> {
     pub fn new_skip_lines(&self) -> Option<KnownLines> {
         self.config.new_skip_lines()
     }
@@ -127,7 +127,7 @@ fn add_certs(
         } else {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Invalid cert"),
+                "Invalid cert".to_string(),
             ));
         }
     }
