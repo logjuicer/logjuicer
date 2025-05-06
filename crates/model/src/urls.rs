@@ -30,9 +30,9 @@ pub fn url_open(env: &Env, url: &Url) -> Result<crate::reader::DecompressReader>
 #[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
 pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
     let base_len = url.as_str().trim_end_matches('/').len() + 1;
-    let request_max = 2500;
+    let req_max = 2500;
     Box::new(
-        httpdir::list_with_client(env.client.clone(), request_max, url.clone())
+        httpdir::list_with_client(env.client.clone(), env.auth.clone(), req_max, url.clone())
             .into_iter()
             // Convert httpdir result into source item
             .map(move |url_result| {

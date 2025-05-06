@@ -69,9 +69,16 @@ pub fn list(url: Url) -> Vec<Result<Url, Error>> {
     Crawler::new().list(url)
 }
 
+type Auth = Option<(Arc<str>, Arc<str>)>;
+
 /// The list function, but using the provided ureq client.
-pub fn list_with_client(client: Agent, request_max: u16, url: Url) -> Vec<Result<Url, Error>> {
-    Crawler::new_with_client(client, request_max).list(url)
+pub fn list_with_client(
+    client: Agent,
+    auth: Auth,
+    request_max: u16,
+    url: Url,
+) -> Vec<Result<Url, Error>> {
+    Crawler::new_with_client(client, auth, request_max).list(url)
 }
 
 /// Helper struct to prevent infinit loop.
@@ -117,6 +124,7 @@ pub struct Crawler {
 
 struct CrawlerWorker {
     client: Agent,
+    auth: Auth,
     // A worker pool.
     pool: ThreadPool,
     tx: Sender<Message>,
@@ -128,11 +136,11 @@ struct CrawlerWorker {
 impl Crawler {
     /// Initialize the Crawler state.
     pub fn new() -> Crawler {
-        Crawler::new_with_client(ureq::agent(), 2500)
+        Crawler::new_with_client(ureq::agent(), None, 2500)
     }
 
     /// Initialize the Crawler state with the ureq client.
-    pub fn new_with_client(client: Agent, request_max: u16) -> Crawler {
+    pub fn new_with_client(client: Agent, auth: Auth, request_max: u16) -> Crawler {
         let pool = ThreadPool::new(4);
         let (tx, rx) = channel();
         Crawler {
@@ -140,6 +148,7 @@ impl Crawler {
             worker: CrawlerWorker {
                 pool,
                 client,
+                auth,
                 tx,
                 request_count: Arc::new(AtomicU16::new(0)),
                 request_max,
@@ -190,6 +199,7 @@ impl CrawlerWorker {
             pool: self.pool.clone(),
             tx: self.tx.clone(),
             client: self.client.clone(),
+            auth: self.auth.clone(),
             request_count: self.request_count.clone(),
             request_max: self.request_max,
         }
@@ -219,7 +229,7 @@ impl CrawlerWorker {
 
         // Submit the work.
         self.pool.execute(move || {
-            for url in http_list(&worker.client, &url) {
+            for url in http_list(&worker.client, &worker.auth, &url) {
                 match url {
                     // We decoded some urls.
                     Ok(url) => {
@@ -318,9 +328,14 @@ fn path_dir(url: &Url) -> Option<Url> {
 }
 
 /// List the files and directories of a single url.
-pub fn http_list(client: &Agent, url: &Url) -> Vec<Result<Url, Error>> {
+pub fn http_list(client: &Agent, auth: &Auth, url: &Url) -> Vec<Result<Url, Error>> {
     // dbg!(&url);
-    match client.get(url.as_str()).call() {
+    let request = client.get(url.as_str());
+    let auth_request = match auth {
+        None => request,
+        Some((k, v)) => request.header(k.as_ref(), v.as_ref()),
+    };
+    match auth_request.call() {
         Ok(resp) => match resp.into_body().read_to_string() {
             Ok(body) => parse_index_of(url, &body),
             Err(e) => vec![Err(Error::ResponseError(url.clone(), Box::new(e)))],
