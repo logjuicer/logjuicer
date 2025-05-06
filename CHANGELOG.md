@@ -3,6 +3,7 @@ next-version
 
 - api: fix LOGJUICER_CA_EXTRA usage when a bundle already exists.
 - model: add LOGJUICER_SSL_NO_VERIFY to disable certificate verification.
+- model: add LOGJUICER_HTTP_AUTH to inject custom HTTP header to the requests made by the tool.
 
 0.12.0
 ======

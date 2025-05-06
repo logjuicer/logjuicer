@@ -39,13 +39,20 @@ pub fn from_path(path: &Path) -> Result<DecompressReader> {
     })
 }
 
+fn with_auth<A>(env: &Env, req: ureq::RequestBuilder<A>) -> ureq::RequestBuilder<A> {
+    match &env.auth {
+        None => req,
+        Some((k, v)) => req.header(k.as_ref(), v.as_ref()),
+    }
+}
+
 pub fn head_url(env: &Env, url: &Url) -> Result<bool> {
-    let resp = env.client.head(url.as_str()).call()?;
+    let resp = with_auth(env, env.client.head(url.as_str())).call()?;
     Ok(is_success(resp.status()))
 }
 
 pub fn get_url(env: &Env, url: &Url) -> Result<DecompressReader> {
-    let resp = env.client.get(url.as_str()).call()?;
+    let resp = with_auth(env, env.client.get(url.as_str())).call()?;
     Ok(Remote(Box::new(resp.into_body().into_reader())))
 }
 

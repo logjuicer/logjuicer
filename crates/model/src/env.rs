@@ -9,10 +9,12 @@ use crate::{
 };
 use anyhow::Result;
 use logjuicer_report::Content;
+use std::sync::Arc;
 
 pub struct Env {
     pub client: ureq::Agent,
     pub output: OutputMode,
+    pub auth: Option<(Arc<str>, Arc<str>)>,
 }
 
 impl Env {
@@ -21,9 +23,18 @@ impl Env {
     }
 
     pub fn new_with_settings(output: OutputMode) -> Self {
+        let auth = match std::env::var("LOGJUICER_HTTP_AUTH") {
+            Ok(value) => match value.split_once(": ") {
+                Some((k, v)) => Some((Arc::from(k), Arc::from(v))),
+                // TODO: move this check outside of the Env ctor and replace panic with Err() result.
+                None => panic!("LOGJUICER_HTTP_AUTH is not valid, it must be of the form 'Header: Value', it was: {}", value)
+            },
+            Err(_) => None,
+        };
         Env {
             client: new_agent(),
             output,
+            auth,
         }
     }
     /// Helper function to debug
