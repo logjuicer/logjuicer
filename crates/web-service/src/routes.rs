@@ -264,8 +264,13 @@ pub async fn do_report_watch(
         };
     }
 
-    while let Ok(msg) = monitor.chan.recv().await {
-        ws.send(Message::Text(msg.to_string())).await?;
+    let timeout_duration = tokio::time::Duration::from_millis(5_000);
+    loop {
+        match tokio::time::timeout(timeout_duration, monitor.chan.recv()).await {
+            Err(_) => ws.send(Message::Text("...".to_string())).await?,
+            Ok(Ok(msg)) => ws.send(Message::Text(msg.to_string())).await?,
+            Ok(Err(_)) => break,
+        }
     }
     ws.close().await?;
     Ok(())
