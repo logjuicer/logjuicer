@@ -381,6 +381,7 @@ pub fn do_render_run(state: &Rc<App>, report_id: ReportID, render_route: Route) 
         loop {
             match ws.next().await {
                 Some(Ok(Message::Text(msg))) if msg == "Done" => break,
+                Some(Ok(Message::Text(msg))) if msg == "..." => {},
                 Some(Ok(Message::Text(msg))) => {
                     infos.lock_mut().push_cloned(Rc::new(msg));
                 }
@@ -456,6 +457,7 @@ fn do_tail(
             // Pull progress message from the websocket
             loop {
                 match ws.next().await {
+                    Some(Ok(Message::Text(msg))) if msg == "..." => {},
                     Some(Ok(Message::Text(msg))) if msg == "Done" => break,
                     Some(Ok(Message::Text(msg))) => {
                         infos.lock_mut().push_cloned(Rc::new(msg));
