@@ -6,10 +6,12 @@
 use crate::{
     config::{Config, TargetConfig},
     unordered::KnownLines,
+    Source,
 };
 use anyhow::Result;
 use logjuicer_report::Content;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct Env {
     pub client: ureq::Agent,
@@ -48,14 +50,25 @@ impl Env {
 }
 
 /// The environment to process a target
+pub type CurrentTarget = Arc<Mutex<Option<Source>>>;
 pub struct TargetEnv<'a> {
     pub config: &'a TargetConfig,
     pub gl: &'a Env,
+    pub current: Option<CurrentTarget>,
 }
 
 impl TargetEnv<'_> {
     pub fn new_skip_lines(&self) -> Option<KnownLines> {
         self.config.new_skip_lines()
+    }
+    pub fn set_current(&self, source: &Source) {
+        match &self.current {
+            None => {}
+            Some(current) => {
+                let mut data = current.lock().unwrap();
+                *data = Some(source.clone())
+            }
+        }
     }
 }
 
@@ -81,11 +94,20 @@ impl EnvConfig {
         Ok(Self { gl, config })
     }
 
-    pub fn get_target_env<'a>(&'a self, target: &Content) -> TargetEnv<'a> {
+    pub fn get_target_env_with_current<'a>(
+        &'a self,
+        target: &Content,
+        current: Option<CurrentTarget>,
+    ) -> TargetEnv<'a> {
         TargetEnv {
             config: self.config.get_target_config(target),
             gl: &self.gl,
+            current,
         }
+    }
+
+    pub fn get_target_env<'a>(&'a self, target: &Content) -> TargetEnv<'a> {
+        self.get_target_env_with_current(target, None)
     }
 
     /// Helper function to debug

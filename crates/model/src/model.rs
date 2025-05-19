@@ -226,6 +226,7 @@ impl<IR: IndexReader> Index<IR> {
             // TODO: record training errors?
             match reader {
                 Ok(reader) => {
+                    env.set_current(source);
                     if let Err(e) = trainer.add(env.config, reader) {
                         tracing::error!("{}: failed to load: {}", source, e)
                     }
@@ -264,6 +265,7 @@ impl<IR: IndexReader> Index<IR> {
         } else {
             false
         };
+        env.set_current(source);
         Ok(process::ChunkProcessor::new(
             fp,
             &self.index,

@@ -13,10 +13,10 @@ use logjuicer_report::SimilarityReport;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
 use std::sync::RwLock;
+use std::sync::{Arc, Mutex};
 
-use logjuicer_model::env::EnvConfig;
+use logjuicer_model::env::{CurrentTarget, EnvConfig};
 use logjuicer_report::report_row::{ReportID, ReportStatus};
 use logjuicer_report::Report;
 
@@ -93,6 +93,7 @@ impl Workers {
         running.get(&report_id).map(|pm| ProcessFollower {
             events: pm.events.clone(),
             chan: pm.chan.subscribe(),
+            current: pm.current.clone(),
         })
     }
 
@@ -207,12 +208,14 @@ struct ProcessEnv {
 pub struct ProcessFollower {
     pub events: Arc<tokio::sync::RwLock<Vec<Arc<str>>>>,
     pub chan: tokio::sync::broadcast::Receiver<Arc<str>>,
+    pub current: CurrentTarget,
 }
 
 #[derive(Clone)]
 pub struct ProcessMonitor {
     pub events: Arc<tokio::sync::RwLock<Vec<Arc<str>>>>,
     pub chan: tokio::sync::broadcast::Sender<Arc<str>>,
+    pub current: CurrentTarget,
 }
 
 impl ProcessMonitor {
@@ -221,6 +224,7 @@ impl ProcessMonitor {
         ProcessMonitor {
             events: Arc::new(tokio::sync::RwLock::new(Vec::new())),
             chan,
+            current: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -327,7 +331,7 @@ fn process_report(
         baselines.iter().try_for_each(check_content)?;
     }
 
-    let target_env = env.get_target_env(&content);
+    let target_env = env.get_target_env_with_current(&content, Some(monitor.current));
     let model: ModelF = process_models(penv, &target_env, baselines)?;
 
     monitor.emit("Starting analysis".into());
@@ -386,6 +390,7 @@ fn model_lock(
         Some(monitor) => Ok(ModelStatus::Pending(ProcessFollower {
             events: monitor.events.clone(),
             chan: monitor.chan.subscribe(),
+            current: monitor.current.clone(),
         })),
         // Nobody is building it
         None => match penv
