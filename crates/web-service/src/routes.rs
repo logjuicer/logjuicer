@@ -3,7 +3,7 @@
 
 //! This module contains the http handler logic.
 
-use axum::extract::{Path, Query, State, WebSocketUpgrade};
+use axum::extract::{ws::Utf8Bytes, Path, Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::Json;
 use futures::SinkExt;
@@ -265,10 +265,31 @@ pub async fn do_report_watch(
         };
     }
 
-    let timeout_duration = tokio::time::Duration::from_millis(5_000);
+    let timeout_duration = tokio::time::Duration::from_millis(1_000);
+    let mut prev_current: Utf8Bytes = "Processing: ".into();
+    let waiting_message: Utf8Bytes = "...".into();
     loop {
         match tokio::time::timeout(timeout_duration, monitor.chan.recv()).await {
-            Err(_) => ws.send(Message::Text("...".into())).await?,
+            Err(_) => {
+                let msg = {
+                    let current = monitor.current.lock().unwrap();
+                    match &*current {
+                        Some(source) => {
+                            let source_str = source.as_str();
+                            if prev_current.as_str()["Processing: ".len()..] != *source_str {
+                                let source_message: Utf8Bytes =
+                                    format!("Processing: {}", source_str).into();
+                                prev_current = source_message.clone();
+                                source_message
+                            } else {
+                                waiting_message.clone()
+                            }
+                        }
+                        None => waiting_message.clone(),
+                    }
+                };
+                ws.send(Message::Text(msg)).await?
+            }
             Ok(Ok(msg)) => ws.send(Message::Text(msg.as_ref().into())).await?,
             Ok(Err(_)) => break,
         }
