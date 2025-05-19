@@ -42,8 +42,8 @@ sprs = { version = "0", features = ["serde"] }
 
 # network
 url = "2"
-ureq = { version = "3", default-features = false, features = ["rustls", "json", "gzip", "brotli"] }
-rustls = { version = "0.23", default-features = false, features = ["std", "ring", "tls12", "logging", "brotli", "zlib"] }
+ureq = { version = "3", default-features = false, features = ["rustls", "json", "gzip"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "ring", "tls12", "logging", "zlib"] }
 
 # serde
 serde_yaml = "*"
@@ -77,6 +77,7 @@ goldenfile = "1"
 
 [profile.release]
 lto = true
+strip = true
 opt-level = 's'
 # Perform optimizations on all codegen units.
 codegen-units = 1
