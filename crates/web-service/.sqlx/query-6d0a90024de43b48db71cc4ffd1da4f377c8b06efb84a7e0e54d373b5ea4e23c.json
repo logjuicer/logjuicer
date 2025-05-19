@@ -6,7 +6,7 @@
       {
         "name": "id",
         "ordinal": 0,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "created_at",
@@ -31,7 +31,7 @@
       {
         "name": "anomaly_count",
         "ordinal": 5,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "status",
@@ -41,7 +41,7 @@
       {
         "name": "bytes_size",
         "ordinal": 7,
-        "type_info": "Int64"
+        "type_info": "Integer"
       }
     ],
     "parameters": {

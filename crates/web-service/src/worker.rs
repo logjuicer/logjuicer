@@ -331,7 +331,7 @@ fn process_report(
         baselines.iter().try_for_each(check_content)?;
     }
 
-    let target_env = env.get_target_env_with_current(&content, Some(monitor.current));
+    let target_env = env.get_target_env_with_current(&content, Some(monitor.current.clone()));
     let model: ModelF = process_models(penv, &target_env, baselines)?;
 
     monitor.emit("Starting analysis".into());
