@@ -115,12 +115,12 @@ pub async fn put_hash_into_view(selection: Selection) {
     for _retry in 0..10 {
         if let Some(elem) = body.get_element_by_id(&elem_id) {
             log!(&format!("Putting {} into view", elem_id));
-            elem.scroll_into_view_with_scroll_into_view_options(
-                web_sys::ScrollIntoViewOptions::new()
-                    .behavior(web_sys::ScrollBehavior::Smooth)
-                    .block(web_sys::ScrollLogicalPosition::Center)
-                    .inline(web_sys::ScrollLogicalPosition::Center),
-            );
+
+            let opt = web_sys::ScrollIntoViewOptions::new();
+            opt.set_behavior(web_sys::ScrollBehavior::Smooth);
+            opt.set_block(web_sys::ScrollLogicalPosition::Center);
+            opt.set_inline(web_sys::ScrollLogicalPosition::Center);
+            elem.scroll_into_view_with_scroll_into_view_options(&opt);
             selection.highlight();
             break;
         }

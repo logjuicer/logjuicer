@@ -22,14 +22,14 @@ impl From<Epoch> for TS {
 pub fn parse_timestamp(line: &str) -> Option<TS> {
     if let Some(stripped) = line.strip_prefix("{\"date\":") {
         NaiveDateTime::parse_and_remainder(stripped, "%s.%3f")
-            .map(|(ndt, _)| Full(Epoch(ndt.timestamp_millis() as u64)))
+            .map(|(ndt, _)| Full(Epoch(ndt.and_utc().timestamp_millis() as u64)))
             .ok()
     } else {
         NaiveDateTime::parse_and_remainder(line, "%F %T,%3f")
             .or_else(|_| NaiveDateTime::parse_and_remainder(line, "%FT%T"))
             .or_else(|_| NaiveDateTime::parse_and_remainder(line, "%F %T.%3f"))
             .or_else(|_| NaiveDateTime::parse_and_remainder(line, "[%Y/%m/%d %T]"))
-            .map(|(ndt, _)| Full(Epoch(ndt.timestamp_millis() as u64)))
+            .map(|(ndt, _)| Full(Epoch(ndt.and_utc().timestamp_millis() as u64)))
             .or_else(|_| {
                 NaiveTime::parse_and_remainder(line.get(6..).unwrap_or(""), "%T.%3f")
                     .or_else(|_| NaiveTime::parse_and_remainder(line, "%b %d %T "))

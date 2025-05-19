@@ -6,6 +6,7 @@
 use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::Json;
+use futures::SinkExt;
 use futures::TryFutureExt;
 use logjuicer_report::model_row::ModelRow;
 use tokio::fs::File;
@@ -259,7 +260,7 @@ pub async fn do_report_watch(
         } else {
             // Send previous events
             for event in events.iter() {
-                ws.send(Message::Text(event.to_string())).await?;
+                ws.send(Message::Text(event.as_ref().into())).await?;
             }
         };
     }
@@ -267,8 +268,8 @@ pub async fn do_report_watch(
     let timeout_duration = tokio::time::Duration::from_millis(5_000);
     loop {
         match tokio::time::timeout(timeout_duration, monitor.chan.recv()).await {
-            Err(_) => ws.send(Message::Text("...".to_string())).await?,
-            Ok(Ok(msg)) => ws.send(Message::Text(msg.to_string())).await?,
+            Err(_) => ws.send(Message::Text("...".into())).await?,
+            Ok(Ok(msg)) => ws.send(Message::Text(msg.as_ref().into())).await?,
             Ok(Err(_)) => break,
         }
     }

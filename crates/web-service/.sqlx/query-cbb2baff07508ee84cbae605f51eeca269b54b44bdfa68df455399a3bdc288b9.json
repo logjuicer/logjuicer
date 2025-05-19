@@ -11,7 +11,7 @@
       {
         "name": "version",
         "ordinal": 1,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "created_at",
@@ -21,7 +21,7 @@
       {
         "name": "bytes_size",
         "ordinal": 3,
-        "type_info": "Int64"
+        "type_info": "Integer"
       }
     ],
     "parameters": {

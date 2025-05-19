@@ -320,7 +320,7 @@ impl ZuulBuild {
     }
 
     pub fn older_than(&self, date: chrono::NaiveDateTime) -> bool {
-        self.end_time.timestamp() < date.timestamp()
+        self.end_time.timestamp() < date.and_utc().timestamp()
     }
 }
 
@@ -446,7 +446,7 @@ impl Source {
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .map(|d| d.as_secs())
                         .unwrap_or(0)
-                        < date.timestamp() as u64
+                        < date.and_utc().timestamp() as u64
                 })
                 .unwrap_or(true),
         }
