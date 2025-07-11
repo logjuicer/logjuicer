@@ -18,6 +18,7 @@ use std::time::Instant;
 use time_humanize::{Accuracy, HumanTime, Tense};
 
 mod dataset;
+mod downloader;
 mod serve;
 
 #[derive(Parser)]
@@ -57,6 +58,9 @@ enum Commands {
 
     #[clap(about = "Analyze a url")]
     Url { url: String },
+
+    #[clap(about = "Download logs")]
+    DownloadLogs { dest: PathBuf, url: String },
 
     #[clap(about = "Compute similarity between build")]
     Similarity { targets: Vec<String> },
@@ -287,6 +291,10 @@ impl Cli {
 
             Commands::Test { datasets } => dataset::test_datasets(env, &datasets),
 
+            Commands::DownloadLogs { dest, url } => {
+                downloader::download(env, dest, Input::from_string(url))
+            }
+
             // Debug handlers
             Commands::HttpLs { url } => {
                 for url in httpdir::Crawler::new_with_client(env.gl.client, env.gl.auth, 20000)
@@ -360,7 +368,9 @@ impl Cli {
                     } else {
                         "processed"
                     };
-                    println!("Config number {pos} match the job named {job}, the file is {skipped}, the line is {ignored}");
+                    println!(
+                        "Config number {pos} match the job named {job}, the file is {skipped}, the line is {ignored}"
+                    );
                 } else {
                     anyhow::bail!("Couldn't find a target config matching {job}")
                 }
