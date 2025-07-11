@@ -13,6 +13,7 @@ use logjuicer_report::Content;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+#[derive(Clone)]
 pub struct Env {
     pub client: ureq::Agent,
     pub output: OutputMode,

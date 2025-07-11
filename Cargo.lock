@@ -1719,6 +1719,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "threadpool",
  "time-humanize",
  "tracing",
  "tracing-chrome",
