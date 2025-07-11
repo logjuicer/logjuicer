@@ -59,6 +59,9 @@ enum Commands {
     #[clap(about = "Analyze a url")]
     Url { url: String },
 
+    #[clap(about = "Extract errors from a single target")]
+    Errors { target: String },
+
     #[clap(about = "Download logs")]
     DownloadLogs { dest: PathBuf, url: String },
 
@@ -220,6 +223,13 @@ impl Cli {
             ),
             Commands::Journald { .. } => todo!(),
 
+            Commands::Errors { target } => process_errors(
+                &env,
+                report,
+                self.web_package_url,
+                Input::from_string(target),
+            ),
+
             // Manual commands
             Commands::Similarity { targets } => process_similarity(&env, report, targets),
             Commands::Diff { src, dst } => process(
@@ -368,9 +378,7 @@ impl Cli {
                     } else {
                         "processed"
                     };
-                    println!(
-                        "Config number {pos} match the job named {job}, the file is {skipped}, the line is {ignored}"
-                    );
+                    println!("Config number {pos} match the job named {job}, the file is {skipped}, the line is {ignored}");
                 } else {
                     anyhow::bail!("Couldn't find a target config matching {job}")
                 }
@@ -489,6 +497,74 @@ fn process_similarity(env: &EnvConfig, report: &ReportMode, targets: Vec<String>
     }
 }
 
+fn process_errors(
+    env: &EnvConfig,
+    report: &ReportMode,
+    web_package_url: Option<String>,
+    input: Input,
+) -> Result<()> {
+    // Convert user Input to target Content.
+    let content = content_from_input(&env.gl, input)?;
+    let env = &env.get_target_env(&content);
+
+    if !report.open && report.file.is_none() {
+        // When no report is needed, we can stream the anomaly straight from the iterator.
+        process_errors_live(env, &content)
+    } else {
+        let final_report = logjuicer_model::errors::errors_report(env, content)?;
+        process_report(report, web_package_url, final_report)
+    }
+}
+
+fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
+    let print_context = |xs: &[Rc<str>]| xs.iter().for_each(|line| println!("     | {}", line));
+
+    let sources = content_get_sources(env, content)?;
+    for source in &sources {
+        match logjuicer_model::errors::get_errors_processor(env, source, &mut env.new_skip_lines())
+        {
+            Ok(mut processor) => {
+                let mut file_shown = false;
+                let mut last_pos = None;
+                for anomaly in processor.by_ref() {
+                    match anomaly {
+                        Ok(anomaly) => {
+                            if !file_shown {
+                                println!("\n[{}]", source.get_relative());
+                                file_shown = true
+                            }
+                            let context_size = 1 + anomaly.before.len();
+                            let starting_pos = if anomaly.anomaly.pos > context_size {
+                                anomaly.anomaly.pos - context_size
+                            } else {
+                                0
+                            };
+                            if let Some(last_pos) = last_pos {
+                                if last_pos < starting_pos {
+                                    println!("--");
+                                }
+                            }
+
+                            print_context(&anomaly.before);
+                            println!("{:04} | {}", anomaly.anomaly.pos, anomaly.anomaly.line);
+                            print_context(&anomaly.after);
+                            last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
+                        }
+                        Err(err) => {
+                            println!("Could not read {}: {}", &source, err);
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(err) => {
+                println!("Could not read {}: {}", &source, err);
+            }
+        }
+    }
+    Ok(())
+}
+
 /// process is the logjuicer implementation after command line parsing.
 #[tracing::instrument(level = "debug", skip(env, report))]
 fn process(
@@ -553,34 +629,40 @@ fn process(
         process_live(env, &content, &model)
     } else {
         // Otherwise, create a report and display it if needed.
-        let final_report = model.report(env, content)?;
-
-        // Save to disk
-        if let Some((path, kind)) = &report.file {
-            kind.save(path, &final_report)?;
-        }
-
-        // Add html file
-        let (path, index) = match report.file {
-            Some((path, ReportKind::Capnp)) => (path.as_path(), write_html(path, web_package_url)?),
-            _ => {
-                // Only capnp proto can be web rendered so we don't save the html in that case.
-                let path = std::path::Path::new("report.bin");
-                (path, render_html(path, web_package_url)?)
-            }
-        };
-
-        // Serve the html
-        if report.open {
-            let name = path
-                .file_stem()
-                .and_then(std::ffi::OsStr::to_str)
-                .unwrap_or("");
-            serve::serve(name, &index, &final_report)?;
-        }
-
-        Ok(())
+        process_report(report, web_package_url, model.report(env, content)?)
     }
+}
+
+fn process_report(
+    report: &ReportMode,
+    web_package_url: Option<String>,
+    final_report: logjuicer_model::Report,
+) -> Result<()> {
+    // Save to disk
+    if let Some((path, kind)) = &report.file {
+        kind.save(path, &final_report)?;
+    }
+
+    // Add html file
+    let (path, index) = match report.file {
+        Some((path, ReportKind::Capnp)) => (path.as_path(), write_html(path, web_package_url)?),
+        _ => {
+            // Only capnp proto can be web rendered so we don't save the html in that case.
+            let path = std::path::Path::new("report.bin");
+            (path, render_html(path, web_package_url)?)
+        }
+    };
+
+    // Serve the html
+    if report.open {
+        let name = path
+            .file_stem()
+            .and_then(std::ffi::OsStr::to_str)
+            .unwrap_or("");
+        serve::serve(name, &index, &final_report)?;
+    }
+
+    Ok(())
 }
 
 fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix>) -> Result<()> {

@@ -3,6 +3,7 @@ next-version
 
 - web: add keep-alive to avoid the watch stream to be interrupted by an ingress proxy.
 - cli: add download-logs command.
+- cli: add errors command.
 
 0.13.0
 ======
