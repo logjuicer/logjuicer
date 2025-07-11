@@ -29,6 +29,7 @@ use crate::unordered::KnownLines;
 use crate::urls::{httpdir_iter, url_open};
 pub mod config;
 pub mod env;
+pub mod errors;
 pub mod files;
 pub mod process;
 pub mod prow;

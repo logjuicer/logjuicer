@@ -38,6 +38,7 @@ lazy_static = { workspace = true }
 itertools = { workspace = true }
 chrono = { workspace = true }
 regex = { workspace = true }
+bytes = { workspace = true }
 
 # Model save/load
 bincode = { workspace = true }
