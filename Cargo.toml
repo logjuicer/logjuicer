@@ -2,6 +2,7 @@
 members = [
   "crates/iterator",
   "crates/tokenizer",
+  "crates/errors",
   "crates/index",
   "crates/model",
   "crates/report",
