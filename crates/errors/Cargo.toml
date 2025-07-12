@@ -1,0 +1,23 @@
+[package]
+name = "logjuicer-errors"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logjuicer/logjuicer"
+documentation = "https://docs.rs/logjuicer-errors/"
+authors = ["TristanCacqueray"]
+
+description = "An error parsing function for the logjuicer project."
+
+keywords = ["parser", "machine-learning", "logjuicer"]
+categories = ["compression", "development-tools", "parsing", "text-processing"]
+
+edition = "2018"
+
+[lib]
+name = "logjuicer_errors"
+path = "src/errors_parser.rs"
+
+[dependencies]
+regex = { workspace = true }
+lazy_static = { workspace = true }

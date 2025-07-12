@@ -1729,6 +1729,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "logjuicer-errors"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
+
+[[package]]
 name = "logjuicer-generate"
 version = "0.1.0"
 dependencies = [
@@ -1768,6 +1776,7 @@ dependencies = [
  "httpdir",
  "itertools 0.12.1",
  "lazy_static",
+ "logjuicer-errors",
  "logjuicer-generate",
  "logjuicer-index",
  "logjuicer-iterator",

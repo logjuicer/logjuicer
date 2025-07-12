@@ -3,8 +3,6 @@
 
 use anyhow::Result;
 use bytes::Bytes;
-use lazy_static::lazy_static;
-use regex::Regex;
 use std::collections::{HashMap, VecDeque};
 use std::io::Read;
 use std::rc::Rc;
@@ -53,6 +51,7 @@ pub struct ErrorsProcessor<'a, R: Read> {
     skip_lines: &'a mut Option<KnownLines>,
     /// Indicate if run-logjuicer needs to be checked
     is_job_output: bool,
+    parser: logjuicer_errors::State,
     /// Total lines count
     pub line_count: usize,
     /// Total bytes count
@@ -89,6 +88,7 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
             is_job_output,
             skip_lines,
             config,
+            parser: logjuicer_errors::State::new(),
             line_count: 0,
             byte_count: 0,
         }
@@ -121,11 +121,26 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
                 break;
             }
 
+            let is_error = match self.parser.parse(raw_str) {
+                logjuicer_errors::Result::NoError => false,
+                logjuicer_errors::Result::Error => true,
+                logjuicer_errors::Result::NeedMore => {
+                    // Accumulate the current line in the history
+                    self.history.lines.push_back(line.0.clone());
+                    // If there was an on-going anomaly context, return it now
+                    if self.current_anomaly.is_some() {
+                        break;
+                    }
+                    false
+                }
+                logjuicer_errors::Result::CompletedTraceBack => true,
+            };
+
             if self.config.is_ignored_line(raw_str) {
                 continue;
             }
 
-            if self.is_error(raw_str) {
+            if is_error {
                 let tokens = logjuicer_tokenizer::process(raw_str);
                 let process_line = if let Some(skip_lines) = self.skip_lines {
                     skip_lines.insert(&tokens)
@@ -169,26 +184,6 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
         }
         Ok(self.current_anomaly.take())
     }
-
-    fn is_error(&mut self, line: &str) -> bool {
-        // TODO: handle traceback
-        is_error_line(line)
-    }
-}
-
-fn is_error_line(line: &str) -> bool {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(concat!(
-            "(?i-u:(",
-            "error|fatal|failure|failed|warning|",
-            "err|fail|warn|",
-            "denied|",
-            "assert|assertion|non-zero|",
-            "))"
-        ))
-        .unwrap();
-    }
-    RE.is_match(line)
 }
 
 pub fn get_errors_processor<'a>(
