@@ -520,9 +520,9 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
     let print_context = |xs: &[Rc<str>]| xs.iter().for_each(|line| println!("     | {}", line));
 
     let sources = content_get_sources(env, content)?;
+    let mut skip_lines = env.new_skip_lines();
     for source in &sources {
-        match logjuicer_model::errors::get_errors_processor(env, source, &mut env.new_skip_lines())
-        {
+        match logjuicer_model::errors::get_errors_processor(env, &mut skip_lines, source) {
             Ok(mut processor) => {
                 let mut file_shown = false;
                 let mut last_pos = None;
