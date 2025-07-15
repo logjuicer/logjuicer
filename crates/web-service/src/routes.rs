@@ -140,13 +140,23 @@ use serde::{Deserialize, Serialize};
 pub struct NewReportQuery {
     pub target: String,
     pub baseline: Option<String>,
+    pub errors: Option<bool>,
 }
 
 pub async fn report_new(
     State(workers): State<Workers>,
     Query(args): Query<NewReportQuery>,
 ) -> Result<Json<(ReportID, ReportStatus)>> {
-    let baseline = args.baseline.as_deref().unwrap_or("auto");
+    let baseline = match args.errors {
+        Some(true) => match args.baseline {
+            None => Ok("errors"),
+            Some(_) => Err((
+                StatusCode::BAD_REQUEST,
+                "baseline and errors are mutually exclusive".into(),
+            )),
+        },
+        Some(false) | None => Ok(args.baseline.as_deref().unwrap_or("auto")),
+    }?;
     let report = workers
         .db
         .lookup_report(&args.target, baseline)
@@ -178,6 +188,7 @@ impl ReportRequest {
         ReportRequest::NewReport(NewReportQuery {
             target,
             baseline: Some(baseline),
+            errors: None,
         })
     }
 }
@@ -188,9 +199,10 @@ impl std::fmt::Display for ReportRequest {
             ReportRequest::NewReport(args) => {
                 write!(
                     f,
-                    "target={}, baseline={}",
+                    "target={}, baseline={}, errors={}",
                     args.target,
-                    args.baseline.as_deref().unwrap_or("auto")
+                    args.baseline.as_deref().unwrap_or("auto"),
+                    args.errors.unwrap_or(false),
                 )
             }
             ReportRequest::NewSimilarity(rids) => {

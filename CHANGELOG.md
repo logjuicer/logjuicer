@@ -5,6 +5,7 @@ next-version
 - cli: add download-logs command.
 - cli: add errors command.
 - model: ignore python code.
+- api: add '&errors=true' parameter to the API for genering an errors report.
 
 0.13.0
 ======
