@@ -5,9 +5,10 @@
 
 use anyhow::Result;
 use bytes::Bytes;
+use rayon::prelude::*;
 use std::collections::{HashMap, VecDeque};
 use std::io::Read;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime};
 
 use crate::content_get_sources;
@@ -62,7 +63,7 @@ pub struct ErrorsProcessor<'a, R: Read> {
     /// Previous lines
     history: History,
     /// The list of unique log lines, to avoid searching a line twice.
-    skip_lines: &'a mut Option<KnownLines>,
+    skip_lines: Arc<Mutex<Option<KnownLines>>>,
     /// Indicate if run-logjuicer needs to be checked
     is_job_output: bool,
     /// Total lines count
@@ -90,7 +91,7 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
         read: R,
         is_json: bool,
         is_job_output: bool,
-        skip_lines: &'a mut Option<KnownLines>,
+        skip_lines: Arc<Mutex<Option<KnownLines>>>,
         config: &'a TargetConfig,
     ) -> ErrorsProcessor<'a, R> {
         ErrorsProcessor {
@@ -145,7 +146,7 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
             }
 
             if is_error {
-                if let Some(skip_lines) = self.skip_lines {
+                if let Some(ref mut skip_lines) = *self.skip_lines.lock().unwrap() {
                     if !skip_lines.insert(&logjuicer_tokenizer::process(raw_str)) {
                         continue;
                     }
@@ -222,8 +223,8 @@ fn test_errors_processor() {
 2025-07-07 - Something went wrong
 "#,
     );
-    let mut skip_lines = Some(KnownLines::new());
-    let processor = ErrorsProcessor::new(data, false, false, &mut skip_lines, config);
+    let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
+    let processor = ErrorsProcessor::new(data, false, false, skip_lines, config);
     let mut anomalies = Vec::new();
     for anomaly in processor {
         anomalies.push(anomaly.unwrap())
@@ -248,7 +249,7 @@ fn test_errors_processor() {
 
 pub fn get_errors_processor<'a>(
     env: &'a TargetEnv,
-    skip_lines: &'a mut Option<KnownLines>,
+    skip_lines: Arc<Mutex<Option<KnownLines>>>,
     source: &Source,
 ) -> Result<ErrorsProcessor<'a, crate::reader::DecompressReader>> {
     let fp = match source {
@@ -274,8 +275,8 @@ pub fn get_errors_processor<'a>(
 #[tracing::instrument(level = "debug", skip(env, counters))]
 fn errors_report_source<'a>(
     env: &'a TargetEnv,
-    skip_lines: &'a mut Option<KnownLines>,
-    counters: &mut LineCounters,
+    skip_lines: Arc<Mutex<Option<KnownLines>>>,
+    counters: Arc<Mutex<LineCounters>>,
     source: &Source,
 ) -> std::result::Result<Option<LogReport>, String> {
     let start_time = Instant::now();
@@ -289,6 +290,7 @@ fn errors_report_source<'a>(
                     Err(err) => return Err(format!("{}", err)),
                 }
             }
+            let mut counters = counters.lock().unwrap();
             counters.line_count += processor.line_count;
             if !anomalies.is_empty() {
                 counters.anomaly_count += anomalies.len();
@@ -314,20 +316,26 @@ fn errors_report_source<'a>(
 pub fn errors_report(env: &TargetEnv, target: Content) -> Result<Report> {
     let start_time = Instant::now();
     let created_at = SystemTime::now();
-    let mut read_errors = Vec::new();
-    let mut counters = LineCounters::new();
-    let mut log_reports = Vec::new();
+    let read_errors = Mutex::new(Vec::new());
+    let counters = Arc::new(Mutex::new(LineCounters::new()));
+    let log_reports = Mutex::new(Vec::new());
     let sources = content_get_sources(env, &target)?;
-    let mut skip_lines = env.new_skip_lines();
-    // TODO: use threadpool
-    for source in &sources {
-        match errors_report_source(env, &mut skip_lines, &mut counters, source) {
-            Ok(Some(lr)) => log_reports.push(lr),
-            Ok(None) => {}
-            Err(err) => read_errors.push((source.clone(), err.into())),
-        }
-    }
+    let skip_lines = Arc::new(Mutex::new(env.new_skip_lines()));
 
+    sources.into_par_iter().for_each(|source| {
+        match errors_report_source(env, skip_lines.clone(), counters.clone(), &source) {
+            Ok(Some(lr)) => log_reports.lock().unwrap().push(lr),
+            Ok(None) => {}
+            Err(err) => read_errors
+                .lock()
+                .unwrap()
+                .push((source.clone(), err.into())),
+        }
+    });
+
+    let counters = counters.lock().unwrap();
+    let read_errors = read_errors.into_inner().unwrap();
+    let log_reports = log_reports.into_inner().unwrap();
     Ok(Report {
         created_at,
         run_time: start_time.elapsed(),

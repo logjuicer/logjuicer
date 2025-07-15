@@ -523,9 +523,9 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
     let mut total_line_count = 0;
     let mut total_byte_count = 0;
     let mut total_anomaly_count = 0;
-    let mut skip_lines = env.new_skip_lines();
+    let skip_lines = Arc::new(std::sync::Mutex::new(env.new_skip_lines()));
     for source in &sources {
-        match logjuicer_model::errors::get_errors_processor(env, &mut skip_lines, source) {
+        match logjuicer_model::errors::get_errors_processor(env, skip_lines.clone(), source) {
             Ok(mut processor) => {
                 let mut file_shown = false;
                 let mut last_pos = None;
