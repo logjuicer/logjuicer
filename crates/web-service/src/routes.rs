@@ -287,7 +287,7 @@ pub async fn do_report_watch(
                     let current = monitor.current.lock().unwrap();
                     match &*current {
                         Some(source) => {
-                            let source_str = source.as_str();
+                            let source_str = source.get_relative();
                             if prev_current.as_str()["Processing: ".len()..] != *source_str {
                                 let source_message: Utf8Bytes =
                                     format!("Processing: {}", source_str).into();
