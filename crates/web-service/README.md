@@ -78,6 +78,18 @@ Watch the report creation process.
 
 ## Contribute
 
+Serve the web ui:
+
+```
+pushd ../web
+trunk build
+mv dist/logjuicer-web-*.js dist/logjuicer-web.js
+mv dist/logjuicer-web-*.wasm dist/logjuicer-web.wasm
+mv dist/style-*.css dist/logjuicer-web.css
+export LOGJUICER_ASSETS=$(pwd)/dist
+popd
+```
+
 Hot reload the service with `cargo watch -x run`.
 
 When changing migrations or sqlx macro usages, run: `cargo sqlx prepare -- --tests`.
