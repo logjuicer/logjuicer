@@ -518,8 +518,11 @@ fn process_errors(
 
 fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
     let print_context = |xs: &[Rc<str>]| xs.iter().for_each(|line| println!("     | {}", line));
-
+    let start_time = Instant::now();
     let sources = content_get_sources(env, content)?;
+    let mut total_line_count = 0;
+    let mut total_byte_count = 0;
+    let mut total_anomaly_count = 0;
     let mut skip_lines = env.new_skip_lines();
     for source in &sources {
         match logjuicer_model::errors::get_errors_processor(env, &mut skip_lines, source) {
@@ -533,6 +536,7 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
                                 println!("\n[{}]", source.get_relative());
                                 file_shown = true
                             }
+                            total_anomaly_count += 1;
                             let context_size = 1 + anomaly.before.len();
                             let starting_pos = if anomaly.anomaly.pos > context_size {
                                 anomaly.anomaly.pos - context_size
@@ -556,12 +560,25 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
                         }
                     }
                 }
+                total_line_count += processor.line_count;
+                total_byte_count += processor.byte_count;
             }
             Err(err) => {
                 println!("Could not read {}: {}", &source, err);
             }
         }
     }
+    let process_time = start_time.elapsed();
+    let total_mb_count = (total_byte_count as f64) / (1024.0 * 1024.0);
+    let speed: f64 = total_mb_count / process_time.as_secs_f64();
+    env.gl.debug_or_progress(&format!(
+        "Completed {}: Reduced from {} to {} in {} at {:.2} MB/s\n",
+        content,
+        total_line_count,
+        total_anomaly_count,
+        human_duration(process_time),
+        speed,
+    ));
     Ok(())
 }
 

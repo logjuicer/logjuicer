@@ -25,6 +25,8 @@ enum Parser {
 enum GoStatus {
     /// Reading the header line
     Header,
+    /// Reading the first goroutine
+    Routine,
     /// Reading the goroutine stacks
     Threads,
 }
@@ -51,8 +53,7 @@ impl State {
         match self.0 {
             Parser::Unknown => {
                 if let Some(state) = is_multiline(line) {
-                    self.0 = state;
-                    Result::NeedMore
+                    self.need_more(state)
                 } else if is_error_line(line) {
                     Result::Error
                 } else {
@@ -62,34 +63,39 @@ impl State {
             Parser::PythonTraceback(pos) => match line.chars().nth(pos) {
                 // Python traceback continues until first character is not a space.
                 None | Some(' ') => Result::NeedMore,
-                _ => {
-                    self.0 = Parser::Unknown;
-                    Result::CompletedTraceBack
-                }
+                _ => self.complete(Result::CompletedTraceBack),
             },
             Parser::GoStacktrace(pos, GoStatus::Header) => match line.chars().nth(pos) {
                 // Go traceback can begin with a signal debug statement.
                 Some('[') => Result::NeedMore,
-                None => {
-                    // Go traceback are separated by an empty line.
-                    self.0 = Parser::GoStacktrace(pos, GoStatus::Threads);
-                    Result::NeedMore
-                }
+                // Go traceback are separated by an empty line.
+                None => self.need_more(Parser::GoStacktrace(pos, GoStatus::Routine)),
                 // The previous 'panic:' was not valid
-                _ => {
-                    self.0 = Parser::Unknown;
-                    Result::NoError
-                }
+                _ => self.complete(Result::NoError),
             },
+            Parser::GoStacktrace(pos, GoStatus::Routine) => {
+                if line.len() > pos && line[pos..].starts_with("goroutine ") {
+                    self.need_more(Parser::GoStacktrace(pos, GoStatus::Threads))
+                } else {
+                    self.complete(Result::NoError)
+                }
+            }
             Parser::GoStacktrace(pos, GoStatus::Threads) => {
                 if go_tb_completed(pos, line) {
-                    self.0 = Parser::Unknown;
-                    Result::CompletedTraceBack
+                    self.complete(Result::CompletedTraceBack)
                 } else {
                     Result::NeedMore
                 }
             }
         }
+    }
+    fn complete(&mut self, result: Result) -> Result {
+        self.0 = Parser::Unknown;
+        result
+    }
+    fn need_more(&mut self, state: Parser) -> Result {
+        self.0 = state;
+        Result::NeedMore
     }
 }
 
@@ -100,8 +106,9 @@ fn start_find(line: &str, needle: &str) -> Option<usize> {
     } else {
         match line.find(needle) {
             Some(pos) => match line.chars().nth(pos - 1) {
+                // The needle is prefixed with a separator
                 Some(c) if c == ' ' || c == '\t' || c == ':' || c == '|' => Some(pos),
-                // The neddle was found mid-line, discard it.
+                // The needle is mid-line, discard it.
                 _ => None,
             },
             None => None,
@@ -141,16 +148,35 @@ fn go_tb_completed(pos: usize, line: &str) -> bool {
 fn is_error_line(line: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!(
-            "(",
+            "(?-u:(",
             // Error codes
-            "ERROR [0-9]{4}",
+            r#"ERROR [0-9]{4}"#,
+            // Ansible errors
+            r#"| ERROR$"#,
+            r#"|\|   "msg": ""#,
+            r#"|: FAILED!"#,
+            r#"|\| (fatal|failed|error): "#,
+            r#"| The error appears to be in "#,
+            r#"| failed: [1-9][0-9]*[ \t]"#,
+            r#"|stderr: 'error:"#,
+            // Galera
+            r#"| \[Error\] "#,
+            // Python errors
+            r#"|[0-9Z][ \t]+ERROR[ \t]+[a-zA-Z]"#,
+            // tempest errors
+            r#"|\.\.\. FAILED$"#,
+            // Go errors
+            r#"|\] ERROR: "#,
+            // Fluentbit
+            r#"|"level":"ERROR""#,
             // Kubernetes event
-            "|Warning[ ]+Failed[ ]+",
-            "|F [WE][0-9]{4}",
-            "|msg=\"error",
-            "|msg=\"an error",
-            "|\"level\":\"error\"",
-            ")"
+            r#"|Warning[ \t]+Failed[ \t]+"#,
+            r#"|\bE[0-9]{4}\b"#,
+            r#"|msg="error"#,
+            r#"|msg="an error"#,
+            r#"|"level":"error""#,
+            r#"|\blevel=error\b"#,
+            "))"
         ))
         .unwrap();
     }
@@ -220,12 +246,18 @@ exit status 2
         for line in [
             "ERROR 2002 (HY000): Can't connect to server on '127.0.0.1' (115)",
             "2025-07-07T21:21:52Z   Warning   Failed                  Pod                     logserver-0                           Error: ImagePullBackOff",
-            "2025-07-07T17:01:46.201393933-04:00 stderr F W0707 21:01:46.201352       1 reflector.go:539] ",
             "2025-07-07T17:03:05.595305798-04:00 stderr F time=\"2025-07-07T21:03:05Z\" level=warning msg=\"an error was encountered ",
             "2025-07-07T17:09:04.148248939-04:00 stderr F E0707 21:09:04.148229       1 queueinformer_",
             "2025-07-07T17:09:26.167025939-04:00 stderr F time=\"2025-07-07T21:09:26Z\" level=info msg=\"error updating ",
             "2025-07-07T17:02:55.673388956-04:00 stderr F time=\"2025-07-07T21:02:55Z\" level=warning msg=\"error adding",
-            "2025-07-07T17:02:55.753817892-04:00 stderr F {\"level\":\"error\",\"ts\""
+            "2025-07-07T17:02:55.753817892-04:00 stderr F {\"level\":\"error\",\"ts\"",
+            "{2} neutron.tests.unit.agent.test_plug_with_ns [0.034190s] ... FAILED",
+            "E4242 oops",
+            "test.go] E4242 bam",
+            "13 ERROR neutron",
+            "Z  ERROR  setup",
+            "Z\tERROR\ttest",
+            "fail level=error",
         ] {
             assert!(crate::is_error_line(line), "'{}' is not an error", line);
         };
