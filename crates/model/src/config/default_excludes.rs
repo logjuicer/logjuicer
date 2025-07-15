@@ -15,6 +15,10 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     ".pcap.log.txt$",
     ".pkl$",
     ".jar$",
+    ".pyc$",
+    // code
+    ".py$",
+    ".sh$",
     // font
     ".eot$",
     ".otf$",
@@ -43,6 +47,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "/etc/",
     "/proc/",
     "/sys/",
+    "/venv/",
     // hidden files
     "/\\.[a-zA-Z0-9]",
 ];

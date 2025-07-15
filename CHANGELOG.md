@@ -4,6 +4,7 @@ next-version
 - web: add keep-alive to avoid the watch stream to be interrupted by an ingress proxy.
 - cli: add download-logs command.
 - cli: add errors command.
+- model: ignore python code.
 
 0.13.0
 ======
@@ -89,7 +90,7 @@ next-version
 0.9.5
 =====
 
-- cli: ignore /proc/ and /sys/ files
+- model: ignore /proc/ and /sys/ files
 
 0.9.4
 =====
