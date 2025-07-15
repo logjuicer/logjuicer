@@ -7,6 +7,7 @@ use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 use wasm_bindgen_futures::spawn_local;
 
 use logjuicer_report::{
@@ -32,7 +33,7 @@ impl App {
     }
 }
 
-fn is_unique(uniques: &mut HashSet<Rc<str>>, anomaly: &AnomalyContext) -> bool {
+fn is_unique(uniques: &mut HashSet<Arc<str>>, anomaly: &AnomalyContext) -> bool {
     uniques.insert(anomaly.anomaly.line.clone())
 }
 

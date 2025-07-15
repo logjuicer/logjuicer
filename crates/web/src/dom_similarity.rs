@@ -3,7 +3,7 @@
 
 //! This module contains the logic to render a similarity report.
 
-use std::{cmp::Ordering, collections::HashSet, iter::once, rc::Rc};
+use std::{cmp::Ordering, collections::HashSet, iter::once, rc::Rc, sync::Arc};
 
 use dominator::{clone, html, text, Dom};
 use futures_signals::signal::Mutable;
@@ -19,7 +19,7 @@ use crate::{
     state::{App, Route},
 };
 
-fn is_unique(uniques: &mut HashSet<Rc<str>>, anomaly: &SimilarityAnomalyContext) -> bool {
+fn is_unique(uniques: &mut HashSet<Arc<str>>, anomaly: &SimilarityAnomalyContext) -> bool {
     uniques.insert(anomaly.anomaly.anomaly.line.clone())
 }
 

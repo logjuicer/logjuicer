@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use thiserror::Error;
 use url::Url;
@@ -472,14 +472,14 @@ pub struct Anomaly {
     pub distance: f32,
     pub pos: usize,
     pub timestamp: Option<Epoch>,
-    pub line: Rc<str>,
+    pub line: Arc<str>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AnomalyContext {
-    pub before: Vec<Rc<str>>,
+    pub before: Vec<Arc<str>>,
     pub anomaly: Anomaly,
-    pub after: Vec<Rc<str>>,
+    pub after: Vec<Arc<str>>,
 }
 
 impl AnomalyContext {

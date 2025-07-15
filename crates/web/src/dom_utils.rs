@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashSet, rc::Rc};
+use std::{collections::HashSet, sync::Arc};
 
 use dominator::{html, Dom};
 
@@ -68,5 +68,5 @@ pub struct RenderState {
     /// The global line position for the anchor selector
     pub gl_pos: usize,
     /// The set of already displayed anomalies
-    pub uniques: HashSet<Rc<str>>,
+    pub uniques: HashSet<Arc<str>>,
 }

@@ -444,7 +444,7 @@ impl ReportDecoder {
         })
     }
 
-    fn read_context(&self, reader: &capnp::text_list::Reader) -> Result<Vec<Rc<str>>> {
+    fn read_context(&self, reader: &capnp::text_list::Reader) -> Result<Vec<Arc<str>>> {
         let mut vec = Vec::with_capacity(reader.len() as usize);
         for reader in reader.into_iter() {
             vec.push(reader?.to_str()?.into())
