@@ -293,7 +293,15 @@ fn process_errors_report(
     let monitor = &penv.monitor;
     monitor.emit(format!("Running `logjuicer errors {}`", target).into());
     let content = resolve_content(penv, env, target)?;
-    let target_env = env.get_target_env_with_current(&content, Some(monitor.current.clone()));
+    do_process_errors_report(penv, env, content)
+}
+
+fn do_process_errors_report(
+    penv: &ProcessEnv,
+    env: &EnvConfig,
+    content: Content,
+) -> Result<Report, String> {
+    let target_env = env.get_target_env_with_current(&content, Some(penv.monitor.current.clone()));
     logjuicer_model::errors::errors_report(&target_env, content)
         .map_err(|e| format!("report failed: {:?}", e))
 }
@@ -339,8 +347,14 @@ fn process_report(
             vec![logjuicer_model::content_from_input(&env.gl, input)
                 .map_err(|e| format!("baseline: {:?}", e))?]
         }
-        None => logjuicer_model::content_discover_baselines(&content, &env.gl)
-            .map_err(|e| format!("discovery failed: {:?}", e))?,
+        None => match logjuicer_model::content_discover_baselines(&content, &env.gl) {
+            Ok(xs) => xs,
+            Err(e) => {
+                monitor
+                    .emit(format!("discovery failed: {:?}, performing an errors report", e).into());
+                return do_process_errors_report(penv, env, content);
+            }
+        },
     };
 
     if baseline.is_none() {

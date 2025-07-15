@@ -6,6 +6,7 @@ next-version
 - cli: add errors command.
 - model: ignore python code.
 - api: add '&errors=true' parameter to the API for genering an errors report.
+- api: perform errors report when baseline discovery fails.
 
 0.13.0
 ======
