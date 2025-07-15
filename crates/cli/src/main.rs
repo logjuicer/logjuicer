@@ -13,7 +13,7 @@ use logjuicer_model::{
 };
 use logjuicer_report::{bytes_to_mb, Report};
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Instant;
 use time_humanize::{Accuracy, HumanTime, Tense};
 
@@ -517,7 +517,7 @@ fn process_errors(
 }
 
 fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
-    let print_context = |xs: &[Rc<str>]| xs.iter().for_each(|line| println!("     | {}", line));
+    let print_context = |xs: &[Arc<str>]| xs.iter().for_each(|line| println!("     | {}", line));
     let start_time = Instant::now();
     let sources = content_get_sources(env, content)?;
     let mut total_line_count = 0;
@@ -683,7 +683,7 @@ fn process_report(
 }
 
 fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix>) -> Result<()> {
-    let print_context = |pos: usize, xs: &[Rc<str>]| {
+    let print_context = |pos: usize, xs: &[Arc<str>]| {
         xs.iter()
             .enumerate()
             .for_each(|(idx, line)| println!("   {} | {}", pos + idx, line))

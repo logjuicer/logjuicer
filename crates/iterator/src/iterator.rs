@@ -319,7 +319,7 @@ fn match_json_kv(c: char, json_state: &mut JsonState) -> Option<Sep> {
     }
 }
 
-pub fn clone_bytes_to_string(bytes: &Bytes) -> Option<std::rc::Rc<str>> {
+pub fn clone_bytes_to_string(bytes: &Bytes) -> Option<std::sync::Arc<str>> {
     std::str::from_utf8(&bytes[..]).ok().map(|s| s.into())
 }
 

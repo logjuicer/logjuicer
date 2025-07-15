@@ -6,7 +6,7 @@
 use anyhow::Result;
 use std::collections::VecDeque;
 use std::io::Read;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::{config::TargetConfig, timestamps::TS, unordered::KnownLines};
 use logjuicer_index::traits::*;
@@ -98,7 +98,7 @@ pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
     /// The target positions
     targets_coord: Vec<usize>,
     /// The very last lines of the current buffer that could be the prev context of the next chunk
-    left_overs: Vec<Rc<str>>,
+    left_overs: Vec<Arc<str>>,
     /// The current anomaly being processed
     current_anomaly: Option<AnomalyContext>,
     /// The list of anomalies recently found.
@@ -402,8 +402,8 @@ fn collect_before(
     buffer_pos: usize,
     last_context_pos: usize,
     buffer: &[(LogLine, usize)],
-    left_overs: &[Rc<str>],
-) -> Vec<Rc<str>> {
+    left_overs: &[Arc<str>],
+) -> Vec<Arc<str>> {
     // extend the CTX_DISTANCE when the last contex falls under the MAX_DISTANCE
     let ctx_distance = if buffer_pos - last_context_pos < CTX_MAX_DISTANCE {
         CTX_MAX_DISTANCE
@@ -417,13 +417,13 @@ fn collect_before(
         .iter()
         // TODO: use direct bytes -> str conversion.
         .map(|((bytes, _), _)| logjuicer_iterator::clone_bytes_to_string(bytes).unwrap())
-        .collect::<Vec<Rc<str>>>();
+        .collect::<Vec<Arc<str>>>();
     if before_context_pos == 0 && before.len() < ctx_distance {
         // The anomaly happens at the begining of the buffer
         let need = ctx_distance - before.len();
         let available = left_overs.len();
         let want = need.min(available);
-        let mut before_extra: Vec<Rc<str>> = left_overs[(available - want)..].to_vec();
+        let mut before_extra: Vec<Arc<str>> = left_overs[(available - want)..].to_vec();
         before.append(&mut before_extra);
         // Rotate the buffer to keep the left overs before
         before.rotate_right(want);

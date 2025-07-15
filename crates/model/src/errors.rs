@@ -7,7 +7,7 @@ use anyhow::Result;
 use bytes::Bytes;
 use std::collections::{HashMap, VecDeque};
 use std::io::Read;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 
 use crate::content_get_sources;
@@ -33,7 +33,7 @@ impl History {
         }
         self.0.push_back(b);
     }
-    fn drain(&mut self) -> Vec<Rc<str>> {
+    fn drain(&mut self) -> Vec<Arc<str>> {
         self.0
             .drain(..)
             .map(|b| logjuicer_iterator::clone_bytes_to_string(&b).unwrap())
@@ -192,10 +192,10 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
 }
 
 fn new_error_anomaly(
-    before: Vec<Rc<str>>,
+    before: Vec<Arc<str>>,
     pos: usize,
     timestamp: Option<Epoch>,
-    line: Rc<str>,
+    line: Arc<str>,
 ) -> AnomalyContext {
     AnomalyContext {
         before,
