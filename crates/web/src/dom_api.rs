@@ -17,7 +17,7 @@ use web_sys::HtmlInputElement;
 use logjuicer_report::report_row::{ReportID, ReportKind, ReportRow, ReportStatus};
 
 use crate::dom_utils::*;
-use crate::state::{App, Route};
+use crate::state::{App, NewReportKind, Route};
 
 const TH_CLASS: [&str; 2] = ["px-3", "py-2"];
 const BTN_CLASS: [&str; 8] = [
@@ -115,13 +115,14 @@ fn is_valid_url(url: &str) -> bool {
 /// Render the target form input, adding a buton to add/remove extra target for comparaison.
 fn target_input(
     show_submit: &Mutable<bool>,
+    errors: &Mutable<bool>,
     targets: &MutableVec<Mutable<String>>,
     url: Mutable<String>,
     first: bool,
 ) -> Dom {
     let button = if first {
         // The first target has a button to add more target
-        html!("div", {.visible_signal(show_submit.signal()).class(BTN_CLASS).text("Compare")
+        html!("div", {.visible_signal(futures_signals::signal::and(show_submit.signal(), errors.signal_ref(|v| !v))).class(BTN_CLASS).text("Compare")
         .event(clone!(targets => move |_: events::Click| {
             targets.lock_mut().push_cloned(Mutable::new("".to_string()));
         }))})
@@ -168,6 +169,7 @@ fn target_input(
 }
 
 fn render_input(state: &Rc<App>) -> Dom {
+    let errors = Mutable::new(false);
     let baseline = Mutable::new("".to_string());
     let show_submit = Mutable::new(false);
 
@@ -178,19 +180,30 @@ fn render_input(state: &Rc<App>) -> Dom {
     let targets_dom = targets
         .signal_vec_cloned()
         .enumerate()
-        .map(clone!(targets => clone!(show_submit => move |url|
-                                     target_input(&show_submit, &targets, url.1, url.0.get().unwrap_or(0) == 0))));
+        .map(clone!(errors => clone!(targets => clone!(show_submit => move |url|
+                                     target_input(&show_submit, &errors, &targets, url.1, url.0.get().unwrap_or(0) == 0)))));
 
     html!("form", {.class("grid").class(["shadow-lg", "rounded-md", "py-3", "px-5"]).children(&mut [
         html!("div", {.children_signal_vec(targets_dom)}),
-        html!("div", {.class(["flex", "justify-center", "mt-2", "gap-2"])
+        html!("div", {.class(["flex", "items-center", "place-content-start", "mt-2", "gap-2"])
                       .visible_signal(show_submit.signal()).children(&mut [
             html!("button", {.class(BTN_CLASS).text("LogJuicer Search")}),
+            html!("input" => HtmlInputElement, {
+                .attr("type", "checkbox")
+                    .attr("title", "Extract errors")
+                    .prop_signal("checked", errors.signal_cloned())
+
+                    .with_node!(element => {
+                        .event(clone!(errors => move |_: events::Change| {
+                            errors.set_neq(element.checked());
+                        }))
+                    })
+            }),
             html!("input" => HtmlInputElement, {
                 .class(["w-full", "rounded", "border", "pl-1"])
                     .attr("placeholder", "Baseline URL")
                     .prop_signal("value", baseline.signal_cloned())
-
+                    .visible_signal(errors.signal_ref(|x| !x))
                     .with_node!(element => {
                         .event(clone!(baseline => move |_: events::Input| {
                             let url_value: String = element.value();
@@ -204,7 +217,7 @@ fn render_input(state: &Rc<App>) -> Dom {
                     })
             })
         ])}),
-    ]).event_with_options(&EventOptions::preventable(), clone!(state => clone!(targets => move |ev : events::Submit| {
+    ]).event_with_options(&EventOptions::preventable(), clone!(state => clone!(errors => clone!(targets => move |ev : events::Submit| {
         // Form submission logic
         let targets = targets.lock_ref();
 
@@ -218,10 +231,17 @@ fn render_input(state: &Rc<App>) -> Dom {
 
         if targets.len() == 1 {
             // Only one target, create a new report
+            let report_kind = if *errors.lock_ref() {
+                NewReportKind::Errors
+            } else if let Some(baseline) = baseline {
+                NewReportKind::Baseline(baseline)
+            } else {
+                NewReportKind::NoBaseline
+            };
             let url = &targets[0];
             let target_url: &str = &(url.lock_mut());
             if is_valid_url(target_url) {
-                state.visit(Route::NewReport(target_url.into(), baseline));
+                state.visit(Route::NewReport(target_url.into(), report_kind));
             }
         } else {
             // Otherwise make a new similarity report
@@ -234,7 +254,7 @@ fn render_input(state: &Rc<App>) -> Dom {
         }
         ev.prevent_default();
         ev.stop_propagation();
-    })))})
+    }))))})
 }
 
 pub fn do_render_welcome(state: &Rc<App>) -> Dom {
@@ -270,11 +290,15 @@ pub fn make_similarity(state: &Rc<App>, targets: &[Rc<str>], baseline: &Option<R
         }
     }));
 
+    let report_kind = match baseline {
+        None => NewReportKind::NoBaseline,
+        Some(baseline) => NewReportKind::Baseline(baseline.clone()),
+    };
     html!("div", {.children(&mut [
         html!("div", {.text_signal(completed.signal_ref(update_status))}),
         html!("div", {.children(
             targets.iter().map(
-                |target| do_render_tail(state, state.new_report_url(target, baseline.as_deref()), completed.clone())
+                |target| do_render_tail(state, state.new_report_url(target, &report_kind), completed.clone())
         ))})
     ])})
 }
