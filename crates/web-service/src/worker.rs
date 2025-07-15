@@ -255,10 +255,11 @@ fn process_report_safe(
         ReportRequest::NewSimilarity(rids) => {
             process_similarity(penv, rids).map(ReportResult::NewSimilarity)
         }
-        ReportRequest::NewReport(args) => {
-            process_report(penv, env, &args.target, args.baseline.as_deref())
-                .map(ReportResult::NewReport)
+        ReportRequest::NewReport(args) => match args.errors {
+            Some(true) => process_errors_report(penv, env, &args.target),
+            Some(false) | None => process_report(penv, env, &args.target, args.baseline.as_deref()),
         }
+        .map(ReportResult::NewReport),
     })) {
         Ok(res) => res,
         Err(err) => Err(format!(
@@ -284,6 +285,39 @@ fn process_similarity(
     Ok(create_similarity_report(&reports))
 }
 
+fn process_errors_report(
+    penv: &ProcessEnv,
+    env: &EnvConfig,
+    target: &str,
+) -> Result<Report, String> {
+    let monitor = &penv.monitor;
+    monitor.emit(format!("Running `logjuicer errors {}`", target).into());
+    let content = resolve_content(penv, env, target)?;
+    let target_env = env.get_target_env_with_current(&content, Some(monitor.current.clone()));
+    logjuicer_model::errors::errors_report(&target_env, content)
+        .map_err(|e| format!("report failed: {:?}", e))
+}
+
+fn check_content(content: &Content) -> Result<(), String> {
+    match content {
+        Content::Zuul(_) | logjuicer_report::Content::Prow(_) => Ok(()),
+        _ => Err("Only zuul or prow build are supported".to_string()),
+    }
+}
+
+fn resolve_content(penv: &ProcessEnv, env: &EnvConfig, target: &str) -> Result<Content, String> {
+    let input = logjuicer_model::Input::Url(target.into());
+    let content =
+        logjuicer_model::content_from_input(&env.gl, input).map_err(|e| format!("{:?}", e))?;
+
+    penv.monitor
+        .emit(format!("Content resolved: {}", content).into());
+    if !penv.allow_any_sources {
+        check_content(&content)?;
+    }
+    Ok(content)
+}
+
 fn process_report(
     penv: &ProcessEnv,
     env: &EnvConfig,
@@ -298,22 +332,7 @@ fn process_report(
         }
     }
 
-    fn check_content(content: &Content) -> Result<(), String> {
-        match content {
-            Content::Zuul(_) | logjuicer_report::Content::Prow(_) => Ok(()),
-            _ => Err("Only zuul or prow build are supported".to_string()),
-        }
-    }
-
-    let input = logjuicer_model::Input::Url(target.into());
-    let content =
-        logjuicer_model::content_from_input(&env.gl, input).map_err(|e| format!("{:?}", e))?;
-
-    monitor.emit(format!("Content resolved: {}", content).into());
-    if !penv.allow_any_sources {
-        check_content(&content)?;
-    }
-
+    let content = resolve_content(penv, env, target)?;
     let baselines = match baseline {
         Some(baseline) => {
             let input = logjuicer_model::Input::Url(baseline.into());
