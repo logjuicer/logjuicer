@@ -40,6 +40,7 @@ itertools = { workspace = true }
 chrono = { workspace = true }
 regex = { workspace = true }
 bytes = { workspace = true }
+rayon = "*"
 
 # Model save/load
 bincode = { workspace = true }

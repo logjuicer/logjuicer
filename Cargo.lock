@@ -1784,6 +1784,7 @@ dependencies = [
  "logjuicer-tokenizer",
  "mockito",
  "prow-build",
+ "rayon",
  "regex",
  "rustls",
  "serde",
