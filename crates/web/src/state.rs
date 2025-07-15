@@ -18,7 +18,7 @@ pub enum Route {
     // Watch a report (from the audit page)
     Watch(ReportID),
     // Request a new report
-    NewReport(Rc<str>, Option<Rc<str>>),
+    NewReport(Rc<str>, NewReportKind),
     // Request a new similarity report
     NewSimilarity(Rc<str>),
     // Make a new similary report
@@ -29,15 +29,26 @@ pub enum Route {
     Audit,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum NewReportKind {
+    NoBaseline,
+    Errors,
+    Baseline(Rc<str>),
+}
+
 impl Route {
     pub fn from_url(url_str: &str) -> Self {
         let url = Url::new(url_str).unwrap();
         let path = url.pathname();
         let params = url.search_params();
         if path.ends_with("/report/new") {
-            let baseline = params.get("baseline");
+            let report_kind = match (params.get("errors"), params.get("baseline")) {
+                (Some(e), _) if &e == "true" => NewReportKind::Errors,
+                (_, Some(baseline)) => NewReportKind::Baseline(baseline.into()),
+                (_, None) => NewReportKind::NoBaseline,
+            };
             if let Some(target) = params.get("target") {
-                Route::NewReport(target.into(), baseline.map(|s| s.into()))
+                Route::NewReport(target.into(), report_kind)
             } else {
                 Route::Welcome
             }
@@ -78,8 +89,13 @@ impl Route {
 
     pub fn to_url(&self, base: &str) -> String {
         match self {
-            Route::NewReport(target, None) => format!("{}report/new?target={}", base, target),
-            Route::NewReport(target, Some(baseline)) => {
+            Route::NewReport(target, NewReportKind::NoBaseline) => {
+                format!("{}report/new?target={}", base, target)
+            }
+            Route::NewReport(target, NewReportKind::Errors) => {
+                format!("{}report/new?target={}&errors=true", base, target)
+            }
+            Route::NewReport(target, NewReportKind::Baseline(baseline)) => {
                 format!("{}report/new?target={}&baseline={}", base, target, baseline)
             }
             Route::NewSimilarity(reports) => {
@@ -146,11 +162,15 @@ impl App {
         format!("{}api/report/{}/status", self.base_path, report_id)
     }
 
-    pub fn new_report_url(&self, target: &str, baseline: Option<&str>) -> String {
+    pub fn new_report_url(&self, target: &str, report_kind: &NewReportKind) -> String {
         let base = &self.base_path;
-        match baseline {
-            None => format!("{base}api/report/new?target={target}"),
-            Some(baseline) => format!("{base}api/report/new?target={target}&baseline={baseline}"),
+        match report_kind {
+            NewReportKind::NoBaseline => format!("{base}api/report/new?target={target}"),
+            NewReportKind::Baseline(baseline) => {
+                format!("{base}api/report/new?target={target}&baseline={baseline}")
+            }
+
+            NewReportKind::Errors => format!("{base}api/report/new?target={target}&errors=true"),
         }
     }
 

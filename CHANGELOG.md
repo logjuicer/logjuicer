@@ -7,6 +7,7 @@ next-version
 - model: ignore python code.
 - api: add '&errors=true' parameter to the API for genering an errors report.
 - api: perform errors report when baseline discovery fails.
+- web: add checkbox to toggle the errors report.
 
 0.13.0
 ======
