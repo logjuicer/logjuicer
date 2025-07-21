@@ -8,6 +8,7 @@ members = [
   "crates/report",
   "crates/zuul",
   "crates/prow",
+  "crates/journal",
   "crates/httpdir",
   "crates/cli",
   "crates/generate",

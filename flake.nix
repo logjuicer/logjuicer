@@ -41,7 +41,9 @@
         };
 
         base-info =
-          craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; };
+          (craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; }) // {
+            nativeBuildInputs = [ pkgs.pkg-config pkgs.systemd ];
+          };
 
         cli-info = base-info // {
           src = src;
@@ -145,7 +147,7 @@
 
         container = pkgs.dockerTools.streamLayeredImage {
           name = container-name;
-          contents = [ api web ];
+          contents = [ api web pkgs.systemd ];
           tag = "latest";
           created = "now";
           extraCommands = "mkdir 1777 data";
@@ -212,6 +214,8 @@
           flake-utils.lib.mkApp { drv = publish-container-release; };
         devShell = craneLib.devShell {
           packages = with pkgs; [
+            pkgs.systemd
+            pkgs.pkg-config
             rust-analyzer
             cargo-watch
             trunk

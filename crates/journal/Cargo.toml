@@ -1,0 +1,22 @@
+[package]
+name = "logjuicer-journal"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logjuicer/logjuicer"
+documentation = "https://docs.rs/logjuicer-iterator"
+authors = ["TristanCacqueray"]
+
+description = "A systemd journal iterator"
+
+edition = "2018"
+
+[lib]
+name = "logjuicer_journal"
+path = "src/journal.rs"
+
+[dependencies]
+bytes = { workspace = true }
+lazy_static = { workspace = true }
+systemd = "*"
+time = { version = "*", features = ["formatting"] }
