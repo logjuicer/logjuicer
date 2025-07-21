@@ -95,16 +95,16 @@
         });
         mk-web = api_client:
           craneLib.buildTrunkPackage (web-info // {
-            wasm-bindgen-cli =  pkgs.buildWasmBindgenCli rec {
+            wasm-bindgen-cli = pkgs.buildWasmBindgenCli rec {
               src = pkgs.fetchCrate {
                 pname = "wasm-bindgen-cli";
-                version = "0.2.90";
-                hash = "sha256-X8+DVX7dmKh7BgXqP7Fp0smhup5OO8eWEhn26ODYbkQ=";
+                version = "0.2.100";
+                hash = "sha256-3RJzK7mkYFrs7C/WkhW9Rr4LdP5ofb2FdYGz1P7Uxog=";
               };
               cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
                 inherit src;
                 inherit (src) pname version;
-                hash = "sha256-ti2jA4+GlczghJUOzvaUklomjpuanCNuk0sTNCUgk8k=";
+                hash = "sha256-qsO12332HSjWCVKtf1cUePWWb9IdYUmT+8OPj/XP2WE=";
               };
             };
             cargoArtifacts = cargoArtifactsWasm;
