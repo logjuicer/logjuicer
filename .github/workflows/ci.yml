@@ -32,7 +32,7 @@ jobs:
         run: sudo apt install -y libsystemd-dev
 
       - name: Build
-        run: cargo run --release -p logjuicer-cli -- --help
+        run: cargo run --features=systemd-journal --release -p logjuicer-cli -- --help
 
       - name: Checkout logjuicer-tests
         uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
           path: logjuicer-tests
 
       - name: Test
-        run: cargo run --release -p logjuicer-cli -- test logjuicer-tests/datasets/*
+        run: cargo run --features=systemd-journal --release -p logjuicer-cli -- test logjuicer-tests/datasets/*
 
   test:
     name: Test
@@ -59,9 +59,6 @@ jobs:
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
-
-      - name: Install system dependencies
-        run: sudo apt install -y libsystemd-dev
 
       - name: Build
         run: cargo build --verbose
@@ -88,9 +85,6 @@ jobs:
       - name: Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Install system dependencies
-        run: sudo apt install -y libsystemd-dev
-
       - name: Compile bench
         run: cargo bench --verbose --no-run
 
@@ -104,9 +98,6 @@ jobs:
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install system dependencies
-        run: sudo apt install -y libsystemd-dev
 
       - name: Build
         env:

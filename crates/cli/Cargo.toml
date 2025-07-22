@@ -7,6 +7,10 @@ edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+systemd-journal = ["logjuicer-model/systemd-journal"]
+
 [[bin]]
 name = "logjuicer"
 path = "src/main.rs"

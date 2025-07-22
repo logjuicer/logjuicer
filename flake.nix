@@ -48,7 +48,7 @@
         cli-info = base-info // {
           src = src;
           pname = "logjuicer-cli";
-          cargoExtraArgs = "--package=logjuicer-cli";
+          cargoExtraArgs = "--package=logjuicer-cli --features=systemd-journal";
         };
         exe = craneLib.buildPackage
           (cli-info // { cargoArtifacts = craneLib.buildDepsOnly cli-info; });
@@ -135,7 +135,8 @@
         api-info = base-info // {
           src = src;
           pname = "logjuicer-api";
-          cargoExtraArgs = "--package=logjuicer-web-service";
+          cargoExtraArgs =
+            "--package=logjuicer-web-service --features=systemd-journal";
         };
         api = craneLib.buildPackage (api-info // {
           # Start the build relative to the crate to take the sqlx migrations into account.

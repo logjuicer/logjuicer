@@ -15,6 +15,10 @@ edition = "2018"
 name = "logjuicer_model"
 path = "src/model.rs"
 
+[features]
+default = []
+systemd-journal = ["dep:logjuicer-journal"]
+
 [dependencies]
 anyhow = { workspace = true }
 thiserror = { workspace = true }
@@ -24,7 +28,7 @@ logjuicer-report = { path = "../report" }
 logjuicer-tokenizer = { path = "../tokenizer" }
 logjuicer-iterator = { path = "../iterator" }
 logjuicer-errors = { path = "../errors" }
-logjuicer-journal = { path = "../journal" }
+logjuicer-journal = { path = "../journal", optional = true }
 httpdir = { path = "../httpdir" }
 zuul-build = { path = "../zuul" }
 prow-build = { path = "../prow" }
