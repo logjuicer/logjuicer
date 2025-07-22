@@ -35,6 +35,7 @@ pub mod process;
 pub mod prow;
 mod reader;
 pub mod similarity;
+pub mod source;
 pub mod timestamps;
 pub mod unordered;
 pub mod urls;
