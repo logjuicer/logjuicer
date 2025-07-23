@@ -1,4 +1,3 @@
-//
 //! A library for reading systemd journal files in a streaming fashion.
 //!
 //! This crate provides a `JournalReader` that can be used to parse
@@ -11,7 +10,7 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::{self, Read};
-use zstd;
+use std::rc::Rc;
 
 // Constants from the systemd journal file format specification.
 const SIGNATURE: &[u8; 8] = b"LPKSHHRH";
@@ -40,19 +39,20 @@ struct Header {
     arena_size: u64,
 }
 
+fn slice2io(e: std::array::TryFromSliceError) -> io::Error {
+    std::io::Error::new(std::io::ErrorKind::Other, e)
+}
+
 impl Header {
     /// Parses the journal header from a reader.
     fn read_from<R: Read>(reader: &mut R) -> io::Result<Self> {
         let mut buf = [0u8; 240]; // Read the minimum header size
         reader.read_exact(&mut buf)?;
 
-        let signature: [u8; 8] = buf[0..8].try_into().expect("Slice with a valid length");
-        let incompatible_flags =
-            u32::from_le_bytes(buf[12..16].try_into().expect("Slice with a valid length"));
-        let header_size =
-            u64::from_le_bytes(buf[88..96].try_into().expect("Slice with a valid length"));
-        let arena_size =
-            u64::from_le_bytes(buf[96..104].try_into().expect("Slice with a valid length"));
+        let signature: [u8; 8] = buf[0..8].try_into().map_err(slice2io)?;
+        let incompatible_flags = u32::from_le_bytes(buf[12..16].try_into().map_err(slice2io)?);
+        let header_size = u64::from_le_bytes(buf[88..96].try_into().map_err(slice2io)?);
+        let arena_size = u64::from_le_bytes(buf[96..104].try_into().map_err(slice2io)?);
 
         Ok(Header {
             signature,
@@ -79,7 +79,7 @@ impl ObjectHeader {
         Ok(ObjectHeader {
             object_type: buf[0],
             flags: buf[1],
-            size: u64::from_le_bytes(buf[8..16].try_into().expect("Slice with a valid length")),
+            size: u64::from_le_bytes(buf[8..16].try_into().map_err(slice2io)?),
         })
     }
 }
@@ -110,12 +110,21 @@ impl EntryObject {
     }
 }
 
+/// A journal entry.
+#[derive(Debug)]
+pub struct Entry {
+    /// The __REALTIME_TIMESTAMP value.
+    pub realtime: u64,
+    /// The entry fields.
+    pub fields: HashMap<Rc<str>, Rc<str>>,
+}
+
 /// Reads systemd journal files in a streaming manner from a Read-only source.
 pub struct JournalReader<R: Read> {
     reader: R,
     header: Header,
     current_offset: u64,
-    data_object_cache: HashMap<u64, HashMap<String, String>>,
+    data_object_cache: HashMap<u64, (Rc<str>, Rc<str>)>,
 }
 
 impl<R: Read> JournalReader<R> {
@@ -156,7 +165,7 @@ impl<R: Read> JournalReader<R> {
     /// Reads the next log entry from the journal stream.
     /// Note: This method buffers data objects in memory. For very large journal
     /// files without frequent entries, memory usage can grow.
-    pub fn next_entry(&mut self) -> Option<HashMap<String, String>> {
+    pub fn next_entry(&mut self) -> Option<Entry> {
         while self.current_offset < self.header.header_size + self.header.arena_size {
             let object_start_offset = self.current_offset;
 
@@ -168,29 +177,25 @@ impl<R: Read> JournalReader<R> {
             let object_header_size = 16u64;
             let payload_size = object_header.size.saturating_sub(object_header_size);
 
-            match object_header.object_type {
+            let entry = match object_header.object_type {
                 OBJECT_ENTRY => {
                     let entry_map = self.parse_entry_object_payload(payload_size).ok()?;
-                    let padded_size = (object_header.size + 7) & !7;
-                    let padding = padded_size - object_header.size;
-                    if padding > 0 {
-                        io::copy(&mut (&mut self.reader).take(padding), &mut io::sink()).ok()?;
-                    }
-                    self.current_offset = object_start_offset + padded_size;
-                    return Some(entry_map);
+                    Some(entry_map)
                 }
                 OBJECT_DATA => {
                     if let Some(data_map) =
                         self.parse_data_object_payload(object_header.flags, payload_size)
                     {
                         self.data_object_cache.insert(object_start_offset, data_map);
-                    }
+                    };
+                    None
                 }
                 _ => {
                     // Skip other object types by discarding their payload
                     io::copy(&mut (&mut self.reader).take(payload_size), &mut io::sink()).ok()?;
+                    None
                 }
-            }
+            };
 
             let padded_size = (object_header.size + 7) & !7;
             let padding = padded_size - object_header.size;
@@ -198,6 +203,9 @@ impl<R: Read> JournalReader<R> {
                 io::copy(&mut (&mut self.reader).take(padding), &mut io::sink()).ok()?;
             }
             self.current_offset = object_start_offset + padded_size;
+            if entry.is_some() {
+                return entry;
+            }
         }
         None
     }
@@ -207,7 +215,7 @@ impl<R: Read> JournalReader<R> {
         &mut self,
         flags: u8,
         payload_size: u64,
-    ) -> Option<HashMap<String, String>> {
+    ) -> Option<(Rc<str>, Rc<str>)> {
         let is_compact = (self.header.incompatible_flags & HEADER_INCOMPATIBLE_COMPACT) != 0;
 
         // The fixed fields of DataObject are part of the payload now.
@@ -244,26 +252,16 @@ impl<R: Read> JournalReader<R> {
         let data_str = String::from_utf8_lossy(&final_payload);
         let mut parts = data_str.splitn(2, '=');
         let key = parts.next()?;
-        let value = parts.next().unwrap_or("").to_string();
+        let value = parts.next().unwrap_or("");
 
-        let mut map = HashMap::new();
-        map.insert(key.to_string(), value);
-
-        Some(map)
+        Some((key.into(), value.into()))
     }
 
     /// Parses the payload of an entry object, constructing the entry map from the cache.
-    fn parse_entry_object_payload(
-        &mut self,
-        payload_size: u64,
-    ) -> io::Result<HashMap<String, String>> {
+    fn parse_entry_object_payload(&mut self, payload_size: u64) -> io::Result<Entry> {
         let entry_object = EntryObject::read_from(&mut self.reader)?;
 
-        let mut entry_map = HashMap::new();
-        entry_map.insert(
-            "__REALTIME_TIMESTAMP".to_string(),
-            entry_object.realtime.to_string(),
-        );
+        let mut fields = HashMap::new();
 
         let entry_object_fixed_size = 8 + 8 + 8 + 16 + 8;
         let mut items_payload_size = payload_size.saturating_sub(entry_object_fixed_size);
@@ -285,8 +283,8 @@ impl<R: Read> JournalReader<R> {
                 let _ = read_u64(&mut self.reader)?;
             }
 
-            if let Some(data_map) = self.data_object_cache.get(&data_object_offset) {
-                entry_map.extend(data_map.clone());
+            if let Some((k, v)) = self.data_object_cache.get(&data_object_offset) {
+                fields.insert(k.clone(), v.clone());
             }
             items_payload_size -= item_size;
         }
@@ -299,6 +297,9 @@ impl<R: Read> JournalReader<R> {
             )?;
         }
 
-        Ok(entry_map)
+        Ok(Entry {
+            realtime: entry_object.realtime,
+            fields,
+        })
     }
 }
