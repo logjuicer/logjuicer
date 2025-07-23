@@ -1,0 +1,23 @@
+[package]
+name = "systemd-journal-reader"
+version = "0.1.0"
+
+license = "Apache-2.0"
+repository = "https://github.com/logjuicer/logjuicer"
+documentation = "https://docs.rs/systemd-journal-reader"
+authors = ["TristanCacqueray"]
+
+description = "A systemd journal parser."
+
+edition = "2018"
+
+[lib]
+name = "systemd_journal_reader"
+path = "src/systemd-journal-reader.rs"
+
+[[bin]]
+name = "journal-reader"
+path = "src/journal-reader.rs"
+
+[dependencies]
+zstd = "0.13.3"
