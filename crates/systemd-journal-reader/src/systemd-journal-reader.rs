@@ -121,7 +121,7 @@ pub struct Entry {
 
 /// Reads systemd journal files in a streaming manner from a Read-only source.
 pub struct JournalReader<R: Read> {
-    reader: R,
+    reader: std::io::BufReader<R>,
     header: Header,
     current_offset: u64,
     data_object_cache: HashMap<u64, (Rc<str>, Rc<str>)>,
@@ -155,7 +155,7 @@ impl<R: Read> JournalReader<R> {
         let current_offset = header.header_size;
 
         Ok(JournalReader {
-            reader: file,
+            reader: std::io::BufReader::new(file),
             header,
             current_offset,
             data_object_cache: HashMap::new(),
