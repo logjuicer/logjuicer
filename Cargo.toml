@@ -8,6 +8,7 @@ members = [
   "crates/report",
   "crates/zuul",
   "crates/prow",
+  "crates/systemd-journal-reader",
   "crates/httpdir",
   "crates/cli",
   "crates/generate",
