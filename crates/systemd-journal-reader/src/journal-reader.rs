@@ -1,6 +1,8 @@
 // Copyright (C) 2025 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
+//! This program dumps the entry of the given journal file.
+
 use std::fs::File;
 use systemd_journal_reader::JournalReader;
 
@@ -14,4 +16,3 @@ fn main() -> std::io::Result<()> {
     }
     Ok(())
 }
-
