@@ -328,9 +328,10 @@ impl Cli {
                 let content = content_from_input(&env.gl, input)?;
                 let env = env.get_target_env(&content);
                 let sources = content_get_sources(&env, &content)?;
-                match sources.first() {
-                    Some(source) => {
-                        for line in LinesIterator::new(env.gl, source)? {
+                for source in sources {
+                    logjuicer_model::source::with_source(env.gl, source, |source, reader| {
+                        println!("[{}]", source.as_str());
+                        for line in LinesIterator::new(&source, reader).unwrap() {
                             match line {
                                 Ok((bytes, nr)) => match std::str::from_utf8(&bytes) {
                                     Ok(txt) => println!("{} | {}", nr, txt),
@@ -339,8 +340,7 @@ impl Cli {
                                 Err(e) => println!("{}", e),
                             }
                         }
-                    }
-                    None => println!("{}: oops", path),
+                    })?;
                 }
                 Ok(())
             }
@@ -518,49 +518,53 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
     let mut total_byte_count = 0;
     let mut total_anomaly_count = 0;
     let skip_lines = Arc::new(std::sync::Mutex::new(env.new_skip_lines()));
-    for source in &sources {
-        match logjuicer_model::errors::get_errors_processor(env, skip_lines.clone(), source) {
-            Ok(mut processor) => {
-                let mut file_shown = false;
-                let mut last_pos = None;
-                for anomaly in processor.by_ref() {
-                    match anomaly {
-                        Ok(anomaly) => {
-                            if !file_shown {
-                                println!("\n[{}]", source.get_relative());
-                                file_shown = true
-                            }
-                            total_anomaly_count += 1;
-                            let context_size = 1 + anomaly.before.len();
-                            let starting_pos = if anomaly.anomaly.pos > context_size {
-                                anomaly.anomaly.pos - context_size
-                            } else {
-                                0
-                            };
-                            if let Some(last_pos) = last_pos {
-                                if last_pos < starting_pos {
-                                    println!("--");
+    for source in sources {
+        logjuicer_model::source::with_source(env.gl, source, |source, reader| {
+            let skip_lines = skip_lines.clone();
+            match logjuicer_model::errors::get_errors_processor(env, skip_lines, &source, reader) {
+                Ok(mut processor) => {
+                    let mut file_shown = false;
+                    let mut last_pos = None;
+                    for anomaly in processor.by_ref() {
+                        match anomaly {
+                            Ok(anomaly) => {
+                                if !file_shown {
+                                    println!("\n[{}]", source.get_relative());
+                                    file_shown = true
                                 }
-                            }
+                                total_anomaly_count += 1;
+                                let context_size = 1 + anomaly.before.len();
+                                let starting_pos = if anomaly.anomaly.pos > context_size {
+                                    anomaly.anomaly.pos - context_size
+                                } else {
+                                    0
+                                };
+                                if let Some(last_pos) = last_pos {
+                                    if last_pos < starting_pos {
+                                        println!("--");
+                                    }
+                                }
 
-                            print_context(&anomaly.before);
-                            println!("{:04} | {}", anomaly.anomaly.pos, anomaly.anomaly.line);
-                            print_context(&anomaly.after);
-                            last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
-                        }
-                        Err(err) => {
-                            println!("Could not read {}: {}", &source, err);
-                            break;
+                                print_context(&anomaly.before);
+                                println!("{:04} | {}", anomaly.anomaly.pos, anomaly.anomaly.line);
+                                print_context(&anomaly.after);
+                                last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
+                            }
+                            Err(err) => {
+                                println!("Could not read {}: {}", &source, err);
+                                break;
+                            }
                         }
                     }
+                    total_line_count += processor.line_count;
+                    total_byte_count += processor.byte_count;
                 }
-                total_line_count += processor.line_count;
-                total_byte_count += processor.byte_count;
+                Err(err) => {
+                    println!("Could not read {}: {}", &source, err);
+                }
             }
-            Err(err) => {
-                println!("Could not read {}: {}", &source, err);
-            }
-        }
+        })
+        .unwrap()
     }
     let process_time = start_time.elapsed();
     let total_mb_count = (total_byte_count as f64) / (1024.0 * 1024.0);
@@ -691,75 +695,80 @@ fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix
     let start_time = Instant::now();
 
     let sources = content_get_sources(env, content)?;
-    for source in &sources {
-        let index_name = logjuicer_model::indexname_from_source(source);
-        match model.get_index(&index_name) {
-            Some(index) => {
-                let mut last_pos = None;
-                let mut print_anomaly = |anomaly: logjuicer_model::AnomalyContext| {
-                    total_anomaly_count += 1;
-                    let context_size = 1 + anomaly.before.len();
-                    let starting_pos = if anomaly.anomaly.pos > context_size {
-                        anomaly.anomaly.pos - context_size
-                    } else {
-                        0
+    let sources_len = sources.len();
+    for source in sources {
+        logjuicer_model::source::with_source(env.gl, source, |source, reader| {
+            let index_name = logjuicer_model::indexname_from_source(&source);
+            match model.get_index(&index_name) {
+                Some(index) => {
+                    let mut last_pos = None;
+                    let mut print_anomaly = |anomaly: logjuicer_model::AnomalyContext| {
+                        total_anomaly_count += 1;
+                        let context_size = 1 + anomaly.before.len();
+                        let starting_pos = if anomaly.anomaly.pos > context_size {
+                            anomaly.anomaly.pos - context_size
+                        } else {
+                            0
+                        };
+                        if let Some(last_pos) = last_pos {
+                            if last_pos < starting_pos {
+                                println!("--");
+                            }
+                        }
+
+                        print_context(starting_pos, &anomaly.before);
+                        println!(
+                            "{:02.0} {} | {}",
+                            anomaly.anomaly.distance * 99.0,
+                            anomaly.anomaly.pos,
+                            anomaly.anomaly.line
+                        );
+                        print_context(anomaly.anomaly.pos, &anomaly.after);
+
+                        last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                     };
-                    if let Some(last_pos) = last_pos {
-                        if last_pos < starting_pos {
-                            println!("--");
-                        }
-                    }
-
-                    print_context(starting_pos, &anomaly.before);
-                    println!(
-                        "{:02.0} {} | {}",
-                        anomaly.anomaly.distance * 99.0,
-                        anomaly.anomaly.pos,
-                        anomaly.anomaly.line
-                    );
-                    print_context(anomaly.anomaly.pos, &anomaly.after);
-
-                    last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
-                };
-                progress_sep_shown = false;
-                match index.get_processor(env, source, &mut env.new_skip_lines(), gl_date) {
-                    Ok(mut processor) => {
-                        for anomaly in processor.by_ref() {
-                            if env.gl.output.inlined() && !progress_sep_shown {
-                                // Show a progress separator for the first anomaly.
-                                if sources.len() > 1 {
-                                    println!("\n[{}]", source.get_relative());
-                                } else {
-                                    println!();
-                                }
-                                progress_sep_shown = true;
-                            }
-                            match anomaly {
-                                Ok(anomaly) => {
-                                    if gl_date.is_none() {
-                                        gl_date = anomaly.anomaly.timestamp;
+                    progress_sep_shown = false;
+                    let skip_lines = &mut env.new_skip_lines();
+                    match index.get_processor(env, &source, reader, skip_lines, gl_date) {
+                        Ok(mut processor) => {
+                            for anomaly in processor.by_ref() {
+                                if env.gl.output.inlined() && !progress_sep_shown {
+                                    // Show a progress separator for the first anomaly.
+                                    if sources_len > 1 {
+                                        println!("\n[{}]", source.get_relative());
+                                    } else {
+                                        println!();
                                     }
-                                    print_anomaly(anomaly)
+                                    progress_sep_shown = true;
                                 }
-                                Err(err) => {
-                                    println!("Could not read {}: {}", &source, err);
-                                    break;
+                                match anomaly {
+                                    Ok(anomaly) => {
+                                        if gl_date.is_none() {
+                                            gl_date = anomaly.anomaly.timestamp;
+                                        }
+                                        print_anomaly(anomaly)
+                                    }
+                                    Err(err) => {
+                                        println!("Could not read {}: {}", &source, err);
+                                        break;
+                                    }
                                 }
                             }
+                            total_line_count += processor.line_count;
+                            total_byte_count += processor.byte_count;
                         }
-                        total_line_count += processor.line_count;
-                        total_byte_count += processor.byte_count;
-                    }
-                    Err(err) => {
-                        println!("Could not read {}: {}", &source, err);
+                        Err(err) => {
+                            println!("Could not read {}: {}", &source, err);
+                        }
                     }
                 }
+                None => {
+                    progress_sep_shown = true;
+                    println!(" -> No baselines for {}", source)
+                }
             }
-            None => {
-                progress_sep_shown = true;
-                println!(" -> No baselines for {}", source)
-            }
-        }
+        })
+        .unwrap()
     }
     if !progress_sep_shown {
         // If the last source didn't had an anomaly, then erase the current progress

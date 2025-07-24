@@ -22,7 +22,7 @@ pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
 }
 
 #[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
-pub fn url_open(env: &Env, url: &Url) -> Result<crate::reader::DecompressReader> {
+pub fn url_open(env: &Env, url: &Url) -> Result<crate::reader::DecompressReaderFile> {
     tracing::debug!(url = url.as_str(), "Requesting url");
     crate::reader::get_url(env, url)
 }

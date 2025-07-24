@@ -30,7 +30,7 @@ pub fn discover_baselines_from_path(env: &Env, path: &Path) -> Result<Vec<Conten
     Ok(vec![baseline])
 }
 
-pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader> {
+pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReaderFile> {
     tracing::debug!(path = path.to_str(), "Opening file");
     crate::reader::from_path(path).context("Failed to open file")
 }

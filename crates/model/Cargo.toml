@@ -43,6 +43,8 @@ regex = { workspace = true }
 bytes = { workspace = true }
 rayon = "*"
 time = { version = "*", features = ["formatting"] }
+tar = "*"
+xz = "*"
 
 # Model save/load
 bincode = { workspace = true }
