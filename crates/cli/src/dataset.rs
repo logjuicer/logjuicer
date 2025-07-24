@@ -95,12 +95,12 @@ fn process(env: &EnvConfig, path: &Path, dataset: Dataset) -> Result<()> {
             >(env, [content_from_pathbuf(good.to_path_buf())].to_vec())?;
             let index = model.get_index(&IndexName::new()).unwrap();
             let anomalies = index
-                .inspect(
+                .get_processor(
                     env,
                     &Source::from_pathbuf(fail.to_path_buf()),
                     &mut Some(logjuicer_model::unordered::KnownLines::new()),
                     None,
-                )
+                )?
                 .collect::<Result<Vec<AnomalyContext>>>()?;
             let anomalies_count = anomalies.len();
             for (expected, anomaly) in zip(dataset.anomalies, anomalies) {
