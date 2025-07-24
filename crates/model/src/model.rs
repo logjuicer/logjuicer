@@ -265,21 +265,6 @@ impl<IR: IndexReader> Index<IR> {
             gl_date,
         ))
     }
-
-    #[tracing::instrument(level = "debug", name = "Index::inspect", skip_all, fields(source))]
-    pub fn inspect<'a>(
-        &'a self,
-        env: &'a TargetEnv,
-        source: &Source,
-        skip_lines: &'a mut Option<KnownLines>,
-        gl_date: Option<Epoch>,
-    ) -> Box<dyn Iterator<Item = Result<AnomalyContext>> + 'a> {
-        match self.get_processor(env, source, skip_lines, gl_date) {
-            Ok(processor) => Box::new(processor),
-            // If the file can't be open, the first iterator result will be the error.
-            Err(e) => Box::new(std::iter::once(Err(e))),
-        }
-    }
 }
 
 /// Apply convertion rules to convert the user Input to Content.
