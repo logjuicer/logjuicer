@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use criterion::{criterion_group, criterion_main, Criterion};
+use logjuicer_iterator::BytesLines;
+use logjuicer_model::source::LinesIterator;
 use std::hint::black_box;
 
 use logjuicer_generate::gen_lines;
@@ -25,10 +27,10 @@ pub fn model_process(c: &mut Criterion) {
         b.iter(|| {
             let data = std::io::Cursor::new(&target);
             let mut skip_lines = Some(logjuicer_model::unordered::KnownLines::new());
+            let reader = LinesIterator::Bytes(BytesLines::new(black_box(data), false));
             let processor = logjuicer_model::process::ChunkProcessor::new(
-                black_box(data),
+                black_box(reader),
                 black_box(&index),
-                false,
                 false,
                 &mut skip_lines,
                 config,
