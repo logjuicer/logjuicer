@@ -24,7 +24,7 @@ pub use logjuicer_report::{
 
 pub use logjuicer_index::{FeaturesMatrix, FeaturesMatrixBuilder};
 
-use crate::files::{dir_iter, file_iter, file_open};
+use crate::files::{dir_iter, file_iter};
 use crate::unordered::KnownLines;
 use crate::urls::{httpdir_iter, url_open};
 pub mod config;
@@ -215,19 +215,9 @@ impl<IR: IndexReader> Index<IR> {
     {
         let created_at = SystemTime::now();
         let start_time = Instant::now();
-        let is_json = if let Some(source) = sources.first() {
-            source.is_json()
-        } else {
-            false
-        };
-        let mut trainer = process::IndexTrainer::new(builder, is_json);
+        let mut trainer = process::IndexTrainer::new(builder);
         for source in sources {
-            let reader = match source {
-                Source::Local(_, path_buf) => file_open(path_buf.as_path()),
-                Source::Remote(_, url) => url_open(env.gl, url),
-            };
-            // TODO: record training errors?
-            match reader {
+            match source::LinesIterator::new(env.gl, source) {
                 Ok(reader) => {
                     env.set_current(source);
                     if let Err(e) = trainer.add(env.config, reader) {
@@ -259,10 +249,7 @@ impl<IR: IndexReader> Index<IR> {
         skip_lines: &'a mut Option<KnownLines>,
         gl_date: Option<Epoch>,
     ) -> Result<process::ChunkProcessor<'a, IR, crate::reader::DecompressReader>> {
-        let fp = match source {
-            Source::Local(_, path_buf) => file_open(path_buf.as_path()),
-            Source::Remote(_, url) => url_open(env.gl, url),
-        }?;
+        let reader = source::LinesIterator::new(env.gl, source)?;
         let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
             file_name.starts_with("job-output")
         } else {
@@ -270,9 +257,8 @@ impl<IR: IndexReader> Index<IR> {
         };
         env.set_current(source);
         Ok(process::ChunkProcessor::new(
-            fp,
+            reader,
             &self.index,
-            source.is_json(),
             is_job_output,
             skip_lines,
             env.config,

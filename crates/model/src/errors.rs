@@ -13,9 +13,8 @@ use std::time::{Instant, SystemTime};
 
 use crate::content_get_sources;
 use crate::env::TargetEnv;
-use crate::files::file_open;
 use crate::indexname_from_source;
-use crate::urls::url_open;
+use crate::source::LinesIterator;
 use crate::LineCounters;
 use crate::{config::TargetConfig, unordered::KnownLines};
 use logjuicer_report::{Anomaly, AnomalyContext, Content, Epoch, LogReport, Report, Source};
@@ -53,7 +52,7 @@ fn test_history() {
 }
 
 pub struct ErrorsProcessor<'a, R: Read> {
-    reader: logjuicer_iterator::BytesLines<R>,
+    reader: LinesIterator<R>,
     /// The parser state
     parser: logjuicer_errors::State,
     /// The current anomaly being processed
@@ -88,14 +87,13 @@ impl<R: Read> Iterator for ErrorsProcessor<'_, R> {
 
 impl<'a, R: Read> ErrorsProcessor<'a, R> {
     pub fn new(
-        read: R,
-        is_json: bool,
+        reader: LinesIterator<R>,
         is_job_output: bool,
         skip_lines: Arc<Mutex<Option<KnownLines>>>,
         config: &'a TargetConfig,
     ) -> ErrorsProcessor<'a, R> {
         ErrorsProcessor {
-            reader: logjuicer_iterator::BytesLines::new(read, is_json),
+            reader,
             parser: logjuicer_errors::State::new(),
             current_anomaly: None,
             next_anomaly: None,
@@ -224,7 +222,8 @@ fn test_errors_processor() {
 "#,
     );
     let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
-    let processor = ErrorsProcessor::new(data, false, false, skip_lines, config);
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
+    let processor = ErrorsProcessor::new(reader, false, skip_lines, config);
     let mut anomalies = Vec::new();
     for anomaly in processor {
         anomalies.push(anomaly.unwrap())
@@ -252,10 +251,7 @@ pub fn get_errors_processor<'a>(
     skip_lines: Arc<Mutex<Option<KnownLines>>>,
     source: &Source,
 ) -> Result<ErrorsProcessor<'a, crate::reader::DecompressReader>> {
-    let fp = match source {
-        Source::Local(_, path_buf) => file_open(path_buf.as_path()),
-        Source::Remote(_, url) => url_open(env.gl, url),
-    }?;
+    let reader = LinesIterator::new(env.gl, source)?;
     let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
         file_name.starts_with("job-output")
     } else {
@@ -263,8 +259,7 @@ pub fn get_errors_processor<'a>(
     };
     env.set_current(source);
     Ok(ErrorsProcessor::new(
-        fp,
-        source.is_json(),
+        reader,
         is_job_output,
         skip_lines,
         env.config,
