@@ -24,6 +24,7 @@ logjuicer-report = { path = "../report" }
 logjuicer-tokenizer = { path = "../tokenizer" }
 logjuicer-iterator = { path = "../iterator" }
 logjuicer-errors = { path = "../errors" }
+systemd-journal-reader = { path = "../systemd-journal-reader" }
 httpdir = { path = "../httpdir" }
 zuul-build = { path = "../zuul" }
 prow-build = { path = "../prow" }
@@ -41,6 +42,7 @@ chrono = { workspace = true }
 regex = { workspace = true }
 bytes = { workspace = true }
 rayon = "*"
+time = { version = "*", features = ["formatting"] }
 
 # Model save/load
 bincode = { workspace = true }

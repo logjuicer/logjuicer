@@ -8,8 +8,8 @@ use clap::{Parser, Subcommand};
 use itertools::Itertools;
 use logjuicer_model::env::{EnvConfig, OutputMode, TargetEnv};
 use logjuicer_model::{
-    content_discover_baselines, content_from_input, content_get_sources, group_sources, Content,
-    FeaturesMatrix, FeaturesMatrixBuilder, Input, Model, Source,
+    content_discover_baselines, content_from_input, content_get_sources, group_sources,
+    source::LinesIterator, Content, FeaturesMatrix, FeaturesMatrixBuilder, Input, Model, Source,
 };
 use logjuicer_report::{bytes_to_mb, Report};
 use std::path::PathBuf;
@@ -330,13 +330,7 @@ impl Cli {
                 let sources = content_get_sources(&env, &content)?;
                 match sources.first() {
                     Some(source) => {
-                        let reader = match source {
-                            Source::Local(_, path_buf) => {
-                                logjuicer_model::files::file_open(path_buf.as_path())?
-                            }
-                            Source::Remote(_, url) => logjuicer_model::urls::url_open(env.gl, url)?,
-                        };
-                        for line in logjuicer_iterator::BytesLines::new(reader, source.is_json()) {
+                        for line in LinesIterator::new(env.gl, source)? {
                             match line {
                                 Ok((bytes, nr)) => match std::str::from_utf8(&bytes) {
                                     Ok(txt) => println!("{} | {}", nr, txt),
