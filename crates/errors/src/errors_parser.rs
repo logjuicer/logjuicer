@@ -151,19 +151,26 @@ fn is_error_line(line: &str) -> bool {
             "(?-u:(",
             // Error codes
             r#"ERROR [0-9]{4}"#,
+            r#"|<title>503 Service Unavailable</title>"#,
             // Ansible errors
             r#"| ERROR$"#,
             r#"|\|   "msg": ""#,
             r#"|: FAILED!"#,
+            r#"|\| FAILED \|"#,
             r#"|\| (fatal|failed|error): "#,
             r#"| The error appears to be in "#,
             r#"| failed: [1-9][0-9]*[ \t]"#,
             r#"|stderr: 'error:"#,
+            // OVS
+            r#"|\|WARN\|"#,
+            r#"|\[EC [0-9]+\]"#,
             // Galera
             r#"| \[Error\] "#,
             // Python errors
             r#"|[0-9Z][ \t]+ERROR[ \t]+[a-zA-Z]"#,
             // tempest errors
+            r#"|^FAIL: "#,
+            r#"|^FAILED: "#,
             r#"|\.\.\. FAILED$"#,
             // Go errors
             r#"|\] ERROR: "#,
@@ -258,6 +265,9 @@ exit status 2
             "Z  ERROR  setup",
             "Z\tERROR\ttest",
             "fail level=error",
+            "ovsdb_log(log_fsync3)|WARN|fsync failed (Invalid argument)",
+            "BGP: [KTE2S-GTBDA][EC 100663301] INTERFACE_ADDRESS_DEL: Cannot find IF",
+            "controller | controller-0 | FAILED | rc=2 >>"
         ] {
             assert!(crate::is_error_line(line), "'{}' is not an error", line);
         };
