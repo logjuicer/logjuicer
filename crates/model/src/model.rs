@@ -9,6 +9,7 @@ use anyhow::{Context, Result};
 use env::{Env, TargetEnv};
 use itertools::Itertools;
 use logjuicer_report::Epoch;
+use reader::DecompressReader;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Read;
@@ -217,15 +218,18 @@ impl<IR: IndexReader> Index<IR> {
         let start_time = Instant::now();
         let mut trainer = process::IndexTrainer::new(builder);
         for source in sources {
-            match source::LinesIterator::new(env.gl, source) {
-                Ok(reader) => {
-                    env.set_current(source);
-                    if let Err(e) = trainer.add(env.config, reader) {
-                        tracing::error!("{}: failed to load: {}", source, e)
+            crate::source::with_source(env.gl, source.clone(), |source, reader| {
+                match source::LinesIterator::new(&source, reader) {
+                    Ok(reader) => {
+                        env.set_current(&source);
+                        if let Err(e) = trainer.add(env.config, reader) {
+                            tracing::error!("{}: failed to load: {}", source, e)
+                        }
                     }
+                    Err(e) => tracing::error!("{}: failed to read {}", source, e),
                 }
-                Err(e) => tracing::error!("{}: failed to read {}", source, e),
-            }
+            })
+            .unwrap();
         }
         let line_count = trainer.line_count;
         let byte_count = trainer.byte_count;
@@ -242,14 +246,15 @@ impl<IR: IndexReader> Index<IR> {
         })
     }
 
-    pub fn get_processor<'a>(
+    pub fn get_processor<'a, 'b>(
         &'a self,
         env: &'a TargetEnv,
         source: &Source,
+        reader: DecompressReader<'b>,
         skip_lines: &'a mut Option<KnownLines>,
         gl_date: Option<Epoch>,
-    ) -> Result<process::ChunkProcessor<'a, IR, crate::reader::DecompressReader>> {
-        let reader = source::LinesIterator::new(env.gl, source)?;
+    ) -> Result<process::ChunkProcessor<'a, IR, crate::reader::DecompressReader<'b>>> {
+        let reader = source::LinesIterator::new(source, reader)?;
         let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
             file_name.starts_with("job-output")
         } else {
@@ -361,6 +366,7 @@ pub fn content_get_sources_iter(
     }
 }
 
+// TODO: handle nested entry, the callee need to be updated!
 pub fn group_sources(
     env: &TargetEnv,
     baselines: &[Content],
@@ -432,18 +438,21 @@ impl<IR: IndexReader> Model<IR> {
 
     /// Create an individual LogReport.
     #[tracing::instrument(level = "debug", skip_all, fields(source))]
-    pub fn report_source(
+    pub fn report_source<'b>(
         &self,
         env: &TargetEnv,
         index: (&Index<IR>, &IndexName),
         counters: &mut LineCounters,
         skip_lines: &mut Option<KnownLines>,
-        source: &Source,
+        source: (&Source, DecompressReader<'b>),
         gl_date: Option<Epoch>,
     ) -> std::result::Result<Option<LogReport>, String> {
         let start_time = Instant::now();
         let mut anomalies = Vec::new();
-        match index.0.get_processor(env, source, skip_lines, gl_date) {
+        match index
+            .0
+            .get_processor(env, source.0, source.1, skip_lines, gl_date)
+        {
             Ok(mut processor) => {
                 for anomaly in processor.by_ref() {
                     match anomaly {
@@ -458,7 +467,7 @@ impl<IR: IndexReader> Model<IR> {
                     Ok(Some(LogReport {
                         test_time: start_time.elapsed(),
                         anomalies,
-                        source: source.clone(),
+                        source: source.0.clone(),
                         index_name: index.1.clone(),
                         line_count: processor.line_count,
                         byte_count: processor.byte_count,
@@ -492,29 +501,32 @@ impl<IR: IndexReader> Model<IR> {
                         sources.iter().take(5).format(", ")
                     ));
                     for source in sources {
-                        match self.report_source(
-                            env,
-                            (index, &index_name),
-                            &mut counters,
-                            &mut skip_lines,
-                            &source,
-                            gl_date,
-                        ) {
-                            Ok(Some(lr)) => {
-                                if !index_reports.contains_key(&index_name) {
-                                    index_reports.insert(index_name.clone(), index.to_report());
-                                };
-                                if gl_date.is_none() {
-                                    // Record the global date if it is unknown
-                                    gl_date = lr.timed().next().map(|ea| ea.0)
-                                };
-                                log_reports.push(lr)
+                        crate::source::with_source(env.gl, source, |source, reader| {
+                            match self.report_source(
+                                env,
+                                (index, &index_name),
+                                &mut counters,
+                                &mut skip_lines,
+                                (&source, reader),
+                                gl_date,
+                            ) {
+                                Ok(Some(lr)) => {
+                                    if !index_reports.contains_key(&index_name) {
+                                        index_reports.insert(index_name.clone(), index.to_report());
+                                    };
+                                    if gl_date.is_none() {
+                                        // Record the global date if it is unknown
+                                        gl_date = lr.timed().next().map(|ea| ea.0)
+                                    };
+                                    log_reports.push(lr)
+                                }
+                                Ok(None) => {}
+                                Err(err) => {
+                                    read_errors.push((source.clone(), err.into()));
+                                }
                             }
-                            Ok(None) => {}
-                            Err(err) => {
-                                read_errors.push((source.clone(), err.into()));
-                            }
-                        }
+                        })
+                        .unwrap();
                     }
                     tracing::debug!(
                         skip_lines = skip_lines.as_ref().map_or(0, |s| s.len()),

@@ -14,6 +14,7 @@ use std::time::{Instant, SystemTime};
 use crate::content_get_sources;
 use crate::env::TargetEnv;
 use crate::indexname_from_source;
+use crate::reader::DecompressReader;
 use crate::source::LinesIterator;
 use crate::LineCounters;
 use crate::{config::TargetConfig, unordered::KnownLines};
@@ -246,12 +247,13 @@ fn test_errors_processor() {
     assert_eq!(anomalies, expected);
 }
 
-pub fn get_errors_processor<'a>(
+pub fn get_errors_processor<'a, 'b>(
     env: &'a TargetEnv,
     skip_lines: Arc<Mutex<Option<KnownLines>>>,
     source: &Source,
-) -> Result<ErrorsProcessor<'a, crate::reader::DecompressReader>> {
-    let reader = LinesIterator::new(env.gl, source)?;
+    reader: DecompressReader<'b>,
+) -> Result<ErrorsProcessor<'a, crate::reader::DecompressReader<'b>>> {
+    let reader = LinesIterator::new(source, reader)?;
     let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
         file_name.starts_with("job-output")
     } else {
@@ -267,15 +269,16 @@ pub fn get_errors_processor<'a>(
 }
 
 /// Create the final report.
-#[tracing::instrument(level = "debug", skip(env, counters))]
-fn errors_report_source<'a>(
+#[tracing::instrument(level = "debug", skip(env, counters, reader))]
+fn errors_report_source<'a, 'b>(
     env: &'a TargetEnv,
     skip_lines: Arc<Mutex<Option<KnownLines>>>,
     counters: Arc<Mutex<LineCounters>>,
     source: &Source,
+    reader: DecompressReader<'b>,
 ) -> std::result::Result<Option<LogReport>, String> {
     let start_time = Instant::now();
-    match get_errors_processor(env, skip_lines, source) {
+    match get_errors_processor(env, skip_lines, source, reader) {
         Ok(mut processor) => {
             env.set_current(source);
             let mut anomalies = Vec::new();
@@ -318,14 +321,21 @@ pub fn errors_report(env: &TargetEnv, target: Content) -> Result<Report> {
     let skip_lines = Arc::new(Mutex::new(env.new_skip_lines()));
 
     sources.into_par_iter().for_each(|source| {
-        match errors_report_source(env, skip_lines.clone(), counters.clone(), &source) {
+        crate::source::with_source(env.gl, source, |source, reader| match errors_report_source(
+            env,
+            skip_lines.clone(),
+            counters.clone(),
+            &source,
+            reader,
+        ) {
             Ok(Some(lr)) => log_reports.lock().unwrap().push(lr),
             Ok(None) => {}
             Err(err) => read_errors
                 .lock()
                 .unwrap()
                 .push((source.clone(), err.into())),
-        }
+        })
+        .unwrap();
     });
 
     let counters = counters.lock().unwrap();
