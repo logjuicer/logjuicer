@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.14.0
+======
+
 - web: add keep-alive to avoid the watch stream to be interrupted by an ingress proxy.
 - cli: add download-logs command.
 - cli: add errors command.
@@ -8,6 +11,7 @@ next-version
 - api: add '&errors=true' parameter to the API for genering an errors report.
 - api: perform errors report when baseline discovery fails.
 - web: add checkbox to toggle the errors report.
+- model: support systemd journal file ending in .journal.
 
 0.13.0
 ======
