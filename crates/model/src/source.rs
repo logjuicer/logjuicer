@@ -5,10 +5,8 @@ use anyhow::Result;
 use bytes::Bytes;
 use std::io::Read;
 
-use crate::{
-    env::Env, files::file_open, journal::JournalLines, reader::DecompressReader, urls::url_open,
-};
-use logjuicer_report::Source;
+use crate::{env::Env, journal::JournalLines, reader::DecompressReader};
+use logjuicer_report::{Source, SourceFile};
 
 pub enum LinesIterator<R: Read> {
     Bytes(logjuicer_iterator::BytesLines<R>),
@@ -26,12 +24,11 @@ impl<R: Read> Iterator for LinesIterator<R> {
     }
 }
 
-impl LinesIterator<DecompressReader> {
-    pub fn new(env: &Env, source: &Source) -> Result<LinesIterator<DecompressReader>> {
-        let reader = match source {
-            Source::Local(_, path_buf) => file_open(path_buf.as_path()),
-            Source::Remote(_, url) => url_open(env, url),
-        }?;
+impl<'a> LinesIterator<DecompressReader<'a>> {
+    pub fn new(
+        source: &Source,
+        reader: DecompressReader<'a>,
+    ) -> Result<LinesIterator<DecompressReader<'a>>> {
         let iter = if source.as_str().ends_with(".journal") {
             LinesIterator::Journal(JournalLines::new(reader)?)
         } else {
@@ -41,5 +38,73 @@ impl LinesIterator<DecompressReader> {
             ))
         };
         Ok(iter)
+    }
+}
+
+fn open_source(env: &Env, source: &SourceFile) -> Result<crate::reader::DecompressReaderFile> {
+    match source {
+        SourceFile::Local(_, path_buf) => crate::files::file_open(path_buf.as_path()),
+        SourceFile::Remote(_, url) => crate::urls::url_open(env, url),
+    }
+}
+
+pub fn open_single_source<'a>(
+    env: &Env,
+    source: &Source,
+) -> Result<crate::reader::DecompressReader<'a>> {
+    match source {
+        Source::RawFile(source) => Ok(DecompressReader::Raw(open_source(env, source)?)),
+        Source::TarFile(_, _, _) => Err(anyhow::anyhow!(
+            "This is not possible, open_source doesn't work with TarFile.",
+        )),
+    }
+}
+
+pub fn with_source<F>(env: &crate::env::Env, source: SourceFile, mut cb: F)
+where
+    F: for<'a> FnMut(Source, std::result::Result<DecompressReader<'a>, String>),
+{
+    match open_source(env, &source) {
+        Ok(reader) => {
+            if source.is_tarball() {
+                let reader = xz::read::XzDecoder::new(reader);
+                let mut archive = tar::Archive::new(reader);
+                match archive.entries() {
+                    Ok(entries) => {
+                        let source = std::sync::Arc::new(source);
+                        for entry in entries {
+                            match entry {
+                                Ok(entry) => {
+                                    let path = entry
+                                        .path()
+                                        .ok()
+                                        .and_then(|p| p.as_os_str().to_str().map(|s| s.into()))
+                                        .unwrap_or("unknown".into());
+                                    let url = format!("{}?entry={}", source.as_str(), path);
+                                    let new_source =
+                                        Source::TarFile(source.clone(), path, url.into());
+                                    let reader = DecompressReader::TarballEntry(Box::new(entry));
+                                    cb(new_source, Ok(reader))
+                                }
+                                Err(err) => cb(
+                                    Source::RawFile((*source).clone()),
+                                    Err(format!("tarball entry failed: {}", err)),
+                                ),
+                            }
+                        }
+                    }
+                    Err(err) => cb(
+                        Source::RawFile(source),
+                        Err(format!("tarball entries failed: {}", err)),
+                    ),
+                }
+            } else {
+                cb(Source::RawFile(source), Ok(DecompressReader::Raw(reader)));
+            }
+        }
+        Err(err) => cb(
+            Source::RawFile(source),
+            Err(format!("open_source failed: {}", err)),
+        ),
     }
 }

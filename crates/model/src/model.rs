@@ -8,7 +8,8 @@
 use anyhow::{Context, Result};
 use env::{Env, TargetEnv};
 use itertools::Itertools;
-use logjuicer_report::Epoch;
+use logjuicer_report::{Epoch, SourceFile};
+use reader::DecompressReader;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Read;
@@ -81,7 +82,13 @@ pub struct Model<IR: IndexReader> {
 pub type ModelF = Model<FeaturesMatrix>;
 
 pub fn indexname_from_source(source: &Source) -> IndexName {
-    IndexName::from_path(source.get_relative())
+    if let Some(tarball) = source.is_tarfile() {
+        let tarball_index = IndexName::from_path(tarball.get_relative());
+        let entry_index = IndexName::from_path(source.get_relative());
+        tarball_index.extend(&entry_index)
+    } else {
+        IndexName::from_path(source.get_relative())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -207,49 +214,76 @@ impl<IR: IndexReader> Model<IR> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
+enum IndexSource<'a> {
+    Bundle(Vec<Source>),
+    Tarfile(Source, DecompressReader<'a>),
+}
+
 impl<IR: IndexReader> Index<IR> {
-    #[tracing::instrument(level = "debug", name = "Index::train", skip(env, builder))]
-    pub fn train<IB>(env: &TargetEnv, builder: IB, sources: &[Source]) -> Result<Index<IR>>
+    #[tracing::instrument(level = "debug", name = "Index::train", skip_all)]
+    pub fn train<'a, IB>(
+        env: &TargetEnv,
+        builder: IB,
+        sources: IndexSource<'a>,
+    ) -> Option<Index<IR>>
     where
         IB: IndexBuilder<Reader = IR>,
     {
         let created_at = SystemTime::now();
         let start_time = Instant::now();
         let mut trainer = process::IndexTrainer::new(builder);
-        for source in sources {
-            match source::LinesIterator::new(env.gl, source) {
-                Ok(reader) => {
-                    env.set_current(source);
-                    if let Err(e) = trainer.add(env.config, reader) {
-                        tracing::error!("{}: failed to load: {}", source, e)
-                    }
+        let mut train_source = |source, reader| match source::LinesIterator::new(source, reader) {
+            Ok(reader) => {
+                env.set_current(source);
+                if let Err(e) = trainer.add(env.config, reader) {
+                    tracing::error!("{}: failed to load: {}", source, e)
                 }
-                Err(e) => tracing::error!("{}: failed to read {}", source, e),
             }
-        }
+            Err(e) => tracing::error!("{}: failed to read {}", source, e),
+        };
+        let sources = match sources {
+            IndexSource::Bundle(sources) => {
+                for source in &sources {
+                    match crate::source::open_single_source(env.gl, source) {
+                        Ok(reader) => train_source(source, reader),
+                        Err(e) => tracing::error!("{}: fail to open {}", source, e),
+                    };
+                }
+                sources
+            }
+            IndexSource::Tarfile(source, reader) => {
+                train_source(&source, reader);
+                vec![source]
+            }
+        };
         let line_count = trainer.line_count;
         let byte_count = trainer.byte_count;
         let index = trainer.build();
-        let sources = sources.to_vec();
-        let train_time = start_time.elapsed();
-        Ok(Index {
-            created_at,
-            index,
-            sources,
-            train_time,
-            line_count,
-            byte_count,
-        })
+        if index.rows() > 0 {
+            let train_time = start_time.elapsed();
+            Some(Index {
+                created_at,
+                index,
+                sources,
+                train_time,
+                line_count,
+                byte_count,
+            })
+        } else {
+            None
+        }
     }
 
-    pub fn get_processor<'a>(
+    pub fn get_processor<'a, 'b>(
         &'a self,
         env: &'a TargetEnv,
         source: &Source,
+        reader: DecompressReader<'b>,
         skip_lines: &'a mut Option<KnownLines>,
         gl_date: Option<Epoch>,
-    ) -> Result<process::ChunkProcessor<'a, IR, crate::reader::DecompressReader>> {
-        let reader = source::LinesIterator::new(env.gl, source)?;
+    ) -> Result<process::ChunkProcessor<'a, IR, crate::reader::DecompressReader<'b>>> {
+        let reader = source::LinesIterator::new(source, reader)?;
         let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
             file_name.starts_with("job-output")
         } else {
@@ -299,12 +333,13 @@ pub fn content_from_pathbuf(p: PathBuf) -> Content {
 pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Vec<Content>> {
     (match content {
         Content::File(src) => match src {
-            Source::Local(_, pathbuf) => {
+            Source::RawFile(SourceFile::Local(_, pathbuf)) => {
                 crate::files::discover_baselines_from_path(env, pathbuf.as_path())
             }
-            Source::Remote(_, _) => Err(anyhow::anyhow!(
+            Source::RawFile(SourceFile::Remote(_, _)) => Err(anyhow::anyhow!(
                 "Use the diff command to process remote file.",
             )),
+            Source::TarFile(_, _, _) => Err(anyhow::anyhow!("Tar file can't be a baseline.",)),
         },
         Content::Directory(_) => Err(anyhow::anyhow!(
             "Use the diff command to process directory.",
@@ -352,8 +387,9 @@ pub fn content_get_sources_iter(
     match content {
         Content::File(src) => Box::new(file_iter(src)),
         Content::Directory(src) => match src {
-            Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
-            Source::Remote(_, url) => Box::new(httpdir_iter(url, env)),
+            Source::RawFile(SourceFile::Local(_, pathbuf)) => Box::new(dir_iter(pathbuf.as_path())),
+            Source::RawFile(SourceFile::Remote(_, url)) => Box::new(httpdir_iter(url, env)),
+            Source::TarFile(_, _, _) => panic!("Directory can't be a tarfile"),
         },
         Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build, env)),
         Content::Prow(build) => Box::new(crate::prow::sources_iter(build, env)),
@@ -361,20 +397,27 @@ pub fn content_get_sources_iter(
     }
 }
 
-pub fn group_sources(
-    env: &TargetEnv,
-    baselines: &[Content],
-) -> Result<HashMap<IndexName, Vec<Source>>> {
+type GroupResult = (Vec<SourceFile>, HashMap<IndexName, Vec<Source>>);
+
+pub fn group_sources(env: &TargetEnv, baselines: &[Content]) -> Result<GroupResult> {
     let mut groups = HashMap::new();
+    let mut tarballs = Vec::new();
     for baseline in baselines {
         for source in content_get_sources(env, baseline)? {
-            groups
-                .entry(indexname_from_source(&source))
-                .or_insert_with(Vec::new)
-                .push(source);
+            match source {
+                Source::RawFile(source) if source.is_tarball() => {
+                    tarballs.push(source);
+                }
+                _ => {
+                    groups
+                        .entry(indexname_from_source(&source))
+                        .or_insert_with(Vec::new)
+                        .push(source);
+                }
+            }
         }
     }
-    Ok(groups)
+    Ok((tarballs, groups))
 }
 
 #[derive(Debug)]
@@ -408,15 +451,41 @@ impl<IR: IndexReader> Model<IR> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
 
-        for (index_name, sources) in group_sources(env, &baselines)?.drain() {
+        let (tarballs, mut groups) = group_sources(env, &baselines)?;
+
+        for (index_name, sources) in groups.drain() {
             env.gl.debug_or_progress(&format!(
                 "Loading index {} with {}",
                 index_name,
                 sources.iter().format(", ")
             ));
             let builder = IB::default();
-            let index = Index::train(env, builder, &sources)?;
-            indexes.insert(index_name, index);
+            match Index::train(env, builder, IndexSource::Bundle(sources)) {
+                Some(index) => {
+                    indexes.insert(index_name, index);
+                }
+                None => tracing::error!("{}: empty index", index_name),
+            };
+        }
+        for tarball in tarballs {
+            crate::source::with_source(env.gl, tarball, |source, reader| {
+                let builder = IB::default();
+                let index_name = indexname_from_source(&source);
+                match reader.and_then(|reader| {
+                    Index::train(env, builder, IndexSource::Tarfile(source.clone(), reader))
+                        .ok_or_else(|| "empty index".to_string())
+                }) {
+                    Ok(index) => {
+                        let index = if let Some(prev_index) = indexes.get(&index_name) {
+                            prev_index.mappend(&index)
+                        } else {
+                            index
+                        };
+                        indexes.insert(index_name, index);
+                    }
+                    Err(err) => tracing::error!("{}: {}", index_name, err),
+                };
+            })
         }
         Ok(Model {
             created_at,
@@ -432,18 +501,21 @@ impl<IR: IndexReader> Model<IR> {
 
     /// Create an individual LogReport.
     #[tracing::instrument(level = "debug", skip_all, fields(source))]
-    pub fn report_source(
+    pub fn report_source<'b>(
         &self,
         env: &TargetEnv,
         index: (&Index<IR>, &IndexName),
         counters: &mut LineCounters,
         skip_lines: &mut Option<KnownLines>,
-        source: &Source,
+        source: (&Source, DecompressReader<'b>),
         gl_date: Option<Epoch>,
     ) -> std::result::Result<Option<LogReport>, String> {
         let start_time = Instant::now();
         let mut anomalies = Vec::new();
-        match index.0.get_processor(env, source, skip_lines, gl_date) {
+        match index
+            .0
+            .get_processor(env, source.0, source.1, skip_lines, gl_date)
+        {
             Ok(mut processor) => {
                 for anomaly in processor.by_ref() {
                     match anomaly {
@@ -458,7 +530,7 @@ impl<IR: IndexReader> Model<IR> {
                     Ok(Some(LogReport {
                         test_time: start_time.elapsed(),
                         anomalies,
-                        source: source.clone(),
+                        source: source.0.clone(),
                         index_name: index.1.clone(),
                         line_count: processor.line_count,
                         byte_count: processor.byte_count,
@@ -482,7 +554,8 @@ impl<IR: IndexReader> Model<IR> {
         let mut read_errors = Vec::new();
         let mut counters = LineCounters::new();
         let mut gl_date = None;
-        for (index_name, sources) in group_sources(env, &[target.clone()])?.drain() {
+        let (tarballs, mut groups) = group_sources(env, &[target.clone()])?;
+        for (index_name, sources) in groups.drain() {
             let mut skip_lines = env.new_skip_lines();
             match self.get_index(&index_name) {
                 Some(index) => {
@@ -492,12 +565,13 @@ impl<IR: IndexReader> Model<IR> {
                         sources.iter().take(5).format(", ")
                     ));
                     for source in sources {
+                        let reader = crate::source::open_single_source(env.gl, &source)?;
                         match self.report_source(
                             env,
                             (index, &index_name),
                             &mut counters,
                             &mut skip_lines,
-                            &source,
+                            (&source, reader),
                             gl_date,
                         ) {
                             Ok(Some(lr)) => {
@@ -530,6 +604,55 @@ impl<IR: IndexReader> Model<IR> {
                     let _ = unknown_files.insert(index_name, sources);
                 }
             }
+        }
+        for tarball in tarballs {
+            crate::source::with_source(env.gl, tarball, |source, reader| {
+                let index_name = indexname_from_source(&source);
+                match self.get_index(&index_name) {
+                    Some(index) => {
+                        env.gl.debug_or_progress(&format!(
+                            "Reporting index {} with {}",
+                            index_name,
+                            source.get_relative()
+                        ));
+                        let mut skip_lines = env.new_skip_lines();
+                        match reader.and_then(|reader| {
+                            self.report_source(
+                                env,
+                                (index, &index_name),
+                                &mut counters,
+                                &mut skip_lines,
+                                (&source, reader),
+                                gl_date,
+                            )
+                        }) {
+                            Ok(Some(lr)) => {
+                                if !index_reports.contains_key(&index_name) {
+                                    index_reports.insert(index_name.clone(), index.to_report());
+                                };
+                                if gl_date.is_none() {
+                                    // Record the global date if it is unknown
+                                    gl_date = lr.timed().next().map(|ea| ea.0)
+                                };
+                                log_reports.push(lr)
+                            }
+                            Ok(None) => {}
+                            Err(err) => {
+                                read_errors.push((source.clone(), err.into()));
+                            }
+                        }
+                    }
+                    None => {
+                        env.gl.debug_or_progress(&format!(
+                            "Unknown index index {} for {} sources",
+                            index_name,
+                            source.get_relative()
+                        ));
+                        // Todo: extend
+                        let _ = unknown_files.insert(index_name, vec![source]);
+                    }
+                }
+            })
         }
         Ok(Report {
             created_at,

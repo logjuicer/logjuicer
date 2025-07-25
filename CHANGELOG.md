@@ -12,6 +12,7 @@ next-version
 - api: perform errors report when baseline discovery fails.
 - web: add checkbox to toggle the errors report.
 - model: support systemd journal file ending in .journal.
+- model: support tarball traversal.
 
 0.13.0
 ======

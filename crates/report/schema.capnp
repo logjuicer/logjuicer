@@ -9,6 +9,7 @@ struct SimilarityReport {
   targets           @0 :List(Content);
   baselines         @1 :List(Content);
   similarityReports @2 :List(SimilarityLogReport);
+  tarballs          @3 :List(Source);
 }
 
 struct SimilarityLogReport {
@@ -37,6 +38,7 @@ struct Report {
   readErrors        @7 :List(ReadError);
   totalLineCount    @8 :UInt32;
   totalAnomalyCount @9 :UInt32;
+  tarballs          @10 :List(Source);
 }
 
 struct Content {
@@ -82,7 +84,14 @@ struct Source {
   union {
     local    @0 :SourceRef;
     remote   @1 :SourceRef;
+    tarfile  @2 :TarFile;
   }
+}
+
+struct TarFile {
+  # An index into the report tarballs
+  tarball    @0 :UInt32;
+  loc        @1 :Text;
 }
 
 struct SourceRef {

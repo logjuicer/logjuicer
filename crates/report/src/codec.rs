@@ -4,11 +4,16 @@
 use crate::*;
 
 use capnp::Result;
+use std::collections::BTreeMap;
 use std::io::BufRead;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use std::{convert::TryInto, ops::Add};
 
-pub struct ReportEncoder;
+pub struct ReportEncoder {
+    tarballs_map: BTreeMap<Arc<SourceFile>, usize>,
+    tarballs: Vec<Arc<SourceFile>>,
+}
 
 impl Default for ReportEncoder {
     fn default() -> Self {
@@ -19,12 +24,22 @@ impl Default for ReportEncoder {
 impl ReportEncoder {
     pub fn new() -> Self {
         // TODO: Intern IndexName
-        Self
+        ReportEncoder {
+            tarballs_map: BTreeMap::new(),
+            tarballs: vec![],
+        }
     }
 
-    pub fn encode(&self, report: &Report, write: impl capnp::io::Write) -> Result<()> {
+    pub fn encode(&mut self, report: &Report, write: impl capnp::io::Write) -> Result<()> {
         let mut message = capnp::message::Builder::new_default();
         let mut module = message.init_root::<schema_capnp::report::Builder>();
+
+        {
+            for lr in &report.log_reports {
+                self.add_tarball(&lr.source);
+            }
+            // TODO: check for tarballs in target or source?
+        }
 
         module.set_created_at(write_system_time(&report.created_at)?);
         module.set_run_time(write_duration(&report.run_time)?);
@@ -77,9 +92,29 @@ impl ReportEncoder {
                 self.write_source(&read_error.0, error_builder.init_source())?;
             }
         }
+        {
+            let mut builder = module.reborrow().init_tarballs(self.tarballs.len() as u32);
+            for (idx, source) in self.tarballs.iter().enumerate() {
+                let source_builder = builder.reborrow().get(idx as u32);
+                self.write_source_file(source, source_builder)?;
+            }
+        }
         module.set_total_line_count(report.total_line_count as u32);
         module.set_total_anomaly_count(report.total_anomaly_count as u32);
         capnp::serialize::write_message(write, &message)
+    }
+
+    fn add_tarball(&mut self, source: &Source) {
+        if let Some(tarball) = source.is_tarfile() {
+            if !self.tarballs_map.contains_key(&tarball) {
+                // This is a new tarbal, get its index
+                let pos = self.tarballs.len();
+                // Store the index in the lookup map
+                self.tarballs_map.insert(tarball.clone(), pos);
+                // Store the source that will be written to the report
+                self.tarballs.push(tarball);
+            }
+        }
     }
 
     fn write_log_report(
@@ -201,9 +236,13 @@ impl ReportEncoder {
         Ok(())
     }
 
-    fn write_source(&self, source: &Source, builder: schema_capnp::source::Builder) -> Result<()> {
+    fn write_source_file(
+        &self,
+        source: &SourceFile,
+        builder: schema_capnp::source::Builder,
+    ) -> Result<()> {
         match source {
-            Source::Local(prefix, path) => {
+            SourceFile::Local(prefix, path) => {
                 let mut builder = builder.init_local();
                 builder.set_prefix(
                     (*prefix)
@@ -214,20 +253,39 @@ impl ReportEncoder {
                     path.as_os_str()
                         .to_str()
                         .ok_or(capnp::Error::failed("Bad time".into()))?,
-                )
+                );
+                Ok(())
             }
-            Source::Remote(prefix, url) => {
+            SourceFile::Remote(prefix, url) => {
                 let mut builder = builder.init_remote();
                 builder.set_prefix(
                     (*prefix)
                         .try_into()
                         .map_err(|_| capnp::Error::failed("Bad prefix".into()))?,
                 );
-                builder.set_loc(url.as_str())
+                builder.set_loc(url.as_str());
+                Ok(())
             }
-        };
+        }
+    }
 
-        Ok(())
+    fn write_source(&self, source: &Source, builder: schema_capnp::source::Builder) -> Result<()> {
+        match source {
+            Source::RawFile(source) => self.write_source_file(source, builder),
+            Source::TarFile(base, path, _) => match self.tarballs_map.get(base.as_ref()) {
+                Some(pos) => {
+                    let mut builder = builder.init_tarfile();
+                    builder.set_tarball(
+                        (*pos)
+                            .try_into()
+                            .map_err(|_| capnp::Error::failed("Bad tarball pos".into()))?,
+                    );
+                    builder.set_loc(path);
+                    Ok(())
+                }
+                None => Err(capnp::Error::failed(format!("Unknown tarball: {}", base))),
+            },
+        }
     }
 
     fn write_sources(
@@ -256,12 +314,18 @@ impl ReportEncoder {
     }
 
     pub fn encode_similarity(
-        &self,
+        &mut self,
         report: &SimilarityReport,
         write: impl capnp::io::Write,
     ) -> Result<()> {
         let mut message = capnp::message::Builder::new_default();
         let mut module = message.init_root::<schema_capnp::similarity_report::Builder>();
+
+        for slr in &report.similarity_reports {
+            for ss in &slr.sources {
+                self.add_tarball(&ss.source);
+            }
+        }
 
         {
             let mut builder = module.reborrow().init_targets(report.targets.len() as u32);
@@ -286,6 +350,13 @@ impl ReportEncoder {
             for (idx, slr) in report.similarity_reports.iter().enumerate() {
                 let mut slr_builder = builder.reborrow().get(idx as u32);
                 self.write_similarity_log_report(slr, &mut slr_builder)?;
+            }
+        }
+        {
+            let mut builder = module.reborrow().init_tarballs(self.tarballs.len() as u32);
+            for (idx, source) in self.tarballs.iter().enumerate() {
+                let source_builder = builder.reborrow().get(idx as u32);
+                self.write_source_file(source, source_builder)?;
             }
         }
         capnp::serialize::write_message(write, &message)
@@ -342,7 +413,9 @@ impl ReportEncoder {
     }
 }
 
-pub struct ReportDecoder;
+pub struct ReportDecoder {
+    tarballs: Vec<Arc<SourceFile>>,
+}
 
 impl Default for ReportDecoder {
     fn default() -> Self {
@@ -366,13 +439,15 @@ macro_rules! read_hashmap {
 impl ReportDecoder {
     pub fn new() -> Self {
         // TODO: Intern IndexName
-        Self
+        ReportDecoder { tarballs: vec![] }
     }
 
-    pub fn decode(&self, reader: impl BufRead) -> Result<Report> {
+    pub fn decode(&mut self, reader: impl BufRead) -> Result<Report> {
         let message_reader =
             capnp::serialize::read_message(reader, capnp::message::ReaderOptions::new())?;
         let reader = message_reader.get_root::<schema_capnp::report::Reader<'_>>()?;
+
+        self.read_tarballs(&reader.get_tarballs()?)?;
 
         Ok(Report {
             created_at: read_system_time(reader.get_created_at())
@@ -387,6 +462,17 @@ impl ReportDecoder {
             total_line_count: reader.get_total_line_count() as usize,
             total_anomaly_count: reader.get_total_anomaly_count() as usize,
         })
+    }
+
+    fn read_tarballs(
+        &mut self,
+        reader: &capnp::struct_list::Reader<schema_capnp::source::Owned>,
+    ) -> Result<()> {
+        for tarball_reader in reader.into_iter() {
+            let source = self.read_source_file(&tarball_reader)?;
+            self.tarballs.push(Arc::new(source))
+        }
+        Ok(())
     }
 
     fn read_baselines(
@@ -509,19 +595,46 @@ impl ReportDecoder {
         })
     }
 
+    fn read_source_file(&self, reader: &schema_capnp::source::Reader) -> Result<SourceFile> {
+        match self.read_source(reader)? {
+            Source::RawFile(f) => Ok(f),
+            e => Err(capnp::Error::failed(format!(
+                "Expected raw file, got: {}",
+                e
+            ))),
+        }
+    }
+
     fn read_source(&self, reader: &schema_capnp::source::Reader) -> Result<Source> {
         use schema_capnp::source::Which;
         Ok(match reader.which()? {
             Which::Local(reader) => {
                 let reader = reader?;
-                Source::Local(
+                Source::RawFile(SourceFile::Local(
                     reader.get_prefix().into(),
                     reader.get_loc()?.to_str()?.into(),
-                )
+                ))
             }
             Which::Remote(reader) => {
                 let reader = reader?;
-                Source::Remote(reader.get_prefix().into(), read_url(reader.get_loc()?)?)
+                Source::RawFile(SourceFile::Remote(
+                    reader.get_prefix().into(),
+                    read_url(reader.get_loc()?)?,
+                ))
+            }
+            Which::Tarfile(reader) => {
+                let reader = reader?;
+                let pos: usize = reader
+                    .get_tarball()
+                    .try_into()
+                    .map_err(|_| capnp::Error::failed("Bad tarball pos".into()))?;
+                let loc = reader.get_loc()?.to_str()?.into();
+                let base = match self.tarballs.get(pos) {
+                    None => Err(capnp::Error::failed(format!("Unknown tarball: {}", pos))),
+                    Some(base) => Ok(base),
+                }?;
+                let abs = format!("{}?entry={}", base.as_str(), loc).into();
+                Source::TarFile(base.clone(), loc, abs)
             }
         })
     }
@@ -559,10 +672,11 @@ impl ReportDecoder {
         Ok(vec)
     }
 
-    pub fn decode_similarity(&self, reader: impl BufRead) -> Result<SimilarityReport> {
+    pub fn decode_similarity(&mut self, reader: impl BufRead) -> Result<SimilarityReport> {
         let message_reader =
             capnp::serialize::read_message(reader, capnp::message::ReaderOptions::new())?;
         let reader = message_reader.get_root::<schema_capnp::similarity_report::Reader<'_>>()?;
+        self.read_tarballs(&reader.get_tarballs()?)?;
 
         Ok(SimilarityReport {
             targets: self.read_baselines(&reader.get_targets()?)?,

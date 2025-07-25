@@ -12,6 +12,7 @@ use std::fs::File;
 
 use crate::env::Env;
 use flate2::read::GzDecoder;
+use tar::Entry;
 
 fn is_success(code: ureq::http::StatusCode) -> bool {
     (200..400).contains(&code.as_u16())
@@ -19,17 +20,23 @@ fn is_success(code: ureq::http::StatusCode) -> bool {
 
 // allow large enum for gzdecoder, which are the most used
 #[allow(clippy::large_enum_variant)]
-pub enum DecompressReader {
+pub enum DecompressReaderFile {
     Flat(File),
     Gz(GzDecoder<File>),
     // TODO: support BZIP2 compression
     Remote(UreqReader),
 }
+use DecompressReaderFile::*;
+
+pub enum DecompressReader<'a> {
+    Raw(DecompressReaderFile),
+    TarballEntry(Box<Entry<'a, xz::read::XzDecoder<DecompressReaderFile>>>),
+}
 use DecompressReader::*;
 
 type UreqReader = Box<dyn Read + Send + Sync + 'static>;
 
-pub fn from_path(path: &Path) -> Result<DecompressReader> {
+pub fn from_path(path: &Path) -> Result<DecompressReaderFile> {
     let fp = File::open(path)?;
     let extension = path.extension().unwrap_or_else(|| std::ffi::OsStr::new(""));
     Ok(if extension == ".gz" {
@@ -51,18 +58,27 @@ pub fn head_url(env: &Env, url: &Url) -> Result<bool> {
     Ok(is_success(resp.status()))
 }
 
-pub fn get_url(env: &Env, url: &Url) -> Result<DecompressReader> {
+pub fn get_url(env: &Env, url: &Url) -> Result<DecompressReaderFile> {
     let resp = with_auth(env, env.client.get(url.as_str())).call()?;
     Ok(Remote(Box::new(resp.into_body().into_reader())))
 }
 
-impl Read for DecompressReader {
+impl Read for DecompressReaderFile {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         // TODO: refactor using the enum_dispatch crate.
         match self {
             Flat(r) => r.read(buf),
             Gz(r) => r.read(buf),
             Remote(r) => r.read(buf),
+        }
+    }
+}
+
+impl Read for DecompressReader<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Raw(r) => r.read(buf),
+            TarballEntry(r) => r.read(buf),
         }
     }
 }

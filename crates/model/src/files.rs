@@ -4,13 +4,14 @@
 //! This module provides helpers to work with file paths.
 
 use anyhow::{Context, Result};
+use logjuicer_report::SourceFile;
 use std::path::Path;
 
 use crate::env::Env;
 use crate::{Content, Input, Source};
 
 pub fn content_from_path(path: &Path) -> Result<Content> {
-    let src = Source::Local(0, path.to_path_buf());
+    let src = Source::RawFile(SourceFile::Local(0, path.to_path_buf()));
 
     if path.is_dir() {
         Ok(Content::Directory(src))
@@ -30,7 +31,7 @@ pub fn discover_baselines_from_path(env: &Env, path: &Path) -> Result<Vec<Conten
     Ok(vec![baseline])
 }
 
-pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader> {
+pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReaderFile> {
     tracing::debug!(path = path.to_str(), "Opening file");
     crate::reader::from_path(path).context("Failed to open file")
 }
@@ -68,6 +69,9 @@ pub fn dir_iter(path: &Path) -> impl Iterator<Item = Result<Source>> {
         .filter(keep_path)
         .map(move |res| match res {
             Err(e) => Err(e.into()),
-            Ok(res) => Ok(Source::Local(base_len, res.into_path())),
+            Ok(res) => Ok(Source::RawFile(SourceFile::Local(
+                base_len,
+                res.into_path(),
+            ))),
         })
 }
