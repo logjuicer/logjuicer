@@ -62,7 +62,7 @@ pub fn with_source<F>(env: &crate::env::Env, source: Source, mut cb: F) -> Resul
 where
     F: for<'a> FnMut(Source, DecompressReader<'a>),
 {
-    if source.as_str().ends_with(".tar.xz") {
+    if source.is_tarball() {
         let reader = open_source(env, &source)?;
         let reader = xz::read::XzDecoder::new(reader);
         let mut archive = tar::Archive::new(reader);

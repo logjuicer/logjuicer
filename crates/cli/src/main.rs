@@ -815,6 +815,7 @@ fn debug_groups(env: &EnvConfig, input: Input) -> Result<()> {
     let content = content_from_input(&env.gl, input)?;
     let env = &env.get_target_env(&content);
     for (index_name, sources) in group_sources(env, &[content])?
+        .1
         .drain()
         .sorted_by(|x, y| Ord::cmp(&x.0, &y.0))
     {
