@@ -158,6 +158,11 @@ impl IndexName {
         };
         IndexName(index_name.into())
     }
+
+    /// Combine two IndexName.
+    pub fn extend(&self, other: &IndexName) -> IndexName {
+        IndexName(format!("{}__{}", self.0, other.0).into())
+    }
 }
 
 impl Default for IndexName {

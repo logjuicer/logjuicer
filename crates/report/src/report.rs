@@ -479,6 +479,9 @@ impl Source {
             _ => None,
         }
     }
+    pub fn is_tarball(&self) -> bool {
+        self.as_str().ends_with(".tar.xz")
+    }
 }
 
 impl std::fmt::Display for Source {

@@ -82,7 +82,13 @@ pub struct Model<IR: IndexReader> {
 pub type ModelF = Model<FeaturesMatrix>;
 
 pub fn indexname_from_source(source: &Source) -> IndexName {
-    IndexName::from_path(source.get_relative())
+    if let Some(tarball) = source.is_tarfile() {
+        let tarball_index = IndexName::from_path(tarball.get_relative());
+        let entry_index = IndexName::from_path(source.get_relative());
+        tarball_index.extend(&entry_index)
+    } else {
+        IndexName::from_path(source.get_relative())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -208,33 +214,49 @@ impl<IR: IndexReader> Model<IR> {
     }
 }
 
+enum IndexSource<'a> {
+    Bundle(Vec<Source>),
+    Tarfile(Source, DecompressReader<'a>),
+}
+
 impl<IR: IndexReader> Index<IR> {
-    #[tracing::instrument(level = "debug", name = "Index::train", skip(env, builder))]
-    pub fn train<IB>(env: &TargetEnv, builder: IB, sources: &[Source]) -> Result<Index<IR>>
+    #[tracing::instrument(level = "debug", name = "Index::train", skip_all)]
+    pub fn train<'a, IB>(
+        env: &TargetEnv,
+        builder: IB,
+        sources: IndexSource<'a>,
+    ) -> Result<Index<IR>>
     where
         IB: IndexBuilder<Reader = IR>,
     {
         let created_at = SystemTime::now();
         let start_time = Instant::now();
         let mut trainer = process::IndexTrainer::new(builder);
-        for source in sources {
-            crate::source::with_source(env.gl, source.clone(), |source, reader| {
-                match source::LinesIterator::new(&source, reader) {
-                    Ok(reader) => {
-                        env.set_current(&source);
-                        if let Err(e) = trainer.add(env.config, reader) {
-                            tracing::error!("{}: failed to load: {}", source, e)
-                        }
-                    }
-                    Err(e) => tracing::error!("{}: failed to read {}", source, e),
+        let mut train_source = |source, reader| match source::LinesIterator::new(source, reader) {
+            Ok(reader) => {
+                env.set_current(source);
+                if let Err(e) = trainer.add(env.config, reader) {
+                    tracing::error!("{}: failed to load: {}", source, e)
                 }
-            })
-            .unwrap();
-        }
+            }
+            Err(e) => tracing::error!("{}: failed to read {}", source, e),
+        };
+        let sources = match sources {
+            IndexSource::Bundle(sources) => {
+                for source in &sources {
+                    let reader = crate::source::open_single_source(env.gl, source)?;
+                    train_source(source, reader);
+                }
+                sources
+            }
+            IndexSource::Tarfile(source, reader) => {
+                train_source(&source, reader);
+                vec![source]
+            }
+        };
         let line_count = trainer.line_count;
         let byte_count = trainer.byte_count;
         let index = trainer.build();
-        let sources = sources.to_vec();
         let train_time = start_time.elapsed();
         Ok(Index {
             created_at,
@@ -368,21 +390,24 @@ pub fn content_get_sources_iter(
     }
 }
 
-// TODO: handle nested entry, the callee need to be updated!
-pub fn group_sources(
-    env: &TargetEnv,
-    baselines: &[Content],
-) -> Result<HashMap<IndexName, Vec<Source>>> {
+type GroupResult = (Vec<Source>, HashMap<IndexName, Vec<Source>>);
+
+pub fn group_sources(env: &TargetEnv, baselines: &[Content]) -> Result<GroupResult> {
     let mut groups = HashMap::new();
+    let mut tarballs = Vec::new();
     for baseline in baselines {
         for source in content_get_sources(env, baseline)? {
-            groups
-                .entry(indexname_from_source(&source))
-                .or_insert_with(Vec::new)
-                .push(source);
+            if source.is_tarball() {
+                tarballs.push(source);
+            } else {
+                groups
+                    .entry(indexname_from_source(&source))
+                    .or_insert_with(Vec::new)
+                    .push(source);
+            }
         }
     }
-    Ok(groups)
+    Ok((tarballs, groups))
 }
 
 #[derive(Debug)]
@@ -416,15 +441,35 @@ impl<IR: IndexReader> Model<IR> {
         let created_at = SystemTime::now();
         let mut indexes = HashMap::new();
 
-        for (index_name, sources) in group_sources(env, &baselines)?.drain() {
+        let (tarballs, mut groups) = group_sources(env, &baselines)?;
+
+        for (index_name, sources) in groups.drain() {
             env.gl.debug_or_progress(&format!(
                 "Loading index {} with {}",
                 index_name,
                 sources.iter().format(", ")
             ));
             let builder = IB::default();
-            let index = Index::train(env, builder, &sources)?;
+            let index = Index::train(env, builder, IndexSource::Bundle(sources))?;
             indexes.insert(index_name, index);
+        }
+        for tarball in tarballs {
+            crate::source::with_source(env.gl, tarball, |source, reader| {
+                let builder = IB::default();
+                match Index::train(env, builder, IndexSource::Tarfile(source.clone(), reader)) {
+                    Ok(index) => {
+                        let index_name = indexname_from_source(&source);
+                        let index = if let Some(prev_index) = indexes.get(&index_name) {
+                            prev_index.mappend(&index)
+                        } else {
+                            index
+                        };
+                        indexes.insert(index_name, index);
+                    }
+                    Err(e) => println!("TODO: handle {}", e),
+                };
+            })
+            .unwrap();
         }
         Ok(Model {
             created_at,
@@ -493,7 +538,8 @@ impl<IR: IndexReader> Model<IR> {
         let mut read_errors = Vec::new();
         let mut counters = LineCounters::new();
         let mut gl_date = None;
-        for (index_name, sources) in group_sources(env, &[target.clone()])?.drain() {
+        let (tarballs, mut groups) = group_sources(env, &[target.clone()])?;
+        for (index_name, sources) in groups.drain() {
             let mut skip_lines = env.new_skip_lines();
             match self.get_index(&index_name) {
                 Some(index) => {
@@ -503,32 +549,30 @@ impl<IR: IndexReader> Model<IR> {
                         sources.iter().take(5).format(", ")
                     ));
                     for source in sources {
-                        crate::source::with_source(env.gl, source, |source, reader| {
-                            match self.report_source(
-                                env,
-                                (index, &index_name),
-                                &mut counters,
-                                &mut skip_lines,
-                                (&source, reader),
-                                gl_date,
-                            ) {
-                                Ok(Some(lr)) => {
-                                    if !index_reports.contains_key(&index_name) {
-                                        index_reports.insert(index_name.clone(), index.to_report());
-                                    };
-                                    if gl_date.is_none() {
-                                        // Record the global date if it is unknown
-                                        gl_date = lr.timed().next().map(|ea| ea.0)
-                                    };
-                                    log_reports.push(lr)
-                                }
-                                Ok(None) => {}
-                                Err(err) => {
-                                    read_errors.push((source.clone(), err.into()));
-                                }
+                        let reader = crate::source::open_single_source(env.gl, &source)?;
+                        match self.report_source(
+                            env,
+                            (index, &index_name),
+                            &mut counters,
+                            &mut skip_lines,
+                            (&source, reader),
+                            gl_date,
+                        ) {
+                            Ok(Some(lr)) => {
+                                if !index_reports.contains_key(&index_name) {
+                                    index_reports.insert(index_name.clone(), index.to_report());
+                                };
+                                if gl_date.is_none() {
+                                    // Record the global date if it is unknown
+                                    gl_date = lr.timed().next().map(|ea| ea.0)
+                                };
+                                log_reports.push(lr)
                             }
-                        })
-                        .unwrap();
+                            Ok(None) => {}
+                            Err(err) => {
+                                read_errors.push((source.clone(), err.into()));
+                            }
+                        }
                     }
                     tracing::debug!(
                         skip_lines = skip_lines.as_ref().map_or(0, |s| s.len()),
@@ -544,6 +588,54 @@ impl<IR: IndexReader> Model<IR> {
                     let _ = unknown_files.insert(index_name, sources);
                 }
             }
+        }
+        for tarball in tarballs {
+            crate::source::with_source(env.gl, tarball, |source, reader| {
+                let index_name = indexname_from_source(&source);
+                match self.get_index(&index_name) {
+                    Some(index) => {
+                        env.gl.debug_or_progress(&format!(
+                            "Reporting index {} with {}",
+                            index_name,
+                            source.get_relative()
+                        ));
+                        let mut skip_lines = env.new_skip_lines();
+                        match self.report_source(
+                            env,
+                            (index, &index_name),
+                            &mut counters,
+                            &mut skip_lines,
+                            (&source, reader),
+                            gl_date,
+                        ) {
+                            Ok(Some(lr)) => {
+                                if !index_reports.contains_key(&index_name) {
+                                    index_reports.insert(index_name.clone(), index.to_report());
+                                };
+                                if gl_date.is_none() {
+                                    // Record the global date if it is unknown
+                                    gl_date = lr.timed().next().map(|ea| ea.0)
+                                };
+                                log_reports.push(lr)
+                            }
+                            Ok(None) => {}
+                            Err(err) => {
+                                read_errors.push((source.clone(), err.into()));
+                            }
+                        }
+                    }
+                    None => {
+                        env.gl.debug_or_progress(&format!(
+                            "Unknown index index {} for {} sources",
+                            index_name,
+                            source.get_relative()
+                        ));
+                        // Todo: extend
+                        let _ = unknown_files.insert(index_name, vec![source]);
+                    }
+                }
+            })
+            .unwrap();
         }
         Ok(Report {
             created_at,
