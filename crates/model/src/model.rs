@@ -20,7 +20,8 @@ use url::Url;
 pub use logjuicer_tokenizer::index_name::IndexName;
 
 pub use logjuicer_report::{
-    AnomalyContext, ApiUrl, Content, IndexReport, LogReport, ProwBuild, Report, Source, ZuulBuild,
+    AnomalyContext, ApiUrl, Content, IndexReport, LogReport, ProwBuild, Report, Source, SourceLoc,
+    ZuulBuild,
 };
 
 pub use logjuicer_index::{FeaturesMatrix, FeaturesMatrixBuilder};
@@ -214,6 +215,7 @@ impl<IR: IndexReader> Model<IR> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum IndexSource<'a> {
     Bundle(Vec<Source>),
     Tarfile(Source, DecompressReader<'a>),
@@ -324,7 +326,7 @@ pub fn content_from_input(env: &Env, input: Input) -> Result<Content> {
 
 /// Create content from raw file path, usefule for testing.
 pub fn content_from_pathbuf(p: PathBuf) -> Content {
-    Content::File(Source::from_pathbuf(p))
+    Content::File(SourceLoc::from_pathbuf(p))
 }
 
 /// Discover the baselines for this Content.
@@ -332,13 +334,12 @@ pub fn content_from_pathbuf(p: PathBuf) -> Content {
 pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Vec<Content>> {
     (match content {
         Content::File(src) => match src {
-            Source::Local(_, pathbuf) => {
+            SourceLoc::Local(_, pathbuf) => {
                 crate::files::discover_baselines_from_path(env, pathbuf.as_path())
             }
-            Source::Remote(_, _) => Err(anyhow::anyhow!(
+            SourceLoc::Remote(_, _) => Err(anyhow::anyhow!(
                 "Use the diff command to process remote file.",
             )),
-            Source::TarFile(_, _, _) => Err(anyhow::anyhow!("Tar file can't be a baseline.",)),
         },
         Content::Directory(_) => Err(anyhow::anyhow!(
             "Use the diff command to process directory.",
@@ -363,7 +364,7 @@ pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Vec<Co
 
 /// Get the sources of log lines for this Content.
 #[tracing::instrument(level = "debug", skip(env))]
-pub fn content_get_sources(env: &TargetEnv, content: &Content) -> Result<Vec<Source>> {
+pub fn content_get_sources(env: &TargetEnv, content: &Content) -> Result<Vec<SourceLoc>> {
     content_get_sources_iter(content, env.gl)
         .filter(|source| {
             source
@@ -382,13 +383,12 @@ pub fn content_get_sources(env: &TargetEnv, content: &Content) -> Result<Vec<Sou
 pub fn content_get_sources_iter(
     content: &Content,
     env: &Env,
-) -> Box<dyn Iterator<Item = Result<Source>>> {
+) -> Box<dyn Iterator<Item = Result<SourceLoc>>> {
     match content {
         Content::File(src) => Box::new(file_iter(src)),
         Content::Directory(src) => match src {
-            Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
-            Source::Remote(_, url) => Box::new(httpdir_iter(url, env)),
-            Source::TarFile(_, _, _) => panic!("Directory can't be a tarfile"),
+            SourceLoc::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
+            SourceLoc::Remote(_, url) => Box::new(httpdir_iter(url, env)),
         },
         Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build, env)),
         Content::Prow(build) => Box::new(crate::prow::sources_iter(build, env)),
@@ -396,7 +396,7 @@ pub fn content_get_sources_iter(
     }
 }
 
-type GroupResult = (Vec<Source>, HashMap<IndexName, Vec<Source>>);
+type GroupResult = (Vec<SourceLoc>, HashMap<IndexName, Vec<Source>>);
 
 pub fn group_sources(env: &TargetEnv, baselines: &[Content]) -> Result<GroupResult> {
     let mut groups = HashMap::new();
@@ -407,9 +407,9 @@ pub fn group_sources(env: &TargetEnv, baselines: &[Content]) -> Result<GroupResu
                 tarballs.push(source);
             } else {
                 groups
-                    .entry(indexname_from_source(&source))
+                    .entry(IndexName::from_path(source.get_relative()))
                     .or_insert_with(Vec::new)
-                    .push(source);
+                    .push(Source::RawFile(source));
             }
         }
     }
@@ -644,8 +644,10 @@ impl<IR: IndexReader> Model<IR> {
                             index_name,
                             source.get_relative()
                         ));
-                        // Todo: extend
-                        let _ = unknown_files.insert(index_name, vec![source]);
+                        unknown_files
+                            .entry(index_name)
+                            .or_insert_with(Vec::new)
+                            .push(source);
                     }
                 }
             })

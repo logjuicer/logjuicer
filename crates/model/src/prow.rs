@@ -7,7 +7,7 @@ use std::io::Read;
 use url::Url;
 
 use crate::env::Env;
-use crate::{Content, Source};
+use crate::{Content, SourceLoc};
 use logjuicer_report::ProwBuild;
 
 fn is_prow_uid(uid: &str) -> bool {
@@ -151,7 +151,7 @@ pub fn discover_baselines(build: &ProwBuild, env: &Env) -> Result<Vec<Content>> 
     Ok(vec![])
 }
 
-pub fn sources_iter(build: &ProwBuild, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
+pub fn sources_iter(build: &ProwBuild, env: &Env) -> Box<dyn Iterator<Item = Result<SourceLoc>>> {
     match get_prow_artifact_url(env, &build.url) {
         Err(e) => Box::new(std::iter::once(Err(e))),
         Ok(url) => crate::httpdir_iter(&url, env),

@@ -7,10 +7,10 @@ use anyhow::{Context, Result};
 use std::path::Path;
 
 use crate::env::Env;
-use crate::{Content, Input, Source};
+use crate::{Content, Input, SourceLoc};
 
 pub fn content_from_path(path: &Path) -> Result<Content> {
-    let src = Source::Local(0, path.to_path_buf());
+    let src = SourceLoc::Local(0, path.to_path_buf());
 
     if path.is_dir() {
         Ok(Content::Directory(src))
@@ -36,7 +36,7 @@ pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReaderFile> {
 }
 
 // A file source only has one source
-pub fn file_iter(source: &Source) -> impl Iterator<Item = Result<Source>> {
+pub fn file_iter(source: &SourceLoc) -> impl Iterator<Item = Result<SourceLoc>> {
     std::iter::once(Ok(source.clone()))
 }
 
@@ -61,13 +61,13 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-pub fn dir_iter(path: &Path) -> impl Iterator<Item = Result<Source>> {
+pub fn dir_iter(path: &Path) -> impl Iterator<Item = Result<SourceLoc>> {
     let base_len = path.to_str().map(|s| s.len()).unwrap_or(0);
     walkdir::WalkDir::new(path)
         .into_iter()
         .filter(keep_path)
         .map(move |res| match res {
             Err(e) => Err(e.into()),
-            Ok(res) => Ok(Source::Local(base_len, res.into_path())),
+            Ok(res) => Ok(SourceLoc::Local(base_len, res.into_path())),
         })
 }

@@ -6,7 +6,7 @@ use logjuicer_model::{
     content_from_input, content_get_sources,
     env::{Env, EnvConfig},
     urls::url_open,
-    Input, Source,
+    Input, SourceLoc,
 };
 use std::path::PathBuf;
 use threadpool::ThreadPool;
@@ -24,7 +24,7 @@ pub fn download(base_env: EnvConfig, dest: PathBuf, input: Input) -> Result<()> 
     let sources = content_get_sources(&base_env.get_target_env(&content), &content)?;
     let pool = ThreadPool::new(5);
     for source in sources {
-        if let Source::Remote(base, url) = source {
+        if let SourceLoc::Remote(base, url) = source {
             let path = dest.join(&url.as_str()[base..]);
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)?;

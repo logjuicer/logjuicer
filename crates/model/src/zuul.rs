@@ -9,8 +9,8 @@ use std::io::Read;
 use url::Url;
 
 use crate::env::Env;
-use crate::{Content, Source};
-use logjuicer_report::{ApiUrl, ZuulBuild};
+use crate::Content;
+use logjuicer_report::{ApiUrl, SourceLoc, ZuulBuild};
 
 fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
     let days = now.signed_duration_since(since).num_days();
@@ -175,7 +175,7 @@ pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Vec<Content>> 
         .collect())
 }
 
-pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
+pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Result<SourceLoc>>> {
     let prefix = build.log_url.as_str().trim_end_matches('/').len() + 1;
     let manifest_url = build.log_url.join("zuul-manifest.json").expect("good url");
     if let Ok(mut reader) = crate::url_open(env, &manifest_url) {
@@ -196,7 +196,7 @@ pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Res
                 manifest
                     .to_urls(build.log_url.clone())
                     .into_iter()
-                    .map(move |url| Ok(Source::Remote(prefix, url))),
+                    .map(move |url| Ok(SourceLoc::Remote(prefix, url))),
             ),
         }
     } else {

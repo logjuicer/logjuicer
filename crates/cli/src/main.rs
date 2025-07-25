@@ -9,7 +9,7 @@ use itertools::Itertools;
 use logjuicer_model::env::{EnvConfig, OutputMode, TargetEnv};
 use logjuicer_model::{
     content_discover_baselines, content_from_input, content_get_sources, group_sources,
-    source::LinesIterator, Content, FeaturesMatrix, FeaturesMatrixBuilder, Input, Model, Source,
+    source::LinesIterator, Content, FeaturesMatrix, FeaturesMatrixBuilder, Input, Model, SourceLoc,
 };
 use logjuicer_report::{bytes_to_mb, Report};
 use std::path::PathBuf;
@@ -361,7 +361,7 @@ impl Cli {
                 }
                 let content = Content::sample_job(&job);
                 if let Some((pos, cfg)) = env.config.test_target_config(&content) {
-                    let source = Source::from_pathbuf(file.into());
+                    let source = SourceLoc::from_pathbuf(file.into());
                     let skipped = if cfg.is_source_valid(&source) {
                         "valid"
                     } else {

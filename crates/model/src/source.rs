@@ -6,7 +6,7 @@ use bytes::Bytes;
 use std::io::Read;
 
 use crate::{env::Env, journal::JournalLines, reader::DecompressReader};
-use logjuicer_report::Source;
+use logjuicer_report::{Source, SourceLoc};
 
 pub enum LinesIterator<R: Read> {
     Bytes(logjuicer_iterator::BytesLines<R>),
@@ -41,13 +41,10 @@ impl<'a> LinesIterator<DecompressReader<'a>> {
     }
 }
 
-fn open_source(env: &Env, source: &Source) -> Result<crate::reader::DecompressReaderFile> {
+fn open_source(env: &Env, source: &SourceLoc) -> Result<crate::reader::DecompressReaderFile> {
     match source {
-        Source::Local(_, path_buf) => crate::files::file_open(path_buf.as_path()),
-        Source::Remote(_, url) => crate::urls::url_open(env, url),
-        Source::TarFile(_, _, _) => Err(anyhow::anyhow!(
-            "This is not possible, open_source doesn't work with TarFile.",
-        )),
+        SourceLoc::Local(_, path_buf) => crate::files::file_open(path_buf.as_path()),
+        SourceLoc::Remote(_, url) => crate::urls::url_open(env, url),
     }
 }
 
@@ -55,10 +52,15 @@ pub fn open_single_source<'a>(
     env: &Env,
     source: &Source,
 ) -> Result<crate::reader::DecompressReader<'a>> {
-    Ok(DecompressReader::Raw(open_source(env, source)?))
+    match source {
+        Source::RawFile(source) => Ok(DecompressReader::Raw(open_source(env, source)?)),
+        Source::TarFile(_, _, _) => Err(anyhow::anyhow!(
+            "This is not possible, open_source doesn't work with TarFile.",
+        )),
+    }
 }
 
-pub fn with_source<F>(env: &crate::env::Env, source: Source, mut cb: F)
+pub fn with_source<F>(env: &crate::env::Env, source: SourceLoc, mut cb: F)
 where
     F: for<'a> FnMut(Source, std::result::Result<DecompressReader<'a>, String>),
 {
@@ -80,23 +82,29 @@ where
                                         .unwrap_or("unknown".into());
                                     let url = format!("{}?entry={}", source.as_str(), path);
                                     let new_source =
-                                        Source::TarFile(Box::new(source.clone()), path, url.into());
+                                        Source::TarFile(source.clone(), path, url.into());
                                     let reader = DecompressReader::TarballEntry(Box::new(entry));
                                     cb(new_source, Ok(reader))
                                 }
                                 Err(err) => cb(
-                                    (*source).clone(),
+                                    Source::RawFile((*source).clone()),
                                     Err(format!("tarball entry failed: {}", err)),
                                 ),
                             }
                         }
                     }
-                    Err(err) => cb(source, Err(format!("tarball entries failed: {}", err))),
+                    Err(err) => cb(
+                        Source::RawFile(source),
+                        Err(format!("tarball entries failed: {}", err)),
+                    ),
                 }
             } else {
-                cb(source, Ok(DecompressReader::Raw(reader)));
+                cb(Source::RawFile(source), Ok(DecompressReader::Raw(reader)));
             }
         }
-        Err(err) => cb(source, Err(format!("open_source failed: {}", err))),
+        Err(err) => cb(
+            Source::RawFile(source),
+            Err(format!("open_source failed: {}", err)),
+        ),
     }
 }

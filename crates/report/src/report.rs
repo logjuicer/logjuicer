@@ -126,9 +126,9 @@ impl Report {
         Report {
             created_at: SystemTime::UNIX_EPOCH.add(Duration::from_secs(42 * 24 * 3600)),
             run_time: Duration::from_secs(42),
-            target: Content::File(Source::Local(5, "/proc/status".into())),
+            target: Content::File(SourceLoc::Local(5, "/proc/status".into())),
             baselines: vec![
-                Content::File(Source::Remote(
+                Content::File(SourceLoc::Remote(
                     0,
                     "http://localhost/status".try_into().unwrap(),
                 )),
@@ -155,7 +155,7 @@ impl Report {
                 }],
                 index_name: IndexName("test".into()),
                 source: Source::TarFile(
-                    Box::new(Arc::new(Source::Local(4, "/tmp/test.tar.xz".into()))),
+                    Arc::new(SourceLoc::Local(4, "/tmp/test.tar.xz".into())),
                     "entry.txt".into(),
                     "/tmp/test.tar.xz?entry=entry.txt".into(),
                 ),
@@ -164,17 +164,20 @@ impl Report {
                 IndexName("i".into()),
                 IndexReport {
                     train_time: Duration::from_secs(51),
-                    sources: vec![Source::Local(4, "/etc/hosts".into())],
+                    sources: vec![Source::RawFile(SourceLoc::Local(4, "/etc/hosts".into()))],
                 },
             )]),
             unknown_files: HashMap::from([(
                 IndexName("j".into()),
-                vec![Source::Remote(
+                vec![Source::RawFile(SourceLoc::Remote(
                     0,
                     url::Url::parse("http://local/hosts").unwrap(),
-                )],
+                ))],
             )]),
-            read_errors: vec![(Source::Local(0, "bad".into()), "oops".into())],
+            read_errors: vec![(
+                Source::RawFile(SourceLoc::Local(0, "bad".into())),
+                "oops".into(),
+            )],
             total_line_count: 42,
             total_anomaly_count: 23,
         }
@@ -362,8 +365,8 @@ impl ProwBuild {
 /// A source of log lines.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Content {
-    File(Source),
-    Directory(Source),
+    File(SourceLoc),
+    Directory(SourceLoc),
     Zuul(Box<ZuulBuild>),
     Prow(Box<ProwBuild>),
     LocalZuulBuild(PathBuf, Box<ZuulBuild>),
@@ -371,7 +374,7 @@ pub enum Content {
 
 impl Content {
     pub fn sample(name: &str) -> Self {
-        Content::File(Source::Local(0, name.into()))
+        Content::File(SourceLoc::Local(0, name.into()))
     }
     pub fn sample_job(name: &str) -> Self {
         Content::Zuul(Box::new(ZuulBuild::sample(name)))
@@ -404,39 +407,91 @@ impl std::fmt::Display for Content {
 
 /// The location of the log lines, and the relative prefix length.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash, PartialOrd, Ord)]
-pub enum Source {
+pub enum SourceLoc {
     Local(usize, PathBuf),
     Remote(usize, Url),
-    TarFile(Box<Arc<Source>>, Arc<str>, Arc<str>),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq, Hash, PartialOrd, Ord)]
+pub enum Source {
+    RawFile(SourceLoc),
+    TarFile(Arc<SourceLoc>, Arc<str>, Arc<str>),
 }
 
 impl Source {
-    pub fn from_pathbuf(p: PathBuf) -> Source {
-        Source::Local(0, p)
-    }
-    pub fn is_json(&'_ self) -> bool {
-        self.get_relative().ends_with(".json")
-    }
-    fn get_prefix(&self) -> usize {
-        match self {
-            Source::Local(l, _) => *l,
-            Source::Remote(l, _) => *l,
-            Source::TarFile(b, _, _) => b.get_prefix(),
+    pub fn is_raw(source: Source) -> Option<SourceLoc> {
+        match source {
+            Source::RawFile(source) => Some(source),
+            Source::TarFile(_, _, _) => None,
         }
     }
     pub fn get_relative(&'_ self) -> &'_ str {
         match self {
-            Source::Local(base_len, path) => &path.to_str().unwrap_or("")[*base_len..],
-            Source::Remote(base_len, url) => &url.as_str()[*base_len..],
+            Source::RawFile(source) => source.get_relative(),
             Source::TarFile(base, _, url) => &url[base.get_prefix()..],
         }
     }
 
     pub fn as_str(&'_ self) -> &'_ str {
         match self {
-            Source::Local(_, path) => path.to_str().unwrap_or(""),
-            Source::Remote(_, url) => url.as_str(),
+            Source::RawFile(source) => source.as_str(),
             Source::TarFile(_, _, url) => url,
+        }
+    }
+
+    pub fn get_href(&'_ self, content: &Content) -> &'_ str {
+        match content {
+            Content::LocalZuulBuild(_, _) => self.get_relative(),
+            _ => self.as_str(),
+        }
+    }
+    pub fn older_than(&self, date: chrono::NaiveDateTime) -> bool {
+        match self {
+            Source::TarFile(b, _, _) => b.older_than(date),
+            Source::RawFile(b) => b.older_than(date),
+        }
+    }
+    pub fn is_json(&'_ self) -> bool {
+        self.get_relative().ends_with(".json")
+    }
+    pub fn is_tarfile(&self) -> Option<Arc<SourceLoc>> {
+        match self {
+            Source::TarFile(b, _, _) => Some(b.clone()),
+            _ => None,
+        }
+    }
+    pub fn is_tarball(&self) -> bool {
+        match self {
+            Source::TarFile(_, _, _) => false,
+            Source::RawFile(s) => s.is_tarball(),
+        }
+    }
+    pub fn from_pathbuf(p: PathBuf) -> Source {
+        Source::RawFile(SourceLoc::from_pathbuf(p))
+    }
+}
+
+impl SourceLoc {
+    pub fn from_pathbuf(p: PathBuf) -> SourceLoc {
+        SourceLoc::Local(0, p)
+    }
+    fn get_prefix(&self) -> usize {
+        match self {
+            SourceLoc::Local(l, _) => *l,
+            SourceLoc::Remote(l, _) => *l,
+        }
+    }
+    pub fn get_relative(&'_ self) -> &'_ str {
+        match self {
+            SourceLoc::Local(base_len, path) => &path.to_str().unwrap_or("")[*base_len..],
+            SourceLoc::Remote(base_len, url) => &url.as_str()[*base_len..],
+        }
+    }
+
+    pub fn as_str(&'_ self) -> &'_ str {
+        match self {
+            SourceLoc::Local(_, path) => path.to_str().unwrap_or(""),
+            SourceLoc::Remote(_, url) => url.as_str(),
         }
     }
 
@@ -450,8 +505,8 @@ impl Source {
     pub fn older_than(&self, date: chrono::NaiveDateTime) -> bool {
         match self {
             // todo: check with HEAD request?
-            Source::Remote(_, _) => true,
-            Source::Local(_, pb) => pb
+            SourceLoc::Remote(_, _) => true,
+            SourceLoc::Local(_, pb) => pb
                 .metadata()
                 .and_then(|metadata| metadata.modified())
                 .ok()
@@ -463,20 +518,12 @@ impl Source {
                         < date.and_utc().timestamp() as u64
                 })
                 .unwrap_or(true),
-            Source::TarFile(b, _, _) => b.older_than(date),
         }
     }
     fn is_local(&self) -> bool {
         match self {
-            Source::Remote(_, _) => false,
-            Source::Local(_, _) => true,
-            Source::TarFile(b, _, _) => b.is_local(),
-        }
-    }
-    pub fn is_tarfile(&self) -> Option<Arc<Source>> {
-        match self {
-            Source::TarFile(b, _, _) => Some(b.as_ref().clone()),
-            _ => None,
+            SourceLoc::Remote(_, _) => false,
+            SourceLoc::Local(_, _) => true,
         }
     }
     pub fn is_tarball(&self) -> bool {
@@ -484,11 +531,19 @@ impl Source {
     }
 }
 
+impl std::fmt::Display for SourceLoc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SourceLoc::Local(_, _) => write!(f, "local: {}", self.get_relative()),
+            SourceLoc::Remote(_, _) => write!(f, "remote: {}", self.get_relative()),
+        }
+    }
+}
+
 impl std::fmt::Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Source::Local(_, _) => write!(f, "local: {}", self.get_relative()),
-            Source::Remote(_, _) => write!(f, "remote: {}", self.get_relative()),
+            Source::RawFile(source) => source.fmt(f),
             Source::TarFile(b, _, _) => {
                 if b.is_local() {
                     write!(f, "local-tar: {}", self.get_relative())
@@ -566,7 +621,7 @@ impl LogReport {
 
 #[test]
 fn test_report_sort() {
-    let mk_src = |name: &str| Source::Local(0, name.into());
+    let mk_src = |name: &str| Source::RawFile(SourceLoc::Local(0, name.into()));
     let mk_lr = |name: &str| LogReport {
         test_time: Duration::from_secs(0),
         line_count: 10,
