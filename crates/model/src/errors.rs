@@ -321,21 +321,15 @@ pub fn errors_report(env: &TargetEnv, target: Content) -> Result<Report> {
     let skip_lines = Arc::new(Mutex::new(env.new_skip_lines()));
 
     sources.into_par_iter().for_each(|source| {
-        crate::source::with_source(env.gl, source, |source, reader| match errors_report_source(
-            env,
-            skip_lines.clone(),
-            counters.clone(),
-            &source,
-            reader,
-        ) {
-            Ok(Some(lr)) => log_reports.lock().unwrap().push(lr),
-            Ok(None) => {}
-            Err(err) => read_errors
-                .lock()
-                .unwrap()
-                .push((source.clone(), err.into())),
+        crate::source::with_source(env.gl, source, |source, reader| {
+            match reader.and_then(|reader| {
+                errors_report_source(env, skip_lines.clone(), counters.clone(), &source, reader)
+            }) {
+                Ok(Some(lr)) => log_reports.lock().unwrap().push(lr),
+                Ok(None) => {}
+                Err(err) => read_errors.lock().unwrap().push((source, err.into())),
+            }
         })
-        .unwrap();
     });
 
     let counters = counters.lock().unwrap();
