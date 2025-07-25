@@ -5,7 +5,7 @@ use anyhow::Result;
 use url::Url;
 
 use crate::env::Env;
-use crate::{Content, Source};
+use crate::{Content, SourceLoc};
 
 pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
     if !url.has_authority() {
@@ -15,9 +15,9 @@ pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
     } else if let Some(content) = crate::prow::content_from_prow_url(&url) {
         content
     } else if url.as_str().ends_with('/') {
-        Ok(Content::Directory(Source::Remote(0, url)))
+        Ok(Content::Directory(SourceLoc::Remote(0, url)))
     } else {
-        Ok(Content::File(Source::Remote(0, url)))
+        Ok(Content::File(SourceLoc::Remote(0, url)))
     }
 }
 
@@ -28,7 +28,7 @@ pub fn url_open(env: &Env, url: &Url) -> Result<crate::reader::DecompressReaderF
 }
 
 #[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
-pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Source>>> {
+pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<SourceLoc>>> {
     let base_len = url.as_str().trim_end_matches('/').len() + 1;
     let req_max = 2500;
     Box::new(
@@ -38,7 +38,7 @@ pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Sour
             .map(move |url_result| {
                 url_result
                     .map_err(anyhow::Error::msg)
-                    .map(|url| Source::Remote(base_len, url))
+                    .map(|url| SourceLoc::Remote(base_len, url))
             }),
     )
 }

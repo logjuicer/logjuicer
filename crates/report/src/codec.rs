@@ -11,8 +11,8 @@ use std::time::{Duration, SystemTime};
 use std::{convert::TryInto, ops::Add};
 
 pub struct ReportEncoder {
-    tarballs_map: BTreeMap<Arc<Source>, usize>,
-    tarballs: Vec<Arc<Source>>,
+    tarballs_map: BTreeMap<Arc<SourceLoc>, usize>,
+    tarballs: Vec<Arc<SourceLoc>>,
 }
 
 impl Default for ReportEncoder {
@@ -96,7 +96,7 @@ impl ReportEncoder {
             let mut builder = module.reborrow().init_tarballs(self.tarballs.len() as u32);
             for (idx, source) in self.tarballs.iter().enumerate() {
                 let source_builder = builder.reborrow().get(idx as u32);
-                self.write_source(source, source_builder)?;
+                self.write_source_loc(source, source_builder)?;
             }
         }
         module.set_total_line_count(report.total_line_count as u32);
@@ -186,8 +186,8 @@ impl ReportEncoder {
         builder: schema_capnp::content::Builder,
     ) -> Result<()> {
         match content {
-            Content::File(source) => self.write_source(source, builder.init_file()),
-            Content::Directory(source) => self.write_source(source, builder.init_dir()),
+            Content::File(source) => self.write_source_loc(source, builder.init_file()),
+            Content::Directory(source) => self.write_source_loc(source, builder.init_dir()),
             Content::Zuul(build) => self.write_zuul(build, builder.init_zuul()),
             Content::Prow(build) => self.write_prow(build, builder.init_prow()),
             Content::LocalZuulBuild(path, build) => {
@@ -236,9 +236,13 @@ impl ReportEncoder {
         Ok(())
     }
 
-    fn write_source(&self, source: &Source, builder: schema_capnp::source::Builder) -> Result<()> {
+    fn write_source_loc(
+        &self,
+        source: &SourceLoc,
+        builder: schema_capnp::source::Builder,
+    ) -> Result<()> {
         match source {
-            Source::Local(prefix, path) => {
+            SourceLoc::Local(prefix, path) => {
                 let mut builder = builder.init_local();
                 builder.set_prefix(
                     (*prefix)
@@ -252,7 +256,7 @@ impl ReportEncoder {
                 );
                 Ok(())
             }
-            Source::Remote(prefix, url) => {
+            SourceLoc::Remote(prefix, url) => {
                 let mut builder = builder.init_remote();
                 builder.set_prefix(
                     (*prefix)
@@ -262,6 +266,12 @@ impl ReportEncoder {
                 builder.set_loc(url.as_str());
                 Ok(())
             }
+        }
+    }
+
+    fn write_source(&self, source: &Source, builder: schema_capnp::source::Builder) -> Result<()> {
+        match source {
+            Source::RawFile(source) => self.write_source_loc(source, builder),
             Source::TarFile(base, path, _) => match self.tarballs_map.get(base.as_ref()) {
                 Some(pos) => {
                     let mut builder = builder.init_tarfile();
@@ -346,7 +356,7 @@ impl ReportEncoder {
             let mut builder = module.reborrow().init_tarballs(self.tarballs.len() as u32);
             for (idx, source) in self.tarballs.iter().enumerate() {
                 let source_builder = builder.reborrow().get(idx as u32);
-                self.write_source(source, source_builder)?;
+                self.write_source_loc(source, source_builder)?;
             }
         }
         capnp::serialize::write_message(write, &message)
@@ -404,7 +414,7 @@ impl ReportEncoder {
 }
 
 pub struct ReportDecoder {
-    tarballs: Vec<Arc<Source>>,
+    tarballs: Vec<Arc<SourceLoc>>,
 }
 
 impl Default for ReportDecoder {
@@ -459,7 +469,7 @@ impl ReportDecoder {
         reader: &capnp::struct_list::Reader<schema_capnp::source::Owned>,
     ) -> Result<()> {
         for tarball_reader in reader.into_iter() {
-            let source = self.read_source(&tarball_reader)?;
+            let source = self.read_source_loc(&tarball_reader)?;
             self.tarballs.push(Arc::new(source))
         }
         Ok(())
@@ -545,8 +555,8 @@ impl ReportDecoder {
     fn read_content(&self, reader: &schema_capnp::content::Reader) -> Result<Content> {
         use schema_capnp::content::Which;
         Ok(match reader.which()? {
-            Which::File(reader) => Content::File(self.read_source(&reader?)?),
-            Which::Dir(reader) => Content::Directory(self.read_source(&reader?)?),
+            Which::File(reader) => Content::File(self.read_source_loc(&reader?)?),
+            Which::Dir(reader) => Content::Directory(self.read_source_loc(&reader?)?),
             Which::Zuul(reader) => Content::Zuul(Box::new(self.read_zuul(&reader?)?)),
             Which::Prow(reader) => Content::Prow(Box::new(self.read_prow(&reader?)?)),
             Which::LocalZuul(reader) => {
@@ -585,19 +595,32 @@ impl ReportDecoder {
         })
     }
 
+    fn read_source_loc(&self, reader: &schema_capnp::source::Reader) -> Result<SourceLoc> {
+        match self.read_source(reader)? {
+            Source::RawFile(f) => Ok(f),
+            e => Err(capnp::Error::failed(format!(
+                "Expected raw file, got: {}",
+                e
+            ))),
+        }
+    }
+
     fn read_source(&self, reader: &schema_capnp::source::Reader) -> Result<Source> {
         use schema_capnp::source::Which;
         Ok(match reader.which()? {
             Which::Local(reader) => {
                 let reader = reader?;
-                Source::Local(
+                Source::RawFile(SourceLoc::Local(
                     reader.get_prefix().into(),
                     reader.get_loc()?.to_str()?.into(),
-                )
+                ))
             }
             Which::Remote(reader) => {
                 let reader = reader?;
-                Source::Remote(reader.get_prefix().into(), read_url(reader.get_loc()?)?)
+                Source::RawFile(SourceLoc::Remote(
+                    reader.get_prefix().into(),
+                    read_url(reader.get_loc()?)?,
+                ))
             }
             Which::Tarfile(reader) => {
                 let reader = reader?;
@@ -611,7 +634,7 @@ impl ReportDecoder {
                     Some(base) => Ok(base),
                 }?;
                 let abs = format!("{}?entry={}", base.as_str(), loc).into();
-                Source::TarFile(Box::new(base.clone()), loc, abs)
+                Source::TarFile(base.clone(), loc, abs)
             }
         })
     }

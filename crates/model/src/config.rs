@@ -4,7 +4,7 @@
 //! This module provides a model configuration.
 
 use crate::{content_from_input, env::Env, Input};
-use logjuicer_report::{Content, Source};
+use logjuicer_report::{Content, SourceLoc};
 use regex::{Regex, RegexSet};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -194,7 +194,7 @@ impl TargetConfig {
         })
     }
 
-    pub fn is_source_valid(&self, source: &Source) -> bool {
+    pub fn is_source_valid(&self, source: &SourceLoc) -> bool {
         let fp = source.get_relative().trim_end_matches(".gz");
         if let Some(includes) = &self.includes {
             if !includes.is_match(fp) {
@@ -315,7 +315,7 @@ fn test_config_default_exclude() {
         "font.ttf.gz",
         "/system/etc/conf",
     ] {
-        let source = Source::from_pathbuf(src.into());
+        let source = SourceLoc::from_pathbuf(src.into());
         assert_eq!(config.is_source_valid(&source), false)
     }
 }
@@ -336,7 +336,7 @@ pub fn config_from_yaml(yaml: &str) -> Config {
 #[cfg(test)]
 fn config_check(config: &Config, path: &str) -> bool {
     let config = config.get_target_config(&Content::sample("test"));
-    config.is_source_valid(&Source::from_pathbuf(path.into()))
+    config.is_source_valid(&SourceLoc::from_pathbuf(path.into()))
 }
 
 #[test]

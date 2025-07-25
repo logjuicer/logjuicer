@@ -135,7 +135,7 @@ fn test_report_similarity() {
 
     let r1 = Report::sample();
     let mut r2 = Report::sample();
-    r2.target = Content::File(Source::Local(4, "/proc/test".into()));
+    r2.target = Content::File(SourceLoc::Local(4, "/proc/test".into()));
     r2.log_reports[0].anomalies.push(AnomalyContext {
         before: vec![],
         after: vec![],
@@ -161,17 +161,14 @@ fn test_report_similarity() {
             after: vec![],
         }],
         index_name: IndexName("test2".into()),
-        source: Source::Local(4, "/proc/cmd".into()),
+        source: Source::RawFile(SourceLoc::Local(4, "/proc/cmd".into())),
     });
 
     let sr = create_similarity_report(&[&r1, &r2]);
     assert_eq!(sr.targets, vec![r1.target, r2.target]);
     assert_eq!(sr.baselines, r1.baselines);
     let default_source = Source::TarFile(
-        Box::new(std::sync::Arc::new(Source::Local(
-            4,
-            "/tmp/test.tar.xz".into(),
-        ))),
+        std::sync::Arc::new(SourceLoc::Local(4, "/tmp/test.tar.xz".into())),
         "entry.txt".into(),
         "/tmp/test.tar.xz?entry=entry.txt".into(),
     );
@@ -219,7 +216,7 @@ fn test_report_similarity() {
         SimilarityLogReport {
             sources: vec![SimilaritySource {
                 target: TargetID(1),
-                source: Source::Local(4, "/proc/cmd".into()),
+                source: Source::RawFile(SourceLoc::Local(4, "/proc/cmd".into())),
             }],
             anomalies: vec![SimilarityAnomalyContext {
                 sources: vec![SourceID(0)],
