@@ -331,7 +331,7 @@ impl Cli {
                 for source in sources {
                     logjuicer_model::source::with_source(env.gl, source, |source, reader| {
                         println!("[{}]", source.as_str());
-                        for line in LinesIterator::new(&source, reader).unwrap() {
+                        for line in LinesIterator::new(&source, reader.unwrap()).unwrap() {
                             match line {
                                 Ok((bytes, nr)) => match std::str::from_utf8(&bytes) {
                                     Ok(txt) => println!("{} | {}", nr, txt),
@@ -340,7 +340,7 @@ impl Cli {
                                 Err(e) => println!("{}", e),
                             }
                         }
-                    })?;
+                    });
                 }
                 Ok(())
             }
@@ -521,7 +521,10 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
     for source in sources {
         logjuicer_model::source::with_source(env.gl, source, |source, reader| {
             let skip_lines = skip_lines.clone();
-            match logjuicer_model::errors::get_errors_processor(env, skip_lines, &source, reader) {
+            match reader.and_then(|reader| {
+                logjuicer_model::errors::get_errors_processor(env, skip_lines, &source, reader)
+                    .map_err(|err| err.to_string())
+            }) {
                 Ok(mut processor) => {
                     let mut file_shown = false;
                     let mut last_pos = None;
@@ -564,7 +567,6 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
                 }
             }
         })
-        .unwrap()
     }
     let process_time = start_time.elapsed();
     let total_mb_count = (total_byte_count as f64) / (1024.0 * 1024.0);
@@ -729,7 +731,11 @@ fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix
                     };
                     progress_sep_shown = false;
                     let skip_lines = &mut env.new_skip_lines();
-                    match index.get_processor(env, &source, reader, skip_lines, gl_date) {
+                    match reader.and_then(|reader| {
+                        index
+                            .get_processor(env, &source, reader, skip_lines, gl_date)
+                            .map_err(|err| err.to_string())
+                    }) {
                         Ok(mut processor) => {
                             for anomaly in processor.by_ref() {
                                 if env.gl.output.inlined() && !progress_sep_shown {
@@ -768,7 +774,6 @@ fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix
                 }
             }
         })
-        .unwrap()
     }
     if !progress_sep_shown {
         // If the last source didn't had an anomaly, then erase the current progress

@@ -225,7 +225,7 @@ impl<IR: IndexReader> Index<IR> {
         env: &TargetEnv,
         builder: IB,
         sources: IndexSource<'a>,
-    ) -> Result<Index<IR>>
+    ) -> Option<Index<IR>>
     where
         IB: IndexBuilder<Reader = IR>,
     {
@@ -244,8 +244,10 @@ impl<IR: IndexReader> Index<IR> {
         let sources = match sources {
             IndexSource::Bundle(sources) => {
                 for source in &sources {
-                    let reader = crate::source::open_single_source(env.gl, source)?;
-                    train_source(source, reader);
+                    match crate::source::open_single_source(env.gl, source) {
+                        Ok(reader) => train_source(source, reader),
+                        Err(e) => tracing::error!("{}: fail to open {}", source, e),
+                    };
                 }
                 sources
             }
@@ -257,15 +259,19 @@ impl<IR: IndexReader> Index<IR> {
         let line_count = trainer.line_count;
         let byte_count = trainer.byte_count;
         let index = trainer.build();
-        let train_time = start_time.elapsed();
-        Ok(Index {
-            created_at,
-            index,
-            sources,
-            train_time,
-            line_count,
-            byte_count,
-        })
+        if index.rows() > 0 {
+            let train_time = start_time.elapsed();
+            Some(Index {
+                created_at,
+                index,
+                sources,
+                train_time,
+                line_count,
+                byte_count,
+            })
+        } else {
+            None
+        }
     }
 
     pub fn get_processor<'a, 'b>(
@@ -450,15 +456,22 @@ impl<IR: IndexReader> Model<IR> {
                 sources.iter().format(", ")
             ));
             let builder = IB::default();
-            let index = Index::train(env, builder, IndexSource::Bundle(sources))?;
-            indexes.insert(index_name, index);
+            match Index::train(env, builder, IndexSource::Bundle(sources)) {
+                Some(index) => {
+                    indexes.insert(index_name, index);
+                }
+                None => tracing::error!("{}: empty index", index_name),
+            };
         }
         for tarball in tarballs {
             crate::source::with_source(env.gl, tarball, |source, reader| {
                 let builder = IB::default();
-                match Index::train(env, builder, IndexSource::Tarfile(source.clone(), reader)) {
+                let index_name = indexname_from_source(&source);
+                match reader.and_then(|reader| {
+                    Index::train(env, builder, IndexSource::Tarfile(source.clone(), reader))
+                        .ok_or_else(|| "empty index".to_string())
+                }) {
                     Ok(index) => {
-                        let index_name = indexname_from_source(&source);
                         let index = if let Some(prev_index) = indexes.get(&index_name) {
                             prev_index.mappend(&index)
                         } else {
@@ -466,10 +479,9 @@ impl<IR: IndexReader> Model<IR> {
                         };
                         indexes.insert(index_name, index);
                     }
-                    Err(e) => println!("TODO: handle {}", e),
+                    Err(err) => tracing::error!("{}: {}", index_name, err),
                 };
             })
-            .unwrap();
         }
         Ok(Model {
             created_at,
@@ -600,14 +612,16 @@ impl<IR: IndexReader> Model<IR> {
                             source.get_relative()
                         ));
                         let mut skip_lines = env.new_skip_lines();
-                        match self.report_source(
-                            env,
-                            (index, &index_name),
-                            &mut counters,
-                            &mut skip_lines,
-                            (&source, reader),
-                            gl_date,
-                        ) {
+                        match reader.and_then(|reader| {
+                            self.report_source(
+                                env,
+                                (index, &index_name),
+                                &mut counters,
+                                &mut skip_lines,
+                                (&source, reader),
+                                gl_date,
+                            )
+                        }) {
                             Ok(Some(lr)) => {
                                 if !index_reports.contains_key(&index_name) {
                                     index_reports.insert(index_name.clone(), index.to_report());
@@ -635,7 +649,6 @@ impl<IR: IndexReader> Model<IR> {
                     }
                 }
             })
-            .unwrap();
         }
         Ok(Report {
             created_at,

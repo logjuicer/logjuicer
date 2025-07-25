@@ -58,31 +58,45 @@ pub fn open_single_source<'a>(
     Ok(DecompressReader::Raw(open_source(env, source)?))
 }
 
-pub fn with_source<F>(env: &crate::env::Env, source: Source, mut cb: F) -> Result<()>
+pub fn with_source<F>(env: &crate::env::Env, source: Source, mut cb: F)
 where
-    F: for<'a> FnMut(Source, DecompressReader<'a>),
+    F: for<'a> FnMut(Source, std::result::Result<DecompressReader<'a>, String>),
 {
-    if source.is_tarball() {
-        let reader = open_source(env, &source)?;
-        let reader = xz::read::XzDecoder::new(reader);
-        let mut archive = tar::Archive::new(reader);
-        let source = std::sync::Arc::new(source);
-        for entry in archive.entries()? {
-            // TODO: maybe pass the error to the callback, instead of interrupting the whole processing...
-            let entry = entry?;
-            let path = entry
-                .path()
-                .ok()
-                .and_then(|p| p.as_os_str().to_str().map(|s| s.into()))
-                .unwrap_or("unknown".into());
-            let url = format!("{}?entry={}", source.as_str(), path);
-            let new_source = Source::TarFile(Box::new(source.clone()), path, url.into());
-            let reader = DecompressReader::TarballEntry(Box::new(entry));
-            cb(new_source, reader)
+    match open_source(env, &source) {
+        Ok(reader) => {
+            if source.is_tarball() {
+                let reader = xz::read::XzDecoder::new(reader);
+                let mut archive = tar::Archive::new(reader);
+                match archive.entries() {
+                    Ok(entries) => {
+                        let source = std::sync::Arc::new(source);
+                        for entry in entries {
+                            match entry {
+                                Ok(entry) => {
+                                    let path = entry
+                                        .path()
+                                        .ok()
+                                        .and_then(|p| p.as_os_str().to_str().map(|s| s.into()))
+                                        .unwrap_or("unknown".into());
+                                    let url = format!("{}?entry={}", source.as_str(), path);
+                                    let new_source =
+                                        Source::TarFile(Box::new(source.clone()), path, url.into());
+                                    let reader = DecompressReader::TarballEntry(Box::new(entry));
+                                    cb(new_source, Ok(reader))
+                                }
+                                Err(err) => cb(
+                                    (*source).clone(),
+                                    Err(format!("tarball entry failed: {}", err)),
+                                ),
+                            }
+                        }
+                    }
+                    Err(err) => cb(source, Err(format!("tarball entries failed: {}", err))),
+                }
+            } else {
+                cb(source, Ok(DecompressReader::Raw(reader)));
+            }
         }
-    } else {
-        let reader = open_source(env, &source)?;
-        cb(source, DecompressReader::Raw(reader));
+        Err(err) => cb(source, Err(format!("open_source failed: {}", err))),
     }
-    Ok(())
 }
