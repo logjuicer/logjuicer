@@ -154,7 +154,11 @@ impl Report {
                     after: vec![],
                 }],
                 index_name: IndexName("test".into()),
-                source: Source::Local(4, "/proc/status".into()),
+                source: Source::TarFile(
+                    Box::new(Arc::new(Source::Local(4, "/tmp/test.tar.xz".into()))),
+                    "entry.txt".into(),
+                    "/tmp/test.tar.xz?entry=entry.txt".into(),
+                ),
             }],
             index_reports: HashMap::from([(
                 IndexName("i".into()),
@@ -403,6 +407,7 @@ impl std::fmt::Display for Content {
 pub enum Source {
     Local(usize, PathBuf),
     Remote(usize, Url),
+    TarFile(Box<Arc<Source>>, Arc<str>, Arc<str>),
 }
 
 impl Source {
@@ -412,10 +417,18 @@ impl Source {
     pub fn is_json(&'_ self) -> bool {
         self.get_relative().ends_with(".json")
     }
+    fn get_prefix(&self) -> usize {
+        match self {
+            Source::Local(l, _) => *l,
+            Source::Remote(l, _) => *l,
+            Source::TarFile(b, _, _) => b.get_prefix(),
+        }
+    }
     pub fn get_relative(&'_ self) -> &'_ str {
         match self {
             Source::Local(base_len, path) => &path.to_str().unwrap_or("")[*base_len..],
             Source::Remote(base_len, url) => &url.as_str()[*base_len..],
+            Source::TarFile(base, _, url) => &url[base.get_prefix()..],
         }
     }
 
@@ -423,6 +436,7 @@ impl Source {
         match self {
             Source::Local(_, path) => path.to_str().unwrap_or(""),
             Source::Remote(_, url) => url.as_str(),
+            Source::TarFile(_, _, url) => url,
         }
     }
 
@@ -449,6 +463,20 @@ impl Source {
                         < date.and_utc().timestamp() as u64
                 })
                 .unwrap_or(true),
+            Source::TarFile(b, _, _) => b.older_than(date),
+        }
+    }
+    fn is_local(&self) -> bool {
+        match self {
+            Source::Remote(_, _) => false,
+            Source::Local(_, _) => true,
+            Source::TarFile(b, _, _) => b.is_local(),
+        }
+    }
+    pub fn is_tarfile(&self) -> Option<Arc<Source>> {
+        match self {
+            Source::TarFile(b, _, _) => Some(b.as_ref().clone()),
+            _ => None,
         }
     }
 }
@@ -458,6 +486,13 @@ impl std::fmt::Display for Source {
         match self {
             Source::Local(_, _) => write!(f, "local: {}", self.get_relative()),
             Source::Remote(_, _) => write!(f, "remote: {}", self.get_relative()),
+            Source::TarFile(b, _, _) => {
+                if b.is_local() {
+                    write!(f, "local-tar: {}", self.get_relative())
+                } else {
+                    write!(f, "remote-tar: {}", self.get_relative())
+                }
+            }
         }
     }
 }
