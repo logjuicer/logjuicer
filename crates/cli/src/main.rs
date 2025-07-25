@@ -328,7 +328,7 @@ impl Cli {
                 let content = content_from_input(&env.gl, input)?;
                 let env = env.get_target_env(&content);
                 let sources = content_get_sources(&env, &content)?;
-                for source in sources {
+                for source in sources.into_iter().filter_map(Source::is_raw) {
                     logjuicer_model::source::with_source(env.gl, source, |source, reader| {
                         println!("[{}]", source.as_str());
                         for line in LinesIterator::new(&source, reader.unwrap()).unwrap() {
@@ -518,7 +518,7 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
     let mut total_byte_count = 0;
     let mut total_anomaly_count = 0;
     let skip_lines = Arc::new(std::sync::Mutex::new(env.new_skip_lines()));
-    for source in sources {
+    for source in sources.into_iter().filter_map(Source::is_raw) {
         logjuicer_model::source::with_source(env.gl, source, |source, reader| {
             let skip_lines = skip_lines.clone();
             match reader.and_then(|reader| {
@@ -698,7 +698,7 @@ fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix
 
     let sources = content_get_sources(env, content)?;
     let sources_len = sources.len();
-    for source in sources {
+    for source in sources.into_iter().filter_map(Source::is_raw) {
         logjuicer_model::source::with_source(env.gl, source, |source, reader| {
             let index_name = logjuicer_model::indexname_from_source(&source);
             match model.get_index(&index_name) {

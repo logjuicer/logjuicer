@@ -10,7 +10,7 @@ use url::Url;
 
 use crate::env::Env;
 use crate::{Content, Source};
-use logjuicer_report::{ApiUrl, ZuulBuild};
+use logjuicer_report::{ApiUrl, SourceFile, ZuulBuild};
 
 fn elapsed_days(now: &NaiveDate, since: NaiveDate) -> i32 {
     let days = now.signed_duration_since(since).num_days();
@@ -196,7 +196,7 @@ pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Res
                 manifest
                     .to_urls(build.log_url.clone())
                     .into_iter()
-                    .map(move |url| Ok(Source::Remote(prefix, url))),
+                    .map(move |url| Ok(Source::RawFile(SourceFile::Remote(prefix, url)))),
             ),
         }
     } else {

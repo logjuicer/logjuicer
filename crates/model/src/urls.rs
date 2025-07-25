@@ -5,7 +5,7 @@ use anyhow::Result;
 use url::Url;
 
 use crate::env::Env;
-use crate::{Content, Source};
+use crate::{Content, Source, SourceFile};
 
 pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
     if !url.has_authority() {
@@ -15,9 +15,11 @@ pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
     } else if let Some(content) = crate::prow::content_from_prow_url(&url) {
         content
     } else if url.as_str().ends_with('/') {
-        Ok(Content::Directory(Source::Remote(0, url)))
+        Ok(Content::Directory(Source::RawFile(SourceFile::Remote(
+            0, url,
+        ))))
     } else {
-        Ok(Content::File(Source::Remote(0, url)))
+        Ok(Content::File(Source::RawFile(SourceFile::Remote(0, url))))
     }
 }
 
@@ -38,7 +40,7 @@ pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<Sour
             .map(move |url_result| {
                 url_result
                     .map_err(anyhow::Error::msg)
-                    .map(|url| Source::Remote(base_len, url))
+                    .map(|url| Source::RawFile(SourceFile::Remote(base_len, url)))
             }),
     )
 }

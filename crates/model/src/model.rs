@@ -8,7 +8,7 @@
 use anyhow::{Context, Result};
 use env::{Env, TargetEnv};
 use itertools::Itertools;
-use logjuicer_report::Epoch;
+use logjuicer_report::{Epoch, SourceFile};
 use reader::DecompressReader;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -214,6 +214,7 @@ impl<IR: IndexReader> Model<IR> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum IndexSource<'a> {
     Bundle(Vec<Source>),
     Tarfile(Source, DecompressReader<'a>),
@@ -332,10 +333,10 @@ pub fn content_from_pathbuf(p: PathBuf) -> Content {
 pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Vec<Content>> {
     (match content {
         Content::File(src) => match src {
-            Source::Local(_, pathbuf) => {
+            Source::RawFile(SourceFile::Local(_, pathbuf)) => {
                 crate::files::discover_baselines_from_path(env, pathbuf.as_path())
             }
-            Source::Remote(_, _) => Err(anyhow::anyhow!(
+            Source::RawFile(SourceFile::Remote(_, _)) => Err(anyhow::anyhow!(
                 "Use the diff command to process remote file.",
             )),
             Source::TarFile(_, _, _) => Err(anyhow::anyhow!("Tar file can't be a baseline.",)),
@@ -386,8 +387,8 @@ pub fn content_get_sources_iter(
     match content {
         Content::File(src) => Box::new(file_iter(src)),
         Content::Directory(src) => match src {
-            Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
-            Source::Remote(_, url) => Box::new(httpdir_iter(url, env)),
+            Source::RawFile(SourceFile::Local(_, pathbuf)) => Box::new(dir_iter(pathbuf.as_path())),
+            Source::RawFile(SourceFile::Remote(_, url)) => Box::new(httpdir_iter(url, env)),
             Source::TarFile(_, _, _) => panic!("Directory can't be a tarfile"),
         },
         Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build, env)),
@@ -396,20 +397,23 @@ pub fn content_get_sources_iter(
     }
 }
 
-type GroupResult = (Vec<Source>, HashMap<IndexName, Vec<Source>>);
+type GroupResult = (Vec<SourceFile>, HashMap<IndexName, Vec<Source>>);
 
 pub fn group_sources(env: &TargetEnv, baselines: &[Content]) -> Result<GroupResult> {
     let mut groups = HashMap::new();
     let mut tarballs = Vec::new();
     for baseline in baselines {
         for source in content_get_sources(env, baseline)? {
-            if source.is_tarball() {
-                tarballs.push(source);
-            } else {
-                groups
-                    .entry(indexname_from_source(&source))
-                    .or_insert_with(Vec::new)
-                    .push(source);
+            match source {
+                Source::RawFile(source) if source.is_tarball() => {
+                    tarballs.push(source);
+                }
+                _ => {
+                    groups
+                        .entry(indexname_from_source(&source))
+                        .or_insert_with(Vec::new)
+                        .push(source);
+                }
             }
         }
     }
