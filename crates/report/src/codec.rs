@@ -38,7 +38,19 @@ impl ReportEncoder {
             for lr in &report.log_reports {
                 self.add_tarball(&lr.source);
             }
-            // TODO: check for tarballs in target or source?
+            for ir in report.index_reports.values() {
+                for source in &ir.sources {
+                    self.add_tarball(source)
+                }
+            }
+            for sources in report.unknown_files.values() {
+                for source in sources {
+                    self.add_tarball(source)
+                }
+            }
+            for re in &report.read_errors {
+                self.add_tarball(&(re.0))
+            }
         }
 
         module.set_created_at(write_system_time(&report.created_at)?);
