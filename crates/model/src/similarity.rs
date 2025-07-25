@@ -167,16 +167,24 @@ fn test_report_similarity() {
     let sr = create_similarity_report(&[&r1, &r2]);
     assert_eq!(sr.targets, vec![r1.target, r2.target]);
     assert_eq!(sr.baselines, r1.baselines);
+    let default_source = Source::TarFile(
+        Box::new(std::sync::Arc::new(Source::Local(
+            4,
+            "/tmp/test.tar.xz".into(),
+        ))),
+        "entry.txt".into(),
+        "/tmp/test.tar.xz?entry=entry.txt".into(),
+    );
     let expected = vec![
         SimilarityLogReport {
             sources: vec![
                 SimilaritySource {
                     target: TargetID(0),
-                    source: Source::Local(4, "/proc/status".into()),
+                    source: default_source.clone(),
                 },
                 SimilaritySource {
                     target: TargetID(1),
-                    source: Source::Local(4, "/proc/status".into()),
+                    source: default_source,
                 },
             ],
             anomalies: vec![

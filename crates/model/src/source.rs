@@ -45,6 +45,9 @@ fn open_source(env: &Env, source: &Source) -> Result<crate::reader::DecompressRe
     match source {
         Source::Local(_, path_buf) => crate::files::file_open(path_buf.as_path()),
         Source::Remote(_, url) => crate::urls::url_open(env, url),
+        Source::TarFile(_, _, _) => Err(anyhow::anyhow!(
+            "This is not possible, open_source doesn't work with TarFile.",
+        )),
     }
 }
 

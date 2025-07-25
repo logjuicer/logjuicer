@@ -310,6 +310,7 @@ pub fn content_discover_baselines(content: &Content, env: &Env) -> Result<Vec<Co
             Source::Remote(_, _) => Err(anyhow::anyhow!(
                 "Use the diff command to process remote file.",
             )),
+            Source::TarFile(_, _, _) => Err(anyhow::anyhow!("Tar file can't be a baseline.",)),
         },
         Content::Directory(_) => Err(anyhow::anyhow!(
             "Use the diff command to process directory.",
@@ -359,6 +360,7 @@ pub fn content_get_sources_iter(
         Content::Directory(src) => match src {
             Source::Local(_, pathbuf) => Box::new(dir_iter(pathbuf.as_path())),
             Source::Remote(_, url) => Box::new(httpdir_iter(url, env)),
+            Source::TarFile(_, _, _) => panic!("Directory can't be a tarfile"),
         },
         Content::Zuul(build) => Box::new(crate::zuul::sources_iter(build, env)),
         Content::Prow(build) => Box::new(crate::prow::sources_iter(build, env)),
