@@ -321,7 +321,7 @@ pub fn errors_report(env: &TargetEnv, target: Content) -> Result<Report> {
     let skip_lines = Arc::new(Mutex::new(env.new_skip_lines()));
 
     sources.into_par_iter().for_each(|source| {
-        crate::source::with_source(env.gl, source, |source, reader| {
+        crate::source::with_source(env, source, |source, reader| {
             match reader.and_then(|reader| {
                 errors_report_source(env, skip_lines.clone(), counters.clone(), &source, reader)
             }) {

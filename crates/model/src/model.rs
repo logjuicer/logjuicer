@@ -464,7 +464,7 @@ impl<IR: IndexReader> Model<IR> {
             };
         }
         for tarball in tarballs {
-            crate::source::with_source(env.gl, tarball, |source, reader| {
+            crate::source::with_source(env, tarball, |source, reader| {
                 let builder = IB::default();
                 let index_name = indexname_from_source(&source);
                 match reader.and_then(|reader| {
@@ -602,7 +602,7 @@ impl<IR: IndexReader> Model<IR> {
             }
         }
         for tarball in tarballs {
-            crate::source::with_source(env.gl, tarball, |source, reader| {
+            crate::source::with_source(env, tarball, |source, reader| {
                 let index_name = indexname_from_source(&source);
                 match self.get_index(&index_name) {
                     Some(index) => {

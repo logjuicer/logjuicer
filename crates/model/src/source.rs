@@ -60,11 +60,11 @@ pub fn open_single_source<'a>(
     }
 }
 
-pub fn with_source<F>(env: &crate::env::Env, source: SourceLoc, mut cb: F)
+pub fn with_source<F>(env: &crate::env::TargetEnv<'_>, source: SourceLoc, mut cb: F)
 where
     F: for<'a> FnMut(Source, std::result::Result<DecompressReader<'a>, String>),
 {
-    match open_source(env, &source) {
+    match open_source(env.gl, &source) {
         Ok(reader) => {
             if source.is_tarball() {
                 let reader = xz::read::XzDecoder::new(reader);
@@ -75,11 +75,17 @@ where
                         for entry in entries {
                             match entry {
                                 Ok(entry) => {
-                                    let path = entry
+                                    if !entry.header().entry_type().is_file() {
+                                        continue;
+                                    }
+                                    let path: std::sync::Arc<str> = entry
                                         .path()
                                         .ok()
                                         .and_then(|p| p.as_os_str().to_str().map(|s| s.into()))
                                         .unwrap_or("unknown".into());
+                                    if !env.config.is_fp_valid(&path) {
+                                        continue;
+                                    }
                                     let url = format!("{}?entry={}", source.as_str(), path);
                                     let new_source =
                                         Source::TarFile(source.clone(), path, url.into());
