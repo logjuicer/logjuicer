@@ -194,14 +194,18 @@ impl TargetConfig {
         })
     }
 
-    pub fn is_source_valid(&self, source: &SourceLoc) -> bool {
-        let fp = source.get_relative().trim_end_matches(".gz");
+    pub fn is_fp_valid(&self, relative: &str) -> bool {
+        let fp = relative.trim_end_matches(".gz");
         if let Some(includes) = &self.includes {
             if !includes.is_match(fp) {
                 return false;
             }
         }
         !self.excludes.is_match(fp)
+    }
+
+    pub fn is_source_valid(&self, source: &SourceLoc) -> bool {
+        self.is_fp_valid(source.get_relative())
     }
 
     pub fn is_ignored_line(&self, line: &str) -> bool {
