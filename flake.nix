@@ -54,6 +54,8 @@
         cli-static-info = cli-info // {
           CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+          TARGET_CC = let cc = pkgs.pkgsStatic.stdenv.cc;
+          in "${cc}/bin/${cc.targetPrefix}cc";
         };
         static-exe = craneLib.buildPackage (cli-static-info // {
           cargoArtifacts = craneLib.buildDepsOnly cli-static-info;
