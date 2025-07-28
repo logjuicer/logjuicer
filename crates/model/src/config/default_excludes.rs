@@ -43,10 +43,13 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "object.builder$",
     "account.builder$",
     "container.builder$",
+    // openshift
+    "crio/pods/crictl_inspectp_",
     // system config
     "/etc/",
     "/proc/",
     "/sys/",
+    "/var/lib/selinux/",
     "/venv/",
     // hidden files
     "/\\.[a-zA-Z0-9]",
