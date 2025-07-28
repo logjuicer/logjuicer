@@ -13,6 +13,7 @@ next-version
 - web: add checkbox to toggle the errors report.
 - model: support systemd journal file ending in .journal.
 - model: support tarball traversal.
+- model: ignore /var/lib/selinux files.
 
 0.13.0
 ======
