@@ -45,6 +45,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "container.builder$",
     // openshift
     "crio/pods/crictl_inspectp_",
+    "crio/containers/crictl_inspect_",
     // system config
     "/etc/",
     "/proc/",
