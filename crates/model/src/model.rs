@@ -221,8 +221,17 @@ enum IndexSource<'a> {
     Tarfile(Source, DecompressReader<'a>),
 }
 
+impl std::fmt::Debug for IndexSource<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IndexSource::Bundle(x) => x.fmt(f),
+            IndexSource::Tarfile(x, _) => x.fmt(f),
+        }
+    }
+}
+
 impl<IR: IndexReader> Index<IR> {
-    #[tracing::instrument(level = "debug", name = "Index::train", skip_all)]
+    #[tracing::instrument(level = "debug", name = "Index::train", skip(env, builder))]
     pub fn train<'a, IB>(
         env: &TargetEnv,
         builder: IB,
