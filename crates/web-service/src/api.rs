@@ -125,7 +125,13 @@ async fn main() {
             .fallback(get(|| std::future::ready(index)))
     }
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let addr = if let Ok(port) = std::env::var("LOGJUICER_PORT") {
+        format!("0.0.0.0:{port}")
+    } else {
+        "0.0.0.0:3000".into()
+    };
+
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     let local_addr = listener.local_addr().expect("local addr");
     tracing::info!("listening on {}", local_addr);
     axum::serve(listener, app)
