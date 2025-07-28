@@ -67,7 +67,7 @@ where
     match open_source(env.gl, &source) {
         Ok(reader) => {
             if source.is_tarball() {
-                let reader = xz::read::XzDecoder::new(reader);
+                let reader = liblzma::read::XzDecoder::new(reader);
                 let mut archive = tar::Archive::new(reader);
                 match archive.entries() {
                     Ok(entries) => {

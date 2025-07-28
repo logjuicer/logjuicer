@@ -30,7 +30,7 @@ use DecompressReaderFile::*;
 
 pub enum DecompressReader<'a> {
     Raw(DecompressReaderFile),
-    TarballEntry(Box<Entry<'a, xz::read::XzDecoder<DecompressReaderFile>>>),
+    TarballEntry(Box<Entry<'a, liblzma::read::XzDecoder<DecompressReaderFile>>>),
 }
 use DecompressReader::*;
 
