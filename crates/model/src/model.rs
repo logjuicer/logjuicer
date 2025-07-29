@@ -454,25 +454,29 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
         baselines: Vec<Content>,
     ) -> Result<Model<IR>> {
         let created_at = SystemTime::now();
-        let mut indexes = HashMap::new();
+        let indexes = Mutex::new(HashMap::new());
 
         let (tarballs, mut groups) = group_sources(env, &baselines)?;
 
-        for (index_name, sources) in groups.drain() {
-            env.gl.debug_or_progress(&format!(
-                "Loading index {} with {}",
-                index_name,
-                sources.iter().format(", ")
-            ));
-            let builder = IB::default();
-            match Index::train(env, builder, IndexSource::Bundle(sources)) {
-                Some(index) => {
-                    indexes.insert(index_name, index);
-                }
-                None => tracing::error!("{}: empty index", index_name),
-            };
-        }
-        for tarball in tarballs {
+        groups
+            .drain()
+            .collect::<Vec<(IndexName, Vec<Source>)>>()
+            .into_par_iter()
+            .for_each(|(index_name, sources)| {
+                env.gl.debug_or_progress(&format!(
+                    "Loading index {} with {}",
+                    index_name,
+                    sources.iter().format(", ")
+                ));
+                let builder = IB::default();
+                match Index::train(env, builder, IndexSource::Bundle(sources)) {
+                    Some(index) => {
+                        indexes.lock().unwrap().insert(index_name, index);
+                    }
+                    None => tracing::error!("{}: empty index", index_name),
+                };
+            });
+        tarballs.into_par_iter().for_each(|tarball| {
             crate::source::with_source(env, tarball, |source, reader| {
                 let builder = IB::default();
                 let index_name = indexname_from_source(&source);
@@ -481,6 +485,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
                         .ok_or_else(|| "empty index".to_string())
                 }) {
                     Ok(index) => {
+                        let mut indexes = indexes.lock().unwrap();
                         let index = if let Some(prev_index) = indexes.get(&index_name) {
                             prev_index.mappend(&index)
                         } else {
@@ -491,7 +496,8 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
                     Err(err) => tracing::error!("{}: {}", index_name, err),
                 };
             })
-        }
+        });
+        let indexes = indexes.into_inner().unwrap();
         Ok(Model {
             created_at,
             baselines,
