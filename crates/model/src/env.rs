@@ -71,6 +71,15 @@ impl TargetEnv<'_> {
             }
         }
     }
+    pub fn clear_current(&self) {
+        match &self.current {
+            None => {}
+            Some(current) => {
+                let mut data = current.lock().unwrap();
+                *data = None
+            }
+        }
+    }
 }
 
 /// The global environment
