@@ -1,6 +1,12 @@
 next-version
 ============
 
+0.14.1
+======
+
+- api: rename LOGJUICER_PORT into LOGJUICER_API_PORT to avoid conflict with kubernetes default environment.
+
+
 0.14.0
 ======
 
