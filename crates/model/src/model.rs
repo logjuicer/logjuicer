@@ -8,23 +8,23 @@
 use anyhow::{Context, Result};
 use env::{Env, TargetEnv};
 use itertools::Itertools;
-use logjuicer_report::Epoch;
+use rayon::prelude::*;
 use reader::DecompressReader;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 use url::Url;
 
-pub use logjuicer_tokenizer::index_name::IndexName;
-
+pub use logjuicer_index::{FeaturesMatrix, FeaturesMatrixBuilder};
+use logjuicer_report::Epoch;
 pub use logjuicer_report::{
     AnomalyContext, ApiUrl, Content, IndexReport, LogReport, ProwBuild, Report, Source, SourceLoc,
     ZuulBuild,
 };
-
-pub use logjuicer_index::{FeaturesMatrix, FeaturesMatrixBuilder};
+pub use logjuicer_tokenizer::index_name::IndexName;
 
 use crate::files::{dir_iter, file_iter};
 use crate::unordered::KnownLines;
@@ -446,7 +446,7 @@ impl LineCounters {
     }
 }
 
-impl<IR: IndexReader> Model<IR> {
+impl<IR: IndexReader + Send + Sync> Model<IR> {
     /// Create a Model from baselines.
     #[tracing::instrument(level = "debug", skip(env))]
     pub fn train<IB: Default + IndexBuilder<Reader = IR>>(
@@ -510,7 +510,7 @@ impl<IR: IndexReader> Model<IR> {
         &self,
         env: &TargetEnv,
         index: (&Index<IR>, &IndexName),
-        counters: &mut LineCounters,
+        counters: Arc<Mutex<LineCounters>>,
         skip_lines: &mut Option<KnownLines>,
         source: (&Source, DecompressReader<'b>),
         gl_date: Option<Epoch>,
@@ -528,6 +528,7 @@ impl<IR: IndexReader> Model<IR> {
                         Err(err) => return Err(format!("{}", err)),
                     }
                 }
+                let mut counters = counters.lock().unwrap();
                 counters.line_count += processor.line_count;
                 if !anomalies.is_empty() {
                     counters.anomaly_count += anomalies.len();
@@ -553,12 +554,12 @@ impl<IR: IndexReader> Model<IR> {
     pub fn report(&self, env: &TargetEnv, target: Content) -> Result<Report> {
         let start_time = Instant::now();
         let created_at = SystemTime::now();
-        let mut index_reports = HashMap::new();
-        let mut log_reports = Vec::new();
-        let mut unknown_files = HashMap::new();
-        let mut read_errors = Vec::new();
-        let mut counters = LineCounters::new();
-        let mut gl_date = None;
+        let index_reports = Mutex::new(HashMap::new());
+        let log_reports = Mutex::new(Vec::new());
+        let unknown_files = Mutex::new(HashMap::new());
+        let read_errors = Mutex::new(Vec::new());
+        let counters = Arc::new(Mutex::new(LineCounters::new()));
+        let gl_date = Mutex::new(None);
         let (tarballs, mut groups) = group_sources(env, &[target.clone()])?;
         for (index_name, sources) in groups.drain() {
             let mut skip_lines = env.new_skip_lines();
@@ -571,27 +572,33 @@ impl<IR: IndexReader> Model<IR> {
                     ));
                     for source in sources {
                         let reader = crate::source::open_single_source(env.gl, &source)?;
+                        let cur_date = *gl_date.lock().unwrap();
                         match self.report_source(
                             env,
                             (index, &index_name),
-                            &mut counters,
+                            counters.clone(),
                             &mut skip_lines,
                             (&source, reader),
-                            gl_date,
+                            cur_date,
                         ) {
                             Ok(Some(lr)) => {
+                                let mut index_reports = index_reports.lock().unwrap();
                                 if !index_reports.contains_key(&index_name) {
                                     index_reports.insert(index_name.clone(), index.to_report());
                                 };
+                                let mut gl_date = gl_date.lock().unwrap();
                                 if gl_date.is_none() {
                                     // Record the global date if it is unknown
-                                    gl_date = lr.timed().next().map(|ea| ea.0)
+                                    *gl_date = lr.timed().next().map(|ea| ea.0)
                                 };
-                                log_reports.push(lr)
+                                log_reports.lock().unwrap().push(lr)
                             }
                             Ok(None) => {}
                             Err(err) => {
-                                read_errors.push((source.clone(), err.into()));
+                                read_errors
+                                    .lock()
+                                    .unwrap()
+                                    .push((source.clone(), err.into()));
                             }
                         }
                     }
@@ -606,11 +613,11 @@ impl<IR: IndexReader> Model<IR> {
                         index_name,
                         sources.len()
                     ));
-                    let _ = unknown_files.insert(index_name, sources);
+                    let _ = unknown_files.lock().unwrap().insert(index_name, sources);
                 }
             }
         }
-        for tarball in tarballs {
+        tarballs.into_par_iter().for_each(|tarball| {
             crate::source::with_source(env, tarball, |source, reader| {
                 let index_name = indexname_from_source(&source);
                 match self.get_index(&index_name) {
@@ -621,29 +628,35 @@ impl<IR: IndexReader> Model<IR> {
                             source.get_relative()
                         ));
                         let mut skip_lines = env.new_skip_lines();
+                        let cur_date = *gl_date.lock().unwrap();
                         match reader.and_then(|reader| {
                             self.report_source(
                                 env,
                                 (index, &index_name),
-                                &mut counters,
+                                counters.clone(),
                                 &mut skip_lines,
                                 (&source, reader),
-                                gl_date,
+                                cur_date,
                             )
                         }) {
                             Ok(Some(lr)) => {
+                                let mut index_reports = index_reports.lock().unwrap();
                                 if !index_reports.contains_key(&index_name) {
                                     index_reports.insert(index_name.clone(), index.to_report());
                                 };
+                                let mut gl_date = gl_date.lock().unwrap();
                                 if gl_date.is_none() {
                                     // Record the global date if it is unknown
-                                    gl_date = lr.timed().next().map(|ea| ea.0)
+                                    *gl_date = lr.timed().next().map(|ea| ea.0)
                                 };
-                                log_reports.push(lr)
+                                log_reports.lock().unwrap().push(lr)
                             }
                             Ok(None) => {}
                             Err(err) => {
-                                read_errors.push((source.clone(), err.into()));
+                                read_errors
+                                    .lock()
+                                    .unwrap()
+                                    .push((source.clone(), err.into()));
                             }
                         }
                     }
@@ -654,13 +667,20 @@ impl<IR: IndexReader> Model<IR> {
                             source.get_relative()
                         ));
                         unknown_files
+                            .lock()
+                            .unwrap()
                             .entry(index_name)
                             .or_insert_with(Vec::new)
                             .push(source);
                     }
                 }
             })
-        }
+        });
+        let unknown_files = unknown_files.into_inner().unwrap();
+        let log_reports = log_reports.into_inner().unwrap();
+        let index_reports = index_reports.into_inner().unwrap();
+        let read_errors = read_errors.into_inner().unwrap();
+        let counters = counters.lock().unwrap();
         Ok(Report {
             created_at,
             run_time: start_time.elapsed(),
