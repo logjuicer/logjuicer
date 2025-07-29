@@ -1,6 +1,8 @@
 next-version
 ============
 
+- model: use rayon to create report by processing the sources in parallel.
+
 0.14.1
 ======
 
