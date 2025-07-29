@@ -371,6 +371,8 @@ fn process_report(
     let report = model
         .report(&target_env, content)
         .map_err(|e| format!("report failed: {:?}", e))?;
+    target_env.clear_current();
+
     Ok(report)
 }
 
@@ -499,6 +501,7 @@ fn do_process_model(
         emit(msg.clone().into());
         msg
     })?;
+    target_env.clear_current();
 
     emit("Saving the model".into());
     let path = crate::models::save_model(&penv.storage_dir, content_id, &model)?;
