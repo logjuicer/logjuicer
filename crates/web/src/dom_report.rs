@@ -208,6 +208,13 @@ fn render_log_report(
             render_anomaly_context(&mut render_state.gl_pos, &mut last_pos, &mut lines, anomaly)
         });
 
+    if lines.is_empty() {
+        lines.push(html!("tr", {.children(&mut [
+            html!("td"),
+            html!("td", {.class(["pl-2", "font-mono", "break-all", "whitespace-pre-wrap"]).text("Duplicated anomaly detected: it's displayed above.")})
+        ])}))
+    }
+
     html!("div", {.class(["content", "pl-1", "pt-2", "relative", "max-w-full"]).children(&mut [
         header,
         html!("table", {.class("font-mono").children(&mut [
