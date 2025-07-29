@@ -125,7 +125,7 @@ async fn main() {
             .fallback(get(|| std::future::ready(index)))
     }
 
-    let addr = if let Ok(port) = std::env::var("LOGJUICER_PORT") {
+    let addr = if let Ok(port) = std::env::var("LOGJUICER_API_PORT") {
         format!("0.0.0.0:{port}")
     } else {
         "0.0.0.0:3000".into()
