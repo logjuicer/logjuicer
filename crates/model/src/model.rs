@@ -454,50 +454,57 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
         baselines: Vec<Content>,
     ) -> Result<Model<IR>> {
         let created_at = SystemTime::now();
-        let indexes = Mutex::new(HashMap::new());
 
         let (tarballs, mut groups) = group_sources(env, &baselines)?;
 
-        groups
+        let indexes = groups
             .drain()
             .collect::<Vec<(IndexName, Vec<Source>)>>()
             .into_par_iter()
-            .for_each(|(index_name, sources)| {
+            .filter_map(|(index_name, sources)| {
                 env.gl.debug_or_progress(&format!(
                     "Loading index {} with {}",
                     index_name,
                     sources.iter().format(", ")
                 ));
                 let builder = IB::default();
+
                 match Index::train(env, builder, IndexSource::Bundle(sources)) {
-                    Some(index) => {
-                        indexes.lock().unwrap().insert(index_name, index);
+                    Some(index) => Some((index_name, index)),
+                    None => {
+                        tracing::error!("{}: empty index", index_name);
+                        None
                     }
-                    None => tracing::error!("{}: empty index", index_name),
-                };
-            });
-        tarballs.into_par_iter().for_each(|tarball| {
-            crate::source::with_source(env, tarball, |source, reader| {
-                let builder = IB::default();
-                let index_name = indexname_from_source(&source);
-                match reader.and_then(|reader| {
-                    Index::train(env, builder, IndexSource::Tarfile(source.clone(), reader))
-                        .ok_or_else(|| "empty index".to_string())
-                }) {
-                    Ok(index) => {
-                        let mut indexes = indexes.lock().unwrap();
-                        let index = if let Some(prev_index) = indexes.get(&index_name) {
-                            prev_index.mappend(&index)
-                        } else {
-                            index
-                        };
-                        indexes.insert(index_name, index);
-                    }
-                    Err(err) => tracing::error!("{}: {}", index_name, err),
-                };
+                }
             })
-        });
-        let indexes = indexes.into_inner().unwrap();
+            .collect::<HashMap<IndexName, Index<IR>>>();
+        let indexes = if tarballs.is_empty() {
+            indexes
+        } else {
+            let indexes = Mutex::new(indexes);
+            tarballs.into_par_iter().for_each(|tarball| {
+                crate::source::with_source(env, tarball, |source, reader| {
+                    let builder = IB::default();
+                    let index_name = indexname_from_source(&source);
+                    match reader.and_then(|reader| {
+                        Index::train(env, builder, IndexSource::Tarfile(source.clone(), reader))
+                            .ok_or_else(|| "empty index".to_string())
+                    }) {
+                        Ok(index) => {
+                            let mut indexes = indexes.lock().unwrap();
+                            let index = if let Some(prev_index) = indexes.get(&index_name) {
+                                prev_index.mappend(&index)
+                            } else {
+                                index
+                            };
+                            indexes.insert(index_name, index);
+                        }
+                        Err(err) => tracing::error!("{}: {}", index_name, err),
+                    };
+                })
+            });
+            indexes.into_inner().unwrap()
+        };
         Ok(Model {
             created_at,
             baselines,
@@ -567,62 +574,70 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
         let counters = Arc::new(Mutex::new(LineCounters::new()));
         let gl_date = Mutex::new(None);
         let (tarballs, mut groups) = group_sources(env, &[target.clone()])?;
-        for (index_name, sources) in groups.drain() {
-            let mut skip_lines = env.new_skip_lines();
-            match self.get_index(&index_name) {
-                Some(index) => {
-                    env.gl.debug_or_progress(&format!(
-                        "Reporting index {} with {}",
-                        index_name,
-                        sources.iter().take(5).format(", ")
-                    ));
-                    for source in sources {
-                        let reader = crate::source::open_single_source(env.gl, &source)?;
-                        let cur_date = *gl_date.lock().unwrap();
-                        match self.report_source(
-                            env,
-                            (index, &index_name),
-                            counters.clone(),
-                            &mut skip_lines,
-                            (&source, reader),
-                            cur_date,
-                        ) {
-                            Ok(Some(lr)) => {
-                                let mut index_reports = index_reports.lock().unwrap();
-                                if !index_reports.contains_key(&index_name) {
-                                    index_reports.insert(index_name.clone(), index.to_report());
-                                };
-                                let mut gl_date = gl_date.lock().unwrap();
-                                if gl_date.is_none() {
-                                    // Record the global date if it is unknown
-                                    *gl_date = lr.timed().next().map(|ea| ea.0)
-                                };
-                                log_reports.lock().unwrap().push(lr)
-                            }
-                            Ok(None) => {}
-                            Err(err) => {
-                                read_errors
-                                    .lock()
-                                    .unwrap()
-                                    .push((source.clone(), err.into()));
+
+        groups
+            .drain()
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .for_each(|(index_name, sources)| {
+                let mut skip_lines = env.new_skip_lines();
+                match self.get_index(&index_name) {
+                    Some(index) => {
+                        env.gl.debug_or_progress(&format!(
+                            "Reporting index {} with {}",
+                            index_name,
+                            sources.iter().take(5).format(", ")
+                        ));
+                        for source in sources {
+                            match crate::source::open_single_source(env.gl, &source)
+                                .map_err(|e| e.to_string())
+                                .and_then(|reader| {
+                                    let cur_date = *gl_date.lock().unwrap();
+                                    self.report_source(
+                                        env,
+                                        (index, &index_name),
+                                        counters.clone(),
+                                        &mut skip_lines,
+                                        (&source, reader),
+                                        cur_date,
+                                    )
+                                }) {
+                                Ok(Some(lr)) => {
+                                    let mut index_reports = index_reports.lock().unwrap();
+                                    if !index_reports.contains_key(&index_name) {
+                                        index_reports.insert(index_name.clone(), index.to_report());
+                                    };
+                                    let mut gl_date = gl_date.lock().unwrap();
+                                    if gl_date.is_none() {
+                                        // Record the global date if it is unknown
+                                        *gl_date = lr.timed().next().map(|ea| ea.0)
+                                    };
+                                    log_reports.lock().unwrap().push(lr)
+                                }
+                                Ok(None) => {}
+                                Err(err) => {
+                                    read_errors
+                                        .lock()
+                                        .unwrap()
+                                        .push((source.clone(), err.into()));
+                                }
                             }
                         }
+                        tracing::debug!(
+                            skip_lines = skip_lines.as_ref().map_or(0, |s| s.len()),
+                            "reported one source"
+                        );
                     }
-                    tracing::debug!(
-                        skip_lines = skip_lines.as_ref().map_or(0, |s| s.len()),
-                        "reported one source"
-                    );
+                    None => {
+                        env.gl.debug_or_progress(&format!(
+                            "Unknown index index {} for {} sources",
+                            index_name,
+                            sources.len()
+                        ));
+                        let _ = unknown_files.lock().unwrap().insert(index_name, sources);
+                    }
                 }
-                None => {
-                    env.gl.debug_or_progress(&format!(
-                        "Unknown index index {} for {} sources",
-                        index_name,
-                        sources.len()
-                    ));
-                    let _ = unknown_files.lock().unwrap().insert(index_name, sources);
-                }
-            }
-        }
+            });
         tarballs.into_par_iter().for_each(|tarball| {
             crate::source::with_source(env, tarball, |source, reader| {
                 let index_name = indexname_from_source(&source);
