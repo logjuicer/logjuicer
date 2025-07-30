@@ -2,6 +2,7 @@ next-version
 ============
 
 - model: use rayon to create report by processing the sources in parallel.
+- tokenizer: fix handling of corrupted timestamps.
 
 0.14.1
 ======
