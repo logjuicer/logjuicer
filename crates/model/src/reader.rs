@@ -12,7 +12,6 @@ use std::fs::File;
 
 use crate::env::Env;
 use flate2::read::GzDecoder;
-use tar::Entry;
 
 fn is_success(code: ureq::http::StatusCode) -> bool {
     (200..400).contains(&code.as_u16())
@@ -30,10 +29,7 @@ use DecompressReaderFile::*;
 
 pub enum DecompressReader<'a> {
     Raw(DecompressReaderFile),
-    TarballEntry(Box<Entry<'a, liblzma::read::XzDecoder<DecompressReaderFile>>>),
-    TarballEntryCompressed(
-        Box<GzDecoder<Entry<'a, liblzma::read::XzDecoder<DecompressReaderFile>>>>,
-    ),
+    Nested(Box<dyn Read + 'a>),
 }
 use DecompressReader::*;
 
@@ -81,8 +77,7 @@ impl Read for DecompressReader<'_> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
             Raw(r) => r.read(buf),
-            TarballEntry(r) => r.read(buf),
-            TarballEntryCompressed(r) => r.read(buf),
+            Nested(r) => r.read(buf),
         }
     }
 }
