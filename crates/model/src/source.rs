@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use bytes::Bytes;
-use std::io::Read;
+use std::{io::Read, sync::Arc};
 
 use crate::{env::Env, journal::JournalLines, reader::DecompressReader};
 use logjuicer_report::{Source, SourceLoc};
@@ -67,49 +67,8 @@ where
     match open_source(env.gl, &source) {
         Ok(reader) => {
             if source.is_tarball() {
-                let reader = liblzma::read::XzDecoder::new(reader);
-                let mut archive = tar::Archive::new(reader);
-                match archive.entries() {
-                    Ok(entries) => {
-                        let source = std::sync::Arc::new(source);
-                        for entry in entries {
-                            match entry {
-                                Ok(entry) => {
-                                    if !entry.header().entry_type().is_file() {
-                                        continue;
-                                    }
-                                    let path: std::sync::Arc<str> = entry
-                                        .path()
-                                        .ok()
-                                        .and_then(|p| p.as_os_str().to_str().map(|s| s.into()))
-                                        .unwrap_or("unknown".into());
-                                    if !env.config.is_fp_valid(&path) {
-                                        continue;
-                                    }
-                                    let url = format!("{}?entry={}", source.as_str(), path);
-                                    let reader = if path.ends_with(".gz") {
-                                        DecompressReader::TarballEntryCompressed(Box::new(
-                                            flate2::read::GzDecoder::new(entry),
-                                        ))
-                                    } else {
-                                        DecompressReader::TarballEntry(Box::new(entry))
-                                    };
-                                    let new_source =
-                                        Source::TarFile(source.clone(), path, url.into());
-                                    cb(new_source, Ok(reader))
-                                }
-                                Err(err) => cb(
-                                    Source::RawFile((*source).clone()),
-                                    Err(format!("tarball entry failed: {}", err)),
-                                ),
-                            }
-                        }
-                    }
-                    Err(err) => cb(
-                        Source::RawFile(source),
-                        Err(format!("tarball entries failed: {}", err)),
-                    ),
-                }
+                let reader = liblzma::read::XzDecoder::new(DecompressReader::Raw(reader));
+                with_tarball_source(env, Arc::new(source), None, reader, &mut cb)
             } else {
                 cb(Source::RawFile(source), Ok(DecompressReader::Raw(reader)));
             }
@@ -117,6 +76,72 @@ where
         Err(err) => cb(
             Source::RawFile(source),
             Err(format!("open_source failed: {}", err)),
+        ),
+    }
+}
+
+pub fn with_tarball_source<F>(
+    env: &crate::env::TargetEnv<'_>,
+    source: Arc<SourceLoc>,
+    url: Option<Arc<str>>,
+    reader: liblzma::read::XzDecoder<DecompressReader<'_>>,
+    cb: &mut F,
+) where
+    F: FnMut(Source, std::result::Result<DecompressReader<'_>, String>),
+{
+    let mut archive = tar::Archive::new(reader);
+    match archive.entries() {
+        Ok(entries) => {
+            for entry in entries {
+                match entry {
+                    Ok(entry) => {
+                        if !entry.header().entry_type().is_file() {
+                            continue;
+                        }
+                        let path: Arc<str> = entry
+                            .path()
+                            .ok()
+                            .and_then(|p| p.as_os_str().to_str().map(|s| s.into()))
+                            .unwrap_or("unknown".into());
+                        if !env.config.is_fp_valid(&path) {
+                            continue;
+                        }
+                        let url: Arc<str> = match &url {
+                            Some(url) => format!("{}&sub={}", url, path),
+                            None => format!("{}?entry={}", source.as_str(), path),
+                        }
+                        .into();
+
+                        let reader = if path.ends_with(".gz") {
+                            DecompressReader::Nested(Box::new(flate2::read::GzDecoder::new(entry)))
+                        } else {
+                            DecompressReader::Nested(Box::new(entry))
+                        };
+
+                        if url.ends_with(".tar.xz") {
+                            with_tarball_source(
+                                env,
+                                source.clone(),
+                                Some(url),
+                                liblzma::read::XzDecoder::new(reader),
+                                cb,
+                            );
+                            continue;
+                        } else {
+                            let new_source = Source::TarFile(source.clone(), path, url);
+                            cb(new_source, Ok(reader))
+                        }
+                    }
+                    Err(err) => cb(
+                        Source::RawFile((*source).clone()),
+                        Err(format!("tarball entry failed: {}", err)),
+                    ),
+                }
+            }
+        }
+        Err(err) => cb(
+            Source::RawFile((*source).clone()),
+            Err(format!("tarball entries failed: {}", err)),
         ),
     }
 }

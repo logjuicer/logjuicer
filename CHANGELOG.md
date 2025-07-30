@@ -4,6 +4,7 @@ next-version
 - model: use rayon to create report by processing the sources in parallel.
 - tokenizer: fix handling of corrupted timestamps.
 - model: handle gz compressed files inside a tarball.
+- model: handle nested tarball inside tarballs.
 
 0.14.1
 ======
