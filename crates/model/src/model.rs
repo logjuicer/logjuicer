@@ -49,7 +49,7 @@ use logjuicer_index::traits::*;
 const MODEL_MAGIC: &str = "LGRD";
 
 // Remember to bump this value when changing the tokenizer or the vectorizer to avoid using incompatible models.
-pub const MODEL_VERSION: usize = 7;
+pub const MODEL_VERSION: usize = 8;
 
 /// The user input.
 #[derive(Clone, Debug, Serialize, Deserialize)]

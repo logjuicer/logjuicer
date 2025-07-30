@@ -246,7 +246,7 @@ fn is_base64(word: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(concat!("^", "[A-Za-z0-9+/=]+", "$")).unwrap();
     }
-    word.ends_with("==") || (word.len() > 24 && RE.is_match(word))
+    word.ends_with("==") || (word.len() > 24 && (word.ends_with("=") || RE.is_match(word)))
 }
 
 #[test]
@@ -336,6 +336,10 @@ fn is_key_for_id(word: &str) -> bool {
         .unwrap();
     }
     RE.is_match(word)
+}
+
+fn is_password_key(word: &str) -> bool {
+    word.ends_with("password:") || word.ends_with("password=")
 }
 
 fn is_random_path(word: &str) -> bool {
@@ -526,7 +530,11 @@ fn do_process(base_word: &str, iter: &mut Split, result: &mut String) -> bool {
     } else {
         // here finally the word is added
         let x = remove_numbers(word);
-        if x.len() > 3 {
+        if is_password_key(&x) {
+            // Consume the next word
+            let _ = iter.next();
+            result.push_str(&x)
+        } else if x.len() > 3 {
             result.push_str(&x)
         } else {
             added = false;
@@ -604,7 +612,7 @@ mod tests {
     fn test_process02() {
         assert_eq!(
             process("nova::placement::password: UIbv1LPZWIXpBtaToNzsmgZI3"),
-            "nova%EQ :placement::password: %BASE64"
+            "nova%EQ :placement::password:"
         );
         assert_eq!(
             process("2022-01-25 12:11:14 | ++ export OS_PASSWORD=PobDt1cxalvf40uv9Om5VTNkw"),
@@ -717,6 +725,18 @@ mod tests {
         tokens_eq!(
             "creating Value \"ApacheNetworks\" Stack \"undercloud-UndercloudServiceChain-sczoll7kpg37-ServiceChain-ghee7usnfx3j-17-wztq7dmj6blw-ApacheServiceBase-7nwdrcrxjpmz",
             "creating Value \"ApacheNetworks\" Stack \"undercloud-UndercloudServiceChain-dt26w6s63vd6-ServiceChain-dxxxgncfjqeg-0-yhtbooauehxj"
+        );
+    }
+
+    #[test]
+    fn test_process23() {
+        assert_eq!(
+            process("  mysql::server::root_password: Lj3glPogKC"),
+            "mysql%EQ :server::root_password:"
+        );
+        assert_eq!(
+            process("content: eIjsbTkEe8xGeThoRhNUaO-UbzrGdQ5CQpX38rjNLVw="),
+            "content%EQ %BASE64"
         );
     }
 
