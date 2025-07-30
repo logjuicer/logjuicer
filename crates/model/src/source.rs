@@ -87,9 +87,15 @@ where
                                         continue;
                                     }
                                     let url = format!("{}?entry={}", source.as_str(), path);
+                                    let reader = if path.ends_with(".gz") {
+                                        DecompressReader::TarballEntryCompressed(Box::new(
+                                            flate2::read::GzDecoder::new(entry),
+                                        ))
+                                    } else {
+                                        DecompressReader::TarballEntry(Box::new(entry))
+                                    };
                                     let new_source =
                                         Source::TarFile(source.clone(), path, url.into());
-                                    let reader = DecompressReader::TarballEntry(Box::new(entry));
                                     cb(new_source, Ok(reader))
                                 }
                                 Err(err) => cb(
