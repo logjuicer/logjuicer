@@ -46,6 +46,14 @@
   top: 44px;
 }
 
+.sticky-overflow {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  width: 1800px;
+}
+
 a {
   cursor: pointer;
 }
