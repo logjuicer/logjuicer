@@ -31,6 +31,9 @@ use DecompressReaderFile::*;
 pub enum DecompressReader<'a> {
     Raw(DecompressReaderFile),
     TarballEntry(Box<Entry<'a, liblzma::read::XzDecoder<DecompressReaderFile>>>),
+    TarballEntryCompressed(
+        Box<GzDecoder<Entry<'a, liblzma::read::XzDecoder<DecompressReaderFile>>>>,
+    ),
 }
 use DecompressReader::*;
 
@@ -79,6 +82,7 @@ impl Read for DecompressReader<'_> {
         match self {
             Raw(r) => r.read(buf),
             TarballEntry(r) => r.read(buf),
+            TarballEntryCompressed(r) => r.read(buf),
         }
     }
 }
