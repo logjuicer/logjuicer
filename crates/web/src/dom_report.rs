@@ -192,7 +192,7 @@ fn render_log_report(
                       .class_signal("font-extrabold", toggle_info.signal())})
     ])});
     let header = html!("header", {.class(["header", "bg-slate-100", "flex", "divide-x", "mr-2"]).children(&mut [
-        html!("div", {.class(["grow", "flex"]).attr("id", anchor).children(&mut [
+        html!("div", {.class(["grow", "flex", "sticky-overflow"]).attr("id", anchor).children(&mut [
             render_link(log_report.source.get_href(&report.target), log_report.source.get_relative())
         ])}),
         info_btn
@@ -266,8 +266,10 @@ fn render_timeline(
                     html!("td", {.class(["header2", "text-end", "bg-slate-50", "px-2", "pb-1"])
                                  .attr("colspan", "2")
                                  .children(&mut [
-                                     render_link(&link.1, lr.source.get_relative())
-                                 ])})
+                                     html!("div", {.class("sticky-overflow").children(&mut [
+                                         render_link(&link.1, lr.source.get_relative())
+                                     ])})]
+                                 )})
                 ])}))
             }
             render_anomaly_context(&mut render_state.gl_pos, &mut last_pos, &mut lines, anomaly);
