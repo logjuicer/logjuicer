@@ -310,7 +310,13 @@ fn render_report<'a>(report: &'a Report) -> Dom {
             let mut first = true;
             for (mut ts, anomaly) in lr.timed() {
                 // Increase timeline resolution
-                ts.0 *= 1_000_000;
+                match ts.0.checked_mul(1_000_000) {
+                    Some(tsm) => ts.0 = tsm,
+                    None => {
+                        gloo_console::log!(format!("Bad timestamp: {:?}", anomaly));
+                        continue;
+                    }
+                };
 
                 // Count the number of LogReport with timestamp
                 if first {

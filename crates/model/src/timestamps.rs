@@ -24,6 +24,9 @@ pub fn parse_timestamp(line: &str) -> Option<TS> {
         NaiveDateTime::parse_and_remainder(stripped, "%s.%3f")
             .map(|(ndt, _)| Full(Epoch(ndt.and_utc().timestamp_millis() as u64)))
             .ok()
+    } else if line.starts_with([' ', '\t', '\n']) {
+        // chrono parse_and_remainder trims trailing spaces
+        None
     } else {
         NaiveDateTime::parse_and_remainder(line, "%F %T,%3f")
             .or_else(|_| NaiveDateTime::parse_and_remainder(line, "%FT%T"))
@@ -35,8 +38,9 @@ pub fn parse_timestamp(line: &str) -> Option<TS> {
                     .or_else(|_| NaiveTime::parse_and_remainder(line, "%b %d %T "))
                     .map(|(nt, _)| {
                         Time(
-                            (nt.num_seconds_from_midnight() as u64) * 1_000
-                                + ((nt.nanosecond() / 1_000_000) as u64),
+                            (nt.num_seconds_from_midnight() as u64)
+                                .saturating_mul(1_000)
+                                .saturating_add((nt.nanosecond() / 1_000_000) as u64),
                         )
                     })
             })
@@ -46,6 +50,7 @@ pub fn parse_timestamp(line: &str) -> Option<TS> {
 
 #[test]
 fn test_timestamp() {
+    assert_eq!(parse_timestamp("    5-07-30 07:20:17,250 19 INFO "), None);
     assert_eq!(parse_timestamp("Feb 27 11:06:45 "), Some(Time(40005000)));
     assert_eq!(
         parse_timestamp("2024-02-27T15:58:33Z "),
