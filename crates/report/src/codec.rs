@@ -455,8 +455,10 @@ impl ReportDecoder {
     }
 
     pub fn decode(&mut self, reader: impl BufRead) -> Result<Report> {
-        let message_reader =
-            capnp::serialize::read_message(reader, capnp::message::ReaderOptions::new())?;
+        let message_reader = capnp::serialize::read_message(
+            reader,
+            *capnp::message::ReaderOptions::new().traversal_limit_in_words(Some(32 * 1024 * 1024)),
+        )?;
         let reader = message_reader.get_root::<schema_capnp::report::Reader<'_>>()?;
 
         self.read_tarballs(&reader.get_tarballs()?)?;
