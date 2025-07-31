@@ -41,19 +41,19 @@ impl<'a> LinesIterator<DecompressReader<'a>> {
     }
 }
 
-fn open_source(env: &Env, source: &SourceLoc) -> Result<crate::reader::DecompressReaderFile> {
+fn open_source(env: &Env, source: &SourceLoc) -> Result<crate::reader::DecompressReader<'static>> {
     match source {
         SourceLoc::Local(_, path_buf) => crate::files::file_open(path_buf.as_path()),
         SourceLoc::Remote(_, url) => crate::urls::url_open(env, url),
     }
 }
 
-pub fn open_single_source<'a>(
+pub fn open_single_source(
     env: &Env,
     source: &Source,
-) -> Result<crate::reader::DecompressReader<'a>> {
+) -> Result<crate::reader::DecompressReader<'static>> {
     match source {
-        Source::RawFile(source) => Ok(DecompressReader::Raw(open_source(env, source)?)),
+        Source::RawFile(source) => open_source(env, source),
         Source::TarFile(_, _, _) => Err(anyhow::anyhow!(
             "This is not possible, open_source doesn't work with TarFile.",
         )),
@@ -67,10 +67,10 @@ where
     match open_source(env.gl, &source) {
         Ok(reader) => {
             if source.is_tarball() {
-                let reader = liblzma::read::XzDecoder::new(DecompressReader::Raw(reader));
+                let reader = liblzma::read::XzDecoder::new(reader);
                 with_tarball_source(env, Arc::new(source), None, reader, &mut cb)
             } else {
-                cb(Source::RawFile(source), Ok(DecompressReader::Raw(reader)));
+                cb(Source::RawFile(source), Ok(reader));
             }
         }
         Err(err) => cb(
