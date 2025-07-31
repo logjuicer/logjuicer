@@ -74,7 +74,6 @@ where
     match open_source(env.gl, &source) {
         Ok(reader) => {
             if source.is_tarball() {
-                let reader = liblzma::read::XzDecoder::new(reader);
                 with_tarball_source(env, Arc::new(source), None, reader, &mut cb)
             } else {
                 cb(Source::RawFile(source), Ok(reader));
@@ -91,7 +90,7 @@ pub fn with_tarball_source<F>(
     env: &crate::env::TargetEnv<'_>,
     source: Arc<SourceLoc>,
     url: Option<Arc<str>>,
-    reader: liblzma::read::XzDecoder<DecompressReader<'_>>,
+    reader: DecompressReader<'_>,
     cb: &mut F,
 ) where
     F: FnMut(Source, std::result::Result<DecompressReader<'_>, String>),
@@ -119,21 +118,23 @@ pub fn with_tarball_source<F>(
                         }
                         .into();
 
+                        // Ideally, the tarball entry should be wrapped as a DecompressReader, like:
+                        //   TarballEntry(Box<Entry<'b, DecompressReader<'a, 'a>>>)
+                        // However, this induces lifetime hell.
+                        // That works for direct child, but if the tarball contains another tarball,
+                        // then this representation don't work when calling with_tarball_source recursively
+                        // Therefor, we have to use a Box<dyn Read + 'a> value to satisfy the borrow
+                        // checker.
                         let reader = if path.ends_with(".gz") {
                             DecompressReader::Nested(Box::new(flate2::read::GzDecoder::new(entry)))
+                        } else if path.ends_with(".xz") {
+                            DecompressReader::Nested(Box::new(liblzma::read::XzDecoder::new(entry)))
                         } else {
                             DecompressReader::Nested(Box::new(entry))
                         };
 
-                        if url.ends_with(".tar.xz") {
-                            with_tarball_source(
-                                env,
-                                source.clone(),
-                                Some(url),
-                                liblzma::read::XzDecoder::new(reader),
-                                cb,
-                            );
-                            continue;
+                        if Source::is_tarball_path(&url) {
+                            with_tarball_source(env, source.clone(), Some(url), reader, cb);
                         } else {
                             let new_source = Source::TarFile(source.clone(), path, url);
                             cb(new_source, Ok(reader))
