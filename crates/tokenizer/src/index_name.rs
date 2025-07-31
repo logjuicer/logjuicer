@@ -120,6 +120,14 @@ fn test_vowel_remove() {
 fn clean_name(base: &str) -> String {
     if base.starts_with("instance-00") {
         "instance".to_string()
+    } else if base.starts_with("sosreport-") {
+        let prefix = "sosreport-".len();
+        if let Some(pos) = base[prefix..].find('-') {
+            &base[..prefix + pos]
+        } else {
+            base
+        }
+        .to_string()
     } else {
         remove_non_vowel_component(base)
             .replace(
@@ -182,6 +190,13 @@ fn log_model_name() {
             ],
         ),
         ("builds/log", ["builds/2/log", "builds/42/log"]),
+        (
+            "allnodes/sosreport-networker",
+            [
+                "_all_nodes/sosreport-networker-pyoo1wkk-2.tar.xz",
+                "_all_nodes/sosreport-networker-pyoo1wka-1.tar.xz",
+            ],
+        ),
         ("audit/audit.log", ["audit/audit.log", "audit/audit.log.1"]),
         (
             "zuul/merger.log",
