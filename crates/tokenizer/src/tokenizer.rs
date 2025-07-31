@@ -249,6 +249,13 @@ fn is_base64(word: &str) -> bool {
     word.ends_with("==") || (word.len() > 24 && (word.ends_with("=") || RE.is_match(word)))
 }
 
+fn is_systemd_unit_container_pid(word: &str) -> bool {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(concat!("^", "[a-z]+_[a-z]+\\[[0-9]+\\]:", "$")).unwrap();
+    }
+    RE.is_match(word)
+}
+
 #[test]
 fn test_is_base64() {
     tokens_eq!(
@@ -376,6 +383,11 @@ mod re_tests {
     }
 
     #[test]
+    fn test_is_systemd_pid() {
+        assert!(is_systemd_unit_container_pid("elastic_mirzakhani[36129]:"))
+    }
+
+    #[test]
     fn test_id() {
         assert!(IntoIterator::into_iter([
             "aa:bb:cc:00:ff",
@@ -433,6 +445,9 @@ fn parse_literal(word: &str) -> Option<&str> {
         Some("%REF")
     } else if is_base64(word) {
         Some("%BASE64")
+    } else if is_systemd_unit_container_pid(word) {
+        // systemd unit are often random because of container.
+        Some("%UNIT")
     } else {
         None
     }
@@ -737,6 +752,14 @@ mod tests {
         assert_eq!(
             process("content: eIjsbTkEe8xGeThoRhNUaO-UbzrGdQ5CQpX38rjNLVw="),
             "content%EQ %BASE64"
+        );
+    }
+
+    #[test]
+    fn test_process24() {
+        assert_eq!(
+            process("Jul 30 21:51:01 localhost elastic_mirzakhani[36129]: 167 167"),
+            "%ID %ID localhost %UNIT %ID %ID"
         );
     }
 
