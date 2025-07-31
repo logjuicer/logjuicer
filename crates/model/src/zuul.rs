@@ -178,7 +178,7 @@ pub fn discover_baselines(build: &ZuulBuild, env: &Env) -> Result<Vec<Content>> 
 pub fn sources_iter(build: &ZuulBuild, env: &Env) -> Box<dyn Iterator<Item = Result<SourceLoc>>> {
     let prefix = build.log_url.as_str().trim_end_matches('/').len() + 1;
     let manifest_url = build.log_url.join("zuul-manifest.json").expect("good url");
-    if let Ok(mut reader) = crate::url_open(env, &manifest_url) {
+    if let Ok(mut reader) = crate::reader::get_url(env, &manifest_url) {
         let mut manifest = Vec::new();
         match reader.read_to_end(&mut manifest).and_then(|_| {
             Ok(serde_json::from_reader::<

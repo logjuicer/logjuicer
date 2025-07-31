@@ -49,6 +49,7 @@ pub fn head_url(env: &Env, url: &Url) -> Result<bool> {
 }
 
 pub fn get_url(env: &Env, url: &Url) -> Result<DecompressReader<'static>> {
+    tracing::debug!(url = url.as_str(), "Requesting url");
     let resp = with_auth(env, env.client.get(url.as_str())).call()?;
     Ok(DecompressReader::Remote(resp.into_body().into_reader()))
 }

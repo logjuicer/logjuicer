@@ -28,7 +28,7 @@ pub use logjuicer_tokenizer::index_name::IndexName;
 
 use crate::files::{dir_iter, file_iter};
 use crate::unordered::KnownLines;
-use crate::urls::{httpdir_iter, url_open};
+use crate::urls::httpdir_iter;
 pub mod config;
 pub mod env;
 pub mod errors;
@@ -36,7 +36,7 @@ pub mod files;
 pub mod journal;
 pub mod process;
 pub mod prow;
-mod reader;
+pub mod reader;
 pub mod similarity;
 pub mod source;
 pub mod timestamps;
@@ -255,7 +255,7 @@ impl<IR: IndexReader> Index<IR> {
         let sources = match sources {
             IndexSource::Bundle(sources) => {
                 for source in &sources {
-                    match crate::source::open_single_source(env.gl, source) {
+                    match crate::source::open_raw_source(env.gl, source) {
                         Ok(reader) => train_source(source, reader),
                         Err(e) => tracing::error!("{}: fail to open {}", source, e),
                     };
@@ -589,7 +589,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
                             sources.iter().take(5).format(", ")
                         ));
                         for source in sources {
-                            match crate::source::open_single_source(env.gl, &source)
+                            match crate::source::open_raw_source(env.gl, &source)
                                 .map_err(|e| e.to_string())
                                 .and_then(|reader| {
                                     let cur_date = *gl_date.lock().unwrap();

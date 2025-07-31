@@ -5,7 +5,6 @@ use anyhow::Result;
 use logjuicer_model::{
     content_from_input, content_get_sources,
     env::{Env, EnvConfig},
-    urls::url_open,
     Input, SourceLoc,
 };
 use std::path::PathBuf;
@@ -13,7 +12,7 @@ use threadpool::ThreadPool;
 
 fn download_file(env: &Env, url: url::Url, path: PathBuf) -> Result<()> {
     println!("Fetching {} to {}", url.as_str(), path.display());
-    let mut inp = url_open(env, &url)?;
+    let mut inp = logjuicer_model::reader::get_url(env, &url)?;
     let mut out = std::fs::File::create(path)?;
     std::io::copy(&mut inp, &mut out)?;
     Ok(())
