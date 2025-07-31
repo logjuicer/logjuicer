@@ -72,6 +72,8 @@ fn global_filter(line: &str) -> bool {
             r"|(ip|eb)tables .* -L\b",
             // chrony logs
             r"|(^\^[+*-] [a-z0-9\.>-]{5,} [0-9])",
+            // dnsmasq
+            r"|dnsmasq(\[[0-9]+\])?: (query|forwarded|reply|cached|config)",
             // memcached logs
             r"|(^[a-f0-9s/]+>[0-9]+ )",
             // shell debugs
@@ -89,6 +91,14 @@ fn global_filter(line: &str) -> bool {
 #[test]
 fn test_global_filter() {
     assert_eq!(process("iptables -N RULES42 -L"), "%GL_FILTER");
+    assert_eq!(
+        process("crc dnsmasq[108501]: query[AAAA] no-such-master from 192.168.122.100"),
+        "%GL_FILTER"
+    );
+    assert_eq!(
+        process("crc dnsmasq: reply example.com is NODATA-IPv6"),
+        "%GL_FILTER"
+    );
     assert_eq!(
         process("e2b607f0bb193c9bfed94af532ba1>33 STORED"),
         "%GL_FILTER"
