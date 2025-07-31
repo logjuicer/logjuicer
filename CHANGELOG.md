@@ -5,6 +5,7 @@ next-version
 - tokenizer: fix handling of corrupted timestamps.
 - model: handle gz compressed files inside a tarball.
 - model: handle nested tarball inside tarballs.
+- model: ignore systemd coredump files.
 
 0.14.1
 ======
