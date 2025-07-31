@@ -76,6 +76,9 @@ fn global_filter(line: &str) -> bool {
             r"|(^[a-f0-9s/]+>[0-9]+ )",
             // shell debugs
             r"|(^\+\+ echo [^ ]+$)",
+            // sysctl taps
+            r"|(^net.ipv[46].(conf|neigh).tap)",
+            r#"|(^[" \t]*net.interface.tap)"#,
             // key's randomart
             r#"|([ '",]*\|.{17}\|[ '",]*$)"#
         )).unwrap();
