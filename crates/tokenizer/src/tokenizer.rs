@@ -133,6 +133,7 @@ fn is_date(word: &str) -> bool {
             "(?i-u:^(",
             "sunday|monday|tuesday|wednesday|thursday|friday|saturday|",
             "january|february|march|april|may|june|july|august|september|october|november|december",
+            "|months?|weeds?|days?|hours?|minutes?",
             ")$)"
         ))
         .unwrap();
@@ -199,6 +200,7 @@ fn is_uid(word: &str) -> bool {
         static ref RE: Regex = Regex::new(concat!(
             "^(:*",
             r"[\[\]0-9a-fA-FxZ,]+[:.-]*",
+            r"|(latest|none)",
             r"|rabbitmq-cluster-id-.*",
             ")+$"
         ))
@@ -384,9 +386,20 @@ mod re_tests {
 
     #[test]
     fn test_date() {
-        assert!(IntoIterator::into_iter(["sunday", "saturday", "Monday"]).all(is_date));
+        assert!(
+            IntoIterator::into_iter(["sunday", "saturday", "Monday", "months", "day"]).all(is_date)
+        );
         assert!(
             IntoIterator::into_iter(["sunday ", " saturday", " jan ", "sund"]).all(|v| !is_date(v))
+        );
+    }
+
+    #[test]
+    fn test_image_version() {
+        tokens_eq!("image v42", "image <none>");
+        tokens_eq!(
+            "image-name latest 42 months ago",
+            "image-name v56 5 minutes ago"
         );
     }
 
