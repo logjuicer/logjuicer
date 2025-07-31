@@ -318,6 +318,9 @@ fn test_config_default_exclude() {
         "/config/.git/HEAD",
         "font.ttf.gz",
         "/system/etc/conf",
+        "blah/sos_commands/selinux/ps_auxZww",
+        "blurp/sos_commands/process/ps_alxwww",
+        "foo/sos_commands/process/ps_-elfL",
     ] {
         let source = SourceLoc::from_pathbuf(src.into());
         assert_eq!(config.is_source_valid(&source), false)
