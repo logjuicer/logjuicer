@@ -33,7 +33,8 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "job-output.json$",
     "zuul-manifest.json$",
     ".html$",
-    "sos_commands/.*/ps_",
+    "sos_commands/.*/(lsof|ps|journalctl)_",
+    "sos_commands/scsi",
     // binary data with known location
     "cacerts$",
     "local/creds$",
@@ -53,6 +54,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "/etc/",
     "/proc/",
     "/sys/",
+    "/usr/lib/",
     "/var/lib/selinux/",
     "/venv/",
     // hidden files
