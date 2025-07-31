@@ -22,12 +22,6 @@ pub fn content_from_url(env: &Env, url: Url) -> Result<Content> {
 }
 
 #[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
-pub fn url_open(env: &Env, url: &Url) -> Result<crate::reader::DecompressReader<'static>> {
-    tracing::debug!(url = url.as_str(), "Requesting url");
-    crate::reader::get_url(env, url)
-}
-
-#[tracing::instrument(level = "debug", skip_all, fields(url = url.as_str()))]
 pub fn httpdir_iter(url: &Url, env: &Env) -> Box<dyn Iterator<Item = Result<SourceLoc>>> {
     let base_len = url.as_str().trim_end_matches('/').len() + 1;
     let req_max = 2500;

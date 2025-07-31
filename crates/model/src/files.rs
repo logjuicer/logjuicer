@@ -3,7 +3,7 @@
 
 //! This module provides helpers to work with file paths.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::Path;
 
 use crate::env::Env;
@@ -28,11 +28,6 @@ pub fn discover_baselines_from_path(env: &Env, path: &Path) -> Result<Vec<Conten
     path_str.push_str(".0");
     let baseline = crate::content_from_input(env, Input::Path(path_str))?;
     Ok(vec![baseline])
-}
-
-pub fn file_open(path: &Path) -> Result<crate::reader::DecompressReader<'static>> {
-    tracing::debug!(path = path.to_str(), "Opening file");
-    crate::reader::from_path(path).context("Failed to open file")
 }
 
 // A file source only has one source

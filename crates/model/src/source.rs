@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use bytes::Bytes;
 use std::{io::Read, sync::Arc};
 
@@ -43,19 +43,26 @@ impl<'a> LinesIterator<DecompressReader<'a>> {
 
 fn open_source(env: &Env, source: &SourceLoc) -> Result<crate::reader::DecompressReader<'static>> {
     match source {
-        SourceLoc::Local(_, path_buf) => crate::files::file_open(path_buf.as_path()),
-        SourceLoc::Remote(_, url) => crate::urls::url_open(env, url),
+        SourceLoc::Local(_, path_buf) => {
+            let path = path_buf.as_path();
+            tracing::debug!(path = path.to_str(), "Opening file");
+            crate::reader::from_path(path).context("Failed to open file")
+        }
+        SourceLoc::Remote(_, url) => {
+            tracing::debug!(url = url.as_str(), "Requesting url");
+            crate::reader::get_url(env, url)
+        }
     }
 }
 
-pub fn open_single_source(
+pub fn open_raw_source(
     env: &Env,
     source: &Source,
 ) -> Result<crate::reader::DecompressReader<'static>> {
     match source {
         Source::RawFile(source) => open_source(env, source),
         Source::TarFile(_, _, _) => Err(anyhow::anyhow!(
-            "This is not possible, open_source doesn't work with TarFile.",
+            "This is not possible, open_raw_source doesn't work with TarFile.",
         )),
     }
 }

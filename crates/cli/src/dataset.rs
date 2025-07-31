@@ -95,7 +95,7 @@ fn process(env: &EnvConfig, path: &Path, dataset: Dataset) -> Result<()> {
             >(env, [content_from_pathbuf(good.to_path_buf())].to_vec())?;
             let index = model.get_index(&IndexName::new()).unwrap();
             let source = Source::from_pathbuf(fail.to_path_buf());
-            let reader = logjuicer_model::source::open_single_source(env.gl, &source)?;
+            let reader = logjuicer_model::source::open_raw_source(env.gl, &source)?;
             let anomalies = index
                 .get_processor(
                     env,
