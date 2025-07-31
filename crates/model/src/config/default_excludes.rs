@@ -33,7 +33,7 @@ pub const DEFAULT_EXCLUDES: &[&str] = &[
     "job-output.json$",
     "zuul-manifest.json$",
     ".html$",
-    "sos_commands/.*/(lsof|ps|journalctl)_",
+    "sos_commands/.*/(lsof|ps|journalctl|ls)_",
     "sos_commands/scsi",
     // binary data with known location
     "cacerts$",

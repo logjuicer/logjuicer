@@ -117,9 +117,16 @@ fn test_vowel_remove() {
     )
 }
 
-fn clean_name(base: &str) -> String {
+fn clean_name(base_str: &str) -> String {
+    let base = if let Some(suffix) = base_str.strip_suffix(".journal") {
+        suffix
+    } else {
+        base_str
+    };
     if base.starts_with("instance-00") {
         "instance".to_string()
+    } else if let Some(pos) = base.find('@') {
+        base[..pos].to_string()
     } else if base.starts_with("sosreport-") {
         let prefix = "sosreport-".len();
         if let Some(pos) = base[prefix..].find('-') {
@@ -190,6 +197,7 @@ fn log_model_name() {
             ],
         ),
         ("builds/log", ["builds/2/log", "builds/42/log"]),
+        ("journal/system", ["journal/191f9d948de542028f9b5b1731d2f400/system@00063b2d7c4cfbed-574870f97843e8e0.journal", "journal/system.journal"]),
         (
             "allnodes/sosreport-networker",
             [
