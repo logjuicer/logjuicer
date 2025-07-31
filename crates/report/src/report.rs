@@ -466,6 +466,9 @@ impl Source {
             Source::RawFile(s) => s.is_tarball(),
         }
     }
+    pub fn is_tarball_path(s: &str) -> bool {
+        s.ends_with(".tar.xz") || s.ends_with(".tar.gz")
+    }
     pub fn from_pathbuf(p: PathBuf) -> Source {
         Source::RawFile(SourceLoc::from_pathbuf(p))
     }
@@ -527,7 +530,7 @@ impl SourceLoc {
         }
     }
     pub fn is_tarball(&self) -> bool {
-        self.as_str().ends_with(".tar.xz")
+        Source::is_tarball_path(self.as_str())
     }
 }
 
