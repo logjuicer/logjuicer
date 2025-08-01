@@ -112,8 +112,11 @@ use gloo_timers::future::TimeoutFuture;
 pub async fn put_hash_into_view(selection: Selection) {
     let body = web_sys::window().unwrap().document().unwrap();
     let elem_id = selection.elem_id();
-    for _retry in 0..10 {
+    for _retry in 0..60 {
         if let Some(elem) = body.get_element_by_id(&elem_id) {
+            if elem.get_bounding_client_rect().x() <= 1. {
+                continue;
+            }
             log!(&format!("Putting {} into view", elem_id));
 
             let opt = web_sys::ScrollIntoViewOptions::new();
