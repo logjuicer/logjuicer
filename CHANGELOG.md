@@ -6,6 +6,7 @@ next-version
 - model: handle gz compressed files inside a tarball.
 - model: handle nested tarball inside tarballs.
 - model: ignore systemd coredump files.
+- model: improve handling of global skipped line.
 
 0.14.1
 ======

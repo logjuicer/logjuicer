@@ -13,6 +13,7 @@ impl UnorderedLine {
     fn from_str(line: &str) -> UnorderedLine {
         UnorderedLine(
             line.split(' ')
+                .filter(|word| !word.starts_with("%"))
                 .sorted()
                 .map(|word| word.to_string())
                 .collect(),
