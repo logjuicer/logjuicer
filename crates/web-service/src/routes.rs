@@ -191,6 +191,12 @@ impl ReportRequest {
             errors: None,
         })
     }
+    pub(crate) fn is_errors(&self) -> bool {
+        match self {
+            ReportRequest::NewReport(report) => report.errors.unwrap_or(false),
+            ReportRequest::NewSimilarity(_) => false,
+        }
+    }
 }
 
 impl std::fmt::Display for ReportRequest {
