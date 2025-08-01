@@ -29,7 +29,8 @@ impl<'a> LinesIterator<DecompressReader<'a>> {
         source: &Source,
         reader: DecompressReader<'a>,
     ) -> Result<LinesIterator<DecompressReader<'a>>> {
-        let iter = if source.as_str().ends_with(".journal") {
+        let src = source.as_str();
+        let iter = if src.ends_with(".journal") || src.ends_with(".journal~") {
             LinesIterator::Journal(JournalLines::new(reader)?)
         } else {
             LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(
