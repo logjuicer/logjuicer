@@ -137,45 +137,54 @@ impl Workers {
                     allow_any_sources,
                 };
                 let monitor = &penv.monitor;
-                let (status, count, size) = match process_report_safe(&penv, &env, report_request) {
-                    Ok(report) => {
-                        let fp = report_path(&penv.storage_dir, report_id);
-                        let path = std::path::Path::new(&fp);
-                        let (count, save_result) = match report {
-                            ReportResult::NewReport(report) => {
-                                (report.anomaly_count(), report.save(path))
-                            }
-                            ReportResult::NewSimilarity(report) => {
-                                ((report.similarity_reports.len()), report.save(path))
-                            }
-                        };
-                        let path = std::path::Path::new(&fp);
-                        let (status, size) = if let Err(err) = save_result {
-                            tracing::error!("{}: failed to save report: {}", fp, err);
-                            monitor.emit(format!("Error: saving failed: {}", err).into());
-                            (
-                                ReportStatus::Error(format!("Save error: {}", err)),
-                                FileSize(0),
-                            )
-                        } else {
-                            tracing::info!("{}: saved report", fp);
-                            monitor.emit("Done".into());
-                            (ReportStatus::Completed, FileSize::from(path))
-                        };
-                        (status, count, size)
-                    }
-                    Err(e) => {
-                        monitor.emit(format!("Error: {}", e).into());
-                        (ReportStatus::Error(e), 0, FileSize(0))
-                    }
-                };
+                let report_request_is_errors = report_request.is_errors();
+                let (is_errors, status, count, size) =
+                    match process_report_safe(&penv, &env, report_request) {
+                        Ok(report) => {
+                            let fp = report_path(&penv.storage_dir, report_id);
+                            let path = std::path::Path::new(&fp);
+                            let (is_errors, count, save_result) = match report {
+                                ReportResult::NewReport(report) => (
+                                    report.baselines.is_empty(),
+                                    report.anomaly_count(),
+                                    report.save(path),
+                                ),
+                                ReportResult::NewSimilarity(report) => {
+                                    (false, report.similarity_reports.len(), report.save(path))
+                                }
+                            };
+                            let path = std::path::Path::new(&fp);
+                            let (status, size) = if let Err(err) = save_result {
+                                tracing::error!("{}: failed to save report: {}", fp, err);
+                                monitor.emit(format!("Error: saving failed: {}", err).into());
+                                (
+                                    ReportStatus::Error(format!("Save error: {}", err)),
+                                    FileSize(0),
+                                )
+                            } else {
+                                tracing::info!("{}: saved report", fp);
+                                monitor.emit("Done".into());
+                                (ReportStatus::Completed, FileSize::from(path))
+                            };
+                            (is_errors, status, count, size)
+                        }
+                        Err(e) => {
+                            monitor.emit(format!("Error: {}", e).into());
+                            (false, ReportStatus::Error(e), 0, FileSize(0))
+                        }
+                    };
                 // Remove the monitor
                 let _ = reports.write().unwrap().remove(&report_id);
                 // Record the result into the db
                 handle.spawn(async move {
                     db.update_report(report_id, count, &status, size)
                         .await
-                        .unwrap()
+                        .unwrap();
+                    if is_errors && !report_request_is_errors {
+                        db.update_report_baseline(report_id, "errors")
+                            .await
+                            .unwrap();
+                    }
                 });
             })
         } else {

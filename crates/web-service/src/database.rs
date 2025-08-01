@@ -261,6 +261,21 @@ impl Db {
         .map(|_| ())
     }
 
+    pub async fn update_report_baseline(
+        &self,
+        report_id: ReportID,
+        baseline: &str,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "update reports set baseline = ? where id = ?",
+            baseline,
+            report_id.0,
+        )
+        .execute(&self.pool)
+        .await
+        .map(|_| ())
+    }
+
     pub async fn initialize_report(&self, target: &str, baseline: &str) -> sqlx::Result<ReportID> {
         let now_utc = Utc::now();
         let status = ReportStatus::Pending.as_str();
