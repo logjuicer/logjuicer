@@ -120,6 +120,8 @@ fn test_vowel_remove() {
 fn clean_name(base_str: &str) -> String {
     let base = if let Some(suffix) = base_str.strip_suffix(".journal") {
         suffix
+    } else if let Some(suffix) = base_str.strip_suffix(".journal~") {
+        suffix
     } else {
         base_str
     };
