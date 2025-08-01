@@ -284,7 +284,7 @@ impl ReportEncoder {
     fn write_source(&self, source: &Source, builder: schema_capnp::source::Builder) -> Result<()> {
         match source {
             Source::RawFile(source) => self.write_source_loc(source, builder),
-            Source::TarFile(base, path, _) => match self.tarballs_map.get(base.as_ref()) {
+            Source::TarFile(base, path, url) => match self.tarballs_map.get(base.as_ref()) {
                 Some(pos) => {
                     let mut builder = builder.init_tarfile();
                     builder.set_tarball(
@@ -292,7 +292,12 @@ impl ReportEncoder {
                             .try_into()
                             .map_err(|_| capnp::Error::failed("Bad tarball pos".into()))?,
                     );
-                    builder.set_loc(path);
+                    let tar_path = if let Some(entry) = url.strip_prefix("?entry=") {
+                        entry
+                    } else {
+                        path
+                    };
+                    builder.set_loc(tar_path);
                     Ok(())
                 }
                 None => Err(capnp::Error::failed(format!("Unknown tarball: {}", base))),
