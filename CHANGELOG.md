@@ -7,6 +7,7 @@ next-version
 - model: handle nested tarball inside tarballs.
 - model: ignore systemd coredump files.
 - model: improve handling of global skipped line.
+- web: fix the auto scroll on large report.
 
 0.14.1
 ======
