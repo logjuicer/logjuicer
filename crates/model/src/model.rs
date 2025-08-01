@@ -285,12 +285,12 @@ impl<IR: IndexReader> Index<IR> {
         }
     }
 
-    pub fn get_processor<'a, 'b>(
+    pub fn get_processor_gl<'a, 'b>(
         &'a self,
         env: &'a TargetEnv,
         source: &Source,
         reader: DecompressReader<'b>,
-        skip_lines: &'a mut Option<KnownLines>,
+        skip_lines: (&'a mut Option<KnownLines>, Arc<Mutex<Option<KnownLines>>>),
         gl_date: Option<Epoch>,
     ) -> Result<process::ChunkProcessor<'a, IR, crate::reader::DecompressReader<'b>>> {
         let reader = source::LinesIterator::new(source, reader)?;
@@ -308,6 +308,22 @@ impl<IR: IndexReader> Index<IR> {
             env.config,
             gl_date,
         ))
+    }
+    pub fn get_processor<'a, 'b>(
+        &'a self,
+        env: &'a TargetEnv,
+        source: &Source,
+        reader: DecompressReader<'b>,
+        skip_lines: &'a mut Option<KnownLines>,
+        gl_date: Option<Epoch>,
+    ) -> Result<process::ChunkProcessor<'a, IR, crate::reader::DecompressReader<'b>>> {
+        self.get_processor_gl(
+            env,
+            source,
+            reader,
+            (skip_lines, Arc::new(Mutex::new(None))),
+            gl_date,
+        )
     }
 }
 
@@ -524,7 +540,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
         env: &TargetEnv,
         index: (&Index<IR>, &IndexName),
         counters: Arc<Mutex<LineCounters>>,
-        skip_lines: &mut Option<KnownLines>,
+        skip_lines: (&mut Option<KnownLines>, Arc<Mutex<Option<KnownLines>>>),
         source: (&Source, DecompressReader<'b>),
         gl_date: Option<Epoch>,
     ) -> std::result::Result<Option<LogReport>, String> {
@@ -532,7 +548,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
         let mut anomalies = Vec::new();
         match index
             .0
-            .get_processor(env, source.0, source.1, skip_lines, gl_date)
+            .get_processor_gl(env, source.0, source.1, skip_lines, gl_date)
         {
             Ok(mut processor) => {
                 for anomaly in processor.by_ref() {
@@ -574,7 +590,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
         let counters = Arc::new(Mutex::new(LineCounters::new()));
         let gl_date = Mutex::new(None);
         let (tarballs, mut groups) = group_sources(env, &[target.clone()])?;
-
+        let gl_skip_lines = Arc::new(Mutex::new(env.new_skip_lines()));
         groups
             .drain()
             .collect::<Vec<_>>()
@@ -597,7 +613,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
                                         env,
                                         (index, &index_name),
                                         counters.clone(),
-                                        &mut skip_lines,
+                                        (&mut skip_lines, gl_skip_lines.clone()),
                                         (&source, reader),
                                         cur_date,
                                     )
@@ -655,7 +671,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
                                 env,
                                 (index, &index_name),
                                 counters.clone(),
-                                &mut skip_lines,
+                                (&mut skip_lines, gl_skip_lines.clone()),
                                 (&source, reader),
                                 cur_date,
                             )

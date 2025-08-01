@@ -27,12 +27,16 @@ pub fn model_process(c: &mut Criterion) {
         b.iter(|| {
             let data = std::io::Cursor::new(&target);
             let mut skip_lines = Some(logjuicer_model::unordered::KnownLines::new());
+            let skip_lines = (
+                &mut skip_lines,
+                std::sync::Arc::new(std::sync::Mutex::new(None)),
+            );
             let reader = LinesIterator::Bytes(BytesLines::new(black_box(data), false));
             let processor = logjuicer_model::process::ChunkProcessor::new(
                 black_box(reader),
                 black_box(&index),
                 false,
-                &mut skip_lines,
+                skip_lines,
                 config,
                 None,
             );
