@@ -4,9 +4,9 @@
 //! This module provides the core utilities to use logjuicer-index with Read objects.
 
 use anyhow::Result;
-use std::collections::VecDeque;
 use std::io::Read;
 use std::sync::Arc;
+use std::{collections::VecDeque, sync::Mutex};
 
 use crate::config::TargetConfig;
 use crate::source::LinesIterator;
@@ -106,7 +106,7 @@ pub struct ChunkProcessor<'a, IR: IndexReader, R: Read> {
     /// The list of anomalies recently found.
     anomalies: VecDeque<AnomalyContext>,
     /// The list of unique log lines, to avoid searching a line twice.
-    skip_lines: &'a mut Option<KnownLines>,
+    skip_lines: (&'a mut Option<KnownLines>, Arc<Mutex<Option<KnownLines>>>),
     /// The current line coordinate.
     coord: usize,
     /// Total lines count
@@ -150,7 +150,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         reader: LinesIterator<R>,
         index: &'a IR,
         is_job_output: bool,
-        skip_lines: &'a mut Option<KnownLines>,
+        skip_lines: (&'a mut Option<KnownLines>, Arc<Mutex<Option<KnownLines>>>),
         config: &'a TargetConfig,
         gl_date: Option<Epoch>,
     ) -> ChunkProcessor<'a, IR, R> {
@@ -234,7 +234,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
             // Keep in the buffer all the lines until we get CHUNK_SIZE unique lines
             self.buffer.push((line, self.coord));
 
-            let process_line = if let Some(skip_lines) = self.skip_lines {
+            let process_line = if let Some(skip_lines) = self.skip_lines.0 {
                 skip_lines.insert(&tokens)
             } else {
                 // TODO: this is not great because we are re-computing the same distance,
@@ -281,7 +281,9 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         let mut buffer_pos = 0;
         let mut last_context_pos = 0;
 
-        for (distance, coord) in distances.iter().zip(self.targets_coord.iter()) {
+        for (target_idx, (distance, coord)) in
+            distances.iter().zip(self.targets_coord.iter()).enumerate()
+        {
             let is_anomaly = distance > &THRESHOLD;
 
             // The distances and coords are out of sync with the buffer, because they only contains unique line.
@@ -295,7 +297,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
                 if distance_found_in_buffer && is_anomaly {
                     // We found the target in the buffer, and it is an anomaly
                     let raw_str = logjuicer_iterator::clone_bytes_to_string(bytes).unwrap();
-                    target_str = Some((raw_str, line_number));
+                    target_str = Some((&self.targets[target_idx], raw_str, line_number));
                 } else if let Some(anomaly) = &mut self.current_anomaly {
                     // The buffer head is not anomaly, and we are still processing the last anomaly found.
                     // In that case, we add the log line to the after context.
@@ -314,11 +316,17 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
                 }
             }
 
-            if let Some((log_line, log_pos)) = target_str {
+            if let Some((log_tokens, log_line, log_pos)) = target_str {
                 if let Some(anomaly) = &self.current_anomaly {
                     // We can push the current anomaly because any needed after context would overlap with the current anomaly.
                     self.anomalies.push_back(anomaly.clone());
                     self.current_anomaly = None;
+                }
+
+                if let Some(ref mut gl_skip_lines) = *self.skip_lines.1.lock().unwrap() {
+                    if !gl_skip_lines.insert(log_tokens) {
+                        continue;
+                    }
                 }
 
                 // Parse timestamp from current line
@@ -439,7 +447,8 @@ fn test_leftovers() {
     let mut skip_lines = Some(KnownLines::new());
     let reader = std::io::Cursor::new("");
     let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(reader, false));
-    let mut cp = ChunkProcessor::new(reader, &index, false, &mut skip_lines, config, None);
+    let skip_lines = (&mut skip_lines, Arc::new(Mutex::new(None)));
+    let mut cp = ChunkProcessor::new(reader, &index, false, skip_lines, config, None);
 
     cp.buffer.push((("001 log line".into(), 0), 0));
     cp.buffer.push((("002 log line".into(), 1), 1));
@@ -517,7 +526,8 @@ fn test_chunk_processor() {
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
     let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
-    let processor = ChunkProcessor::new(reader, &index, false, &mut skip_lines, config, None);
+    let skip_lines = (&mut skip_lines, Arc::new(Mutex::new(None)));
+    let processor = ChunkProcessor::new(reader, &index, false, skip_lines, config, None);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         println!("anomalies: {:?}", anomaly);
@@ -599,7 +609,8 @@ fn test_extended_context() {
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
     let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
-    let processor = ChunkProcessor::new(reader, &index, false, &mut skip_lines, config, None);
+    let skip_lines = (&mut skip_lines, Arc::new(Mutex::new(None)));
+    let processor = ChunkProcessor::new(reader, &index, false, skip_lines, config, None);
     for anomaly in processor {
         let anomaly = anomaly.unwrap();
         println!("anomalies: {:?}", anomaly);
@@ -685,7 +696,8 @@ ignore_patterns:
     );
     let mut skip_lines = Some(KnownLines::new());
     let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
-    let processor = ChunkProcessor::new(reader, &index, false, &mut skip_lines, config, None);
+    let skip_lines = (&mut skip_lines, Arc::new(Mutex::new(None)));
+    let processor = ChunkProcessor::new(reader, &index, false, skip_lines, config, None);
     let anomalies = processor.into_iter().collect::<Vec<_>>();
     assert_eq!(anomalies.len(), 1);
 }
