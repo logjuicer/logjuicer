@@ -178,10 +178,7 @@ impl<R: Read> JournalReader<R> {
             let payload_size = object_header.size.saturating_sub(object_header_size);
 
             let entry = match object_header.object_type {
-                OBJECT_ENTRY => {
-                    let entry_map = self.parse_entry_object_payload(payload_size).ok()?;
-                    Some(entry_map)
-                }
+                OBJECT_ENTRY => self.parse_entry_object_payload(payload_size).ok()?,
                 OBJECT_DATA => {
                     if let Some(data_map) =
                         self.parse_data_object_payload(object_header.flags, payload_size)
@@ -252,16 +249,22 @@ impl<R: Read> JournalReader<R> {
         let data_str = String::from_utf8_lossy(&final_payload);
         let mut parts = data_str.splitn(2, '=');
         let key = parts.next()?;
-        let value = parts.next().unwrap_or("");
+        // TODO: make this configurable
+        if matches!(key, "MESSAGE" | "SYSLOG_IDENTIFIER" | "_COMM") {
+            let value = parts.next().unwrap_or("");
 
-        Some((key.into(), value.into()))
+            Some((key.into(), value.into()))
+        } else {
+            None
+        }
     }
 
     /// Parses the payload of an entry object, constructing the entry map from the cache.
-    fn parse_entry_object_payload(&mut self, payload_size: u64) -> io::Result<Entry> {
+    fn parse_entry_object_payload(&mut self, payload_size: u64) -> io::Result<Option<Entry>> {
         let entry_object = EntryObject::read_from(&mut self.reader)?;
 
-        let mut fields = HashMap::new();
+        let mut fields = HashMap::with_capacity(3);
+        let mut has_message = false;
 
         let entry_object_fixed_size = 8 + 8 + 8 + 16 + 8;
         let mut items_payload_size = payload_size.saturating_sub(entry_object_fixed_size);
@@ -285,6 +288,11 @@ impl<R: Read> JournalReader<R> {
 
             if let Some((k, v)) = self.data_object_cache.get(&data_object_offset) {
                 fields.insert(k.clone(), v.clone());
+                if **k == *"MESSAGE" {
+                    // Remove message from the cache, we are only interested in unique events.
+                    self.data_object_cache.remove(&data_object_offset);
+                    has_message = true;
+                }
             }
             items_payload_size -= item_size;
         }
@@ -297,9 +305,13 @@ impl<R: Read> JournalReader<R> {
             )?;
         }
 
-        Ok(Entry {
-            realtime: entry_object.realtime,
-            fields,
+        Ok(if has_message {
+            Some(Entry {
+                realtime: entry_object.realtime,
+                fields,
+            })
+        } else {
+            None
         })
     }
 }
