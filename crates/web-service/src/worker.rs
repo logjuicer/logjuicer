@@ -257,7 +257,13 @@ fn process_report_safe(
         }
         ReportRequest::NewReport(args) => match args.errors {
             Some(true) => process_errors_report(penv, env, &args.target),
-            Some(false) | None => process_report(penv, env, &args.target, args.baseline.as_deref()),
+            Some(false) | None => process_report(
+                penv,
+                env,
+                &args.target,
+                args.baseline.as_deref(),
+                args.errors.is_none(),
+            ),
         }
         .map(ReportResult::NewReport),
     })) {
@@ -331,6 +337,7 @@ fn process_report(
     env: &EnvConfig,
     target: &str,
     baseline: Option<&str>,
+    auto_error: bool,
 ) -> Result<Report, String> {
     let monitor = &penv.monitor;
     match baseline {
@@ -349,10 +356,13 @@ fn process_report(
         }
         None => match logjuicer_model::content_discover_baselines(&content, &env.gl) {
             Ok(xs) => xs,
-            Err(e) => {
+            Err(e) if auto_error => {
                 monitor
                     .emit(format!("discovery failed: {:?}, performing an errors report", e).into());
                 return do_process_errors_report(penv, env, content);
+            }
+            Err(e) => {
+                return Err(format!("discovery failed: {:?}", e));
             }
         },
     };
