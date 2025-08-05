@@ -142,6 +142,10 @@ pub struct App {
 }
 
 impl App {
+    pub fn clear_report(&self) {
+        self.report.set_neq(None)
+    }
+
     pub fn visit(&self, route: Route) {
         let route_url = self.to_url(route);
         dominator::routing::go_to_url(&route_url);

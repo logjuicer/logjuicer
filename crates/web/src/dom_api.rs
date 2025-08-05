@@ -258,6 +258,7 @@ fn render_input(state: &Rc<App>) -> Dom {
 }
 
 pub fn do_render_welcome(state: &Rc<App>) -> Dom {
+    state.clear_report();
     html!("div", {.class("px-2").children(&mut [
         html!("div", {.class(["font-semibold", "mt-2"]).text("Welcome to the logjuicer web interface!")}),
         render_input(state),
@@ -304,6 +305,7 @@ pub fn make_similarity(state: &Rc<App>, targets: &[Rc<str>], baseline: &Option<R
 }
 
 pub fn do_render_audit(state: &Rc<App>) -> Dom {
+    state.clear_report();
     let reports = Mutable::new(None);
     let url = state.reports_url();
     spawn_local(clone!(reports => async move {
@@ -359,6 +361,7 @@ pub fn do_render_new<MkRoute>(state: &Rc<App>, new_url: String, render_route: Mk
 where
     MkRoute: FnOnce(ReportID) -> Route + Copy + 'static,
 {
+    state.clear_report();
     let result: Mutable<FetchResult<(ReportID, ReportStatus)>> = Mutable::new(None);
     spawn_local(clone!(result => async move {
         let resp = request_new_report(&new_url).await;
@@ -396,6 +399,7 @@ use futures_signals::signal_vec::SignalVecExt;
 use gloo_net::websocket::futures::WebSocket;
 use gloo_net::websocket::Message;
 pub fn do_render_run(state: &Rc<App>, report_id: ReportID, render_route: Route) -> Dom {
+    state.clear_report();
     let infos: MutableVec<Rc<String>> = MutableVec::new();
     let url = state.ws_report_url(report_id);
     let mut ws = WebSocket::open(&url).unwrap();
