@@ -14,7 +14,9 @@ use logjuicer_report::{
     bytes_to_mb, AnomalyContext, Content, Epoch, IndexName, LogReport, Report, Source,
 };
 
-use crate::dom_utils::{data_attr, data_attr_html, fetch_data, render_link, RenderState};
+use crate::dom_utils::{
+    data_attr, data_attr_html, fetch_data, render_link, RenderState, ReportMode,
+};
 use crate::selection::{put_hash_into_view, Selection};
 
 #[cfg(feature = "api_client")]
@@ -22,7 +24,7 @@ use crate::state::App;
 
 #[cfg(not(feature = "api_client"))]
 pub struct App {
-    pub report: Mutable<Option<Result<Report, String>>>,
+    pub report: Mutable<Option<Result<(Report, ReportMode), String>>>,
 }
 #[cfg(not(feature = "api_client"))]
 impl App {
@@ -385,9 +387,24 @@ pub fn render_report_card(report: &Report, toggle_info: &Mutable<bool>) -> Dom {
     ]).class_signal("tooltip-visible", toggle_info.signal())})
 }
 
-async fn get_report(path: &str) -> Result<Report, String> {
+async fn get_report(path: &str) -> Result<(Report, ReportMode), String> {
     let resp = fetch_data(path).await?;
-    logjuicer_report::Report::load_bytes(&resp.data).map_err(|e| format!("Decode error: {}", e))
+    logjuicer_report::Report::load_bytes(&resp.data)
+        .map_err(|e| format!("Decode error: {}", e))
+        .map(|report| {
+            (
+                report,
+                if resp
+                    .baselines
+                    .map(|baselines| &baselines != "auto")
+                    .unwrap_or(false)
+                {
+                    ReportMode::NotAuto
+                } else {
+                    ReportMode::Auto
+                },
+            )
+        })
 }
 
 pub fn fetch_and_render_report(state: &Rc<App>, path: String) -> Dom {
@@ -401,7 +418,7 @@ pub fn fetch_and_render_report(state: &Rc<App>, path: String) -> Dom {
         }
     }));
     html!("div", {.child_signal(state.report.signal_ref(|data| Some(match data {
-        Some(Ok(report)) => render_report(report),
+        Some(Ok((report, _))) => render_report(report),
         Some(Err(err)) => html!("pre", {.class(["font-mono", "m-2", "ml-4"]).text(err)}),
         None => html!("div", {.text("loading...")}),
     })))})

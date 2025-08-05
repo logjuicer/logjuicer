@@ -17,6 +17,12 @@ pub struct ReportAndBaselines {
     pub baselines: Option<String>,
 }
 
+#[derive(PartialEq)]
+pub enum ReportMode {
+    Auto,
+    NotAuto,
+}
+
 pub async fn fetch_data(path: &str) -> Result<ReportAndBaselines, String> {
     let resp = gloo_net::http::Request::get(path)
         .send()

@@ -16,7 +16,7 @@ use std::rc::Rc;
 mod selection;
 
 mod dom_utils;
-use dom_utils::{data_attr, render_link};
+use dom_utils::{data_attr, render_link, ReportMode};
 
 mod dom_report;
 use dom_report::{fetch_and_render_report, render_report_card};
@@ -63,6 +63,23 @@ fn render_app(state: &Rc<App>) -> Dom {
     #[cfg(not(feature = "api_client"))]
     let backlink = html!("span", {.text("logjuicer")});
 
+    #[cfg(feature = "api_client")]
+    let diff_report = html!("div", {
+        .child_signal(state.report.signal_ref(clone!(state => move |data| match data {
+            // If the report is an errors (no baselines), and it was not automatically created because the baseline discovery failed
+            Some(Ok((report, ReportMode::NotAuto))) if report.baselines.is_empty() => report.target.to_url().map(
+                |target| link!(Route::NewReport(target.into(), state::NewReportKind::NoErrors).to_url(&state.base_path), {
+                    .class(["px-2", "text-sm"])
+                    .text("compare")
+                    .attr("title", "Create a diff report by comparing with a baseline")
+                })),
+            _ => None
+        })))
+    });
+
+    #[cfg(not(feature = "api_client"))]
+    let diff_report = html!("div");
+
     let toggle_info = futures_signals::signal::Mutable::new(false);
     let handler = clone!(toggle_info => move |_: dominator::events::Click| {
         toggle_info.set(!toggle_info.get());
@@ -70,10 +87,11 @@ fn render_app(state: &Rc<App>) -> Dom {
 
     let nav = html!("nav", {.class(["sticky", "top-0", "bg-slate-300", "z-50", "flex", "px-1", "divide-x"]).children(&mut [
         html!("div", {.class("grow").children(&mut [backlink])}),
+        diff_report,
         html!("div", {.class(["has-tooltip", "flex", "items-center"])
                       .event(handler)
                       .child_signal(state.report.signal_ref(clone!(toggle_info => move |data| match data {
-                          Some(Ok(report)) => Some(html!("div", {.children(&mut [
+                          Some(Ok((report, _))) => Some(html!("div", {.children(&mut [
                               render_report_card(report, &toggle_info),
                               html!("div", {.class(["px-2", "text-sm"]).text("info")
                                             .class_signal("font-extrabold", toggle_info.signal())

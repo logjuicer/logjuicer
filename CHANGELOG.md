@@ -8,6 +8,7 @@ next-version
 - model: ignore systemd coredump files.
 - model: improve handling of global skipped line.
 - web: fix the auto scroll on large report.
+- web: add link to create diff report.
 
 0.14.1
 ======

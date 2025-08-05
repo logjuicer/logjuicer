@@ -373,6 +373,13 @@ pub enum Content {
 }
 
 impl Content {
+    pub fn to_url(&self) -> Option<String> {
+        match self {
+            Content::Zuul(build) => Some(build.build_url()),
+            _ => None,
+        }
+    }
+
     pub fn sample(name: &str) -> Self {
         Content::File(SourceLoc::Local(0, name.into()))
     }
