@@ -1,6 +1,7 @@
 // Copyright (C) 2023 Red Hat
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::dom_utils::ReportMode;
 use dominator::routing;
 use futures_signals::signal::Mutable;
 use logjuicer_report::report_row::ReportID;
@@ -33,6 +34,7 @@ pub enum Route {
 pub(crate) enum NewReportKind {
     NoBaseline,
     Errors,
+    NoErrors,
     Baseline(Rc<str>),
 }
 
@@ -44,6 +46,7 @@ impl Route {
         if path.ends_with("/report/new") {
             let report_kind = match (params.get("errors"), params.get("baseline")) {
                 (Some(e), _) if &e == "true" => NewReportKind::Errors,
+                (Some(e), _) if &e == "false" => NewReportKind::NoErrors,
                 (_, Some(baseline)) => NewReportKind::Baseline(baseline.into()),
                 (_, None) => NewReportKind::NoBaseline,
             };
@@ -95,6 +98,9 @@ impl Route {
             Route::NewReport(target, NewReportKind::Errors) => {
                 format!("{}report/new?target={}&errors=true", base, target)
             }
+            Route::NewReport(target, NewReportKind::NoErrors) => {
+                format!("{}report/new?target={}&errors=false", base, target)
+            }
             Route::NewReport(target, NewReportKind::Baseline(baseline)) => {
                 format!("{}report/new?target={}&baseline={}", base, target, baseline)
             }
@@ -129,7 +135,7 @@ impl Default for Route {
 }
 
 pub struct App {
-    pub report: Mutable<Option<Result<Report, String>>>,
+    pub report: Mutable<Option<Result<(Report, ReportMode), String>>>,
     pub route: Mutable<Route>,
     pub base_path: Box<str>,
     pub ws_api: Box<str>,
@@ -169,7 +175,7 @@ impl App {
             NewReportKind::Baseline(baseline) => {
                 format!("{base}api/report/new?target={target}&baseline={baseline}")
             }
-
+            NewReportKind::NoErrors => format!("{base}api/report/new?target={target}&errors=false"),
             NewReportKind::Errors => format!("{base}api/report/new?target={target}&errors=true"),
         }
     }
