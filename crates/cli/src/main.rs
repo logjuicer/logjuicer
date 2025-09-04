@@ -142,11 +142,15 @@ enum Commands {
 
 enum ReportKind {
     Json,
+    JsonOutput,
     Capnp,
 }
 
 impl ReportKind {
     fn from_path(path: &PathBuf) -> Result<ReportKind> {
+        if path == &PathBuf::from(String::from("/dev/stdout")) {
+            return Ok(ReportKind::JsonOutput);
+        }
         match path.extension().and_then(std::ffi::OsStr::to_str) {
             Some("bin") | Some("gz") => Ok(ReportKind::Capnp),
             Some("json") => Ok(ReportKind::Json),
@@ -158,7 +162,10 @@ impl ReportKind {
     fn save(&self, path: &PathBuf, report: &Report) -> Result<()> {
         match self {
             ReportKind::Json => serde_json::to_writer(std::fs::File::create(path)?, report)
-                .context("Failted to write the json report"),
+                .context("Failed to write the json report"),
+            ReportKind::JsonOutput => {
+                serde_json::to_writer(std::io::stdout(), report).context("Failed to write json")
+            }
             ReportKind::Capnp => report
                 .save(path)
                 .context("Failed to write the binary report"),
@@ -487,6 +494,8 @@ fn process_similarity(env: &EnvConfig, report: &ReportMode, targets: Vec<String>
                 serde_json::to_writer(std::fs::File::create(file)?, &similarity_report)
                     .context("Failed to write the json report")
             }
+            ReportKind::JsonOutput => serde_json::to_writer(std::io::stdout(), &similarity_report)
+                .context("Failed to write json"),
         },
     }
 }
