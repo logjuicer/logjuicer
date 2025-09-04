@@ -1,6 +1,8 @@
 next-version
 ============
 
+- cli: add support for writing json --report /dev/stdout
+
 0.15.0
 ======
 
