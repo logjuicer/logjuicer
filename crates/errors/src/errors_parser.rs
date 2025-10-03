@@ -170,7 +170,7 @@ fn is_error_line(line: &str) -> bool {
             r#"|[0-9Z][ \t]+ERROR[ \t]+[a-zA-Z]"#,
             // tempest errors
             r#"|^FAIL: "#,
-            r#"|^FAILED: "#,
+            r#"|^(ERROR|FAILED): "#,
             r#"|\.\.\. FAILED$"#,
             // Go errors
             r#"|\] ERROR: "#,

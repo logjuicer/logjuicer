@@ -1,7 +1,8 @@
 next-version
 ============
 
-- cli: add support for writing json --report /dev/stdout
+- cli: add support for writing json --report /dev/stdout.
+- iterator: improve end of line detection in ansible one-line output.
 
 0.15.0
 ======
