@@ -244,7 +244,7 @@ impl<R: Read> BytesLines<R> {
             } else if c == '\\' {
                 self.escaped = true;
                 None
-            } else if c == '\n' {
+            } else if c == '\n' || match_ansible_stdout(&slice[self.prev_pos + pos..]) {
                 Some(Sep::NewLine)
             } else {
                 match self.split_json {
@@ -307,6 +307,11 @@ impl<R: Read> BytesLines<R> {
     }
 }
 
+// Check if the given slice is an ansible "stdout" separator
+fn match_ansible_stdout(buf: &[u8]) -> bool {
+    buf.starts_with(r#"", "stdout_lines": ["#.as_bytes())
+}
+
 // Check if the given char is a json k/v separator.
 fn match_json_kv(c: char, json_state: &mut JsonState) -> Option<Sep> {
     if c == '"' {
@@ -361,6 +366,22 @@ fn test_long_line() {
         .collect::<Result<Vec<_>>>()
         .unwrap();
     assert_eq!(lines, vec![("second".into(), 2), ("third".into(), 3)])
+}
+
+#[test]
+fn test_ansible_stdout() {
+    let input = r#"stdout": "Stopping systemd OpenStack\nERROR: oops", "stdout_lines": ["Stop...", "ERR..."],"#;
+    let lines: Vec<LogLine> = BytesLines::new(std::io::Cursor::new(input), false)
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(
+        lines,
+        vec![
+            ("stdout\": \"Stopping systemd OpenStack".into(), 1),
+            ("ERROR: oops".into(), 1),
+            (r#", "stdout_lines": ["Stop...", "ERR..."],"#.into(), 2)
+        ]
+    )
 }
 
 #[test]
