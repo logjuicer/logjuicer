@@ -145,9 +145,12 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
             }
 
             if is_error {
-                if let Some(ref mut skip_lines) = *self.skip_lines.lock().unwrap() {
-                    if !skip_lines.insert(&logjuicer_tokenizer::process(raw_str)) {
-                        continue;
+                // Maybe skip lines, ignoring the one with no information, like when ending with 'FAILED! =>'
+                if !raw_str.ends_with("FAILED! => ") {
+                    if let Some(ref mut skip_lines) = *self.skip_lines.lock().unwrap() {
+                        if !skip_lines.insert(&logjuicer_tokenizer::process(raw_str)) {
+                            continue;
+                        }
                     }
                 }
                 // Parse timestamp from current line
