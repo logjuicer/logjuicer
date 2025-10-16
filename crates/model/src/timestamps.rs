@@ -31,6 +31,7 @@ pub fn parse_timestamp(line: &str) -> Option<TS> {
         NaiveDateTime::parse_and_remainder(line, "%F %T,%3f")
             .or_else(|_| NaiveDateTime::parse_and_remainder(line, "%FT%T"))
             .or_else(|_| NaiveDateTime::parse_and_remainder(line, "%F %T.%3f"))
+            .or_else(|_| NaiveDateTime::parse_and_remainder(line, "%F %T"))
             .or_else(|_| NaiveDateTime::parse_and_remainder(line, "[%Y/%m/%d %T]"))
             .map(|(ndt, _)| Full(Epoch(ndt.and_utc().timestamp_millis() as u64)))
             .or_else(|_| {
@@ -51,6 +52,10 @@ pub fn parse_timestamp(line: &str) -> Option<TS> {
 #[test]
 fn test_timestamp() {
     assert_eq!(parse_timestamp("    5-07-30 07:20:17,250 19 INFO "), None);
+    assert_eq!(
+        parse_timestamp("2025-08-14 13:23:14 E0814 13:23:14.981141  124399 reflector.go"),
+        Some(Full(Epoch(1755177794000)))
+    );
     assert_eq!(parse_timestamp("Feb 27 11:06:45 "), Some(Time(40005000)));
     assert_eq!(
         parse_timestamp("2024-02-27T15:58:33Z "),
