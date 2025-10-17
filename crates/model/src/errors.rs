@@ -40,6 +40,16 @@ impl History {
             .map(|b| logjuicer_iterator::clone_bytes_to_string(&b).unwrap())
             .collect()
     }
+    fn last_timestamp(&self) -> Option<crate::timestamps::TS> {
+        for bytes in &self.0 {
+            if let Ok(s) = std::str::from_utf8(&bytes[..]) {
+                if let Some(ts) = crate::timestamps::parse_timestamp(s) {
+                    return Some(ts);
+                }
+            }
+        }
+        None
+    }
 }
 
 #[test]
@@ -154,8 +164,10 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
                     }
                 }
                 // Parse timestamp from current line
-                let timestamp =
-                    crate::timestamps::parse_timestamp(raw_str).and_then(|ts| match ts {
+                let history = &self.history;
+                let timestamp = crate::timestamps::parse_timestamp(raw_str)
+                    .or_else(|| history.last_timestamp())
+                    .and_then(|ts| match ts {
                         crate::timestamps::TS::Full(ts) => Some(ts),
                         crate::timestamps::TS::Time(_) => None,
                     });
@@ -246,6 +258,35 @@ fn test_errors_processor() {
             line: "2025-07-07 - RuntimeError: bam".into(),
         },
         after: vec!["2025-07-07 - Something went wrong".into()],
+    }];
+    assert_eq!(anomalies, expected);
+}
+
+#[test]
+fn test_errors_timestamps() {
+    let config = &TargetConfig::default();
+    let data = std::io::Cursor::new(
+        r#"
+2025-08-14 13:23:14 message
+| fatal: oops
+"#,
+    );
+    let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
+    let processor = ErrorsProcessor::new(reader, false, skip_lines, config);
+    let mut anomalies = Vec::new();
+    for anomaly in processor {
+        anomalies.push(anomaly.unwrap())
+    }
+    let expected = vec![AnomalyContext {
+        before: vec!["2025-08-14 13:23:14 message".into()],
+        anomaly: Anomaly {
+            distance: 0.5,
+            pos: 3,
+            timestamp: Some(Epoch(1755177794000)),
+            line: "| fatal: oops".into(),
+        },
+        after: vec![],
     }];
     assert_eq!(anomalies, expected);
 }

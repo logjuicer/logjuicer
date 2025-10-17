@@ -4,6 +4,7 @@ next-version
 - cli: add support for writing json --report /dev/stdout.
 - iterator: improve end of line detection in ansible one-line output.
 - model: add support for golang default timestamps.
+- model: parse timestamp from the surrounding context when necessary.
 
 0.15.0
 ======
