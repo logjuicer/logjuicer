@@ -5,6 +5,7 @@ next-version
 - iterator: improve end of line detection in ansible one-line output.
 - model: add support for golang default timestamps.
 - model: parse timestamp from the surrounding context when necessary.
+- errors: handle kubernetes status errors.
 
 0.15.0
 ======
