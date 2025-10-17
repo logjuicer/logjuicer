@@ -176,6 +176,8 @@ fn is_error_line(line: &str) -> bool {
             r#"|\] ERROR: "#,
             // Fluentbit
             r#"|"level":"ERROR""#,
+            // Kubernetes status, errors separated by at least 2 spaces, preceeding a number
+            r#"|[ \t]{2,}(Failed|Error|CrashLoopBackOff)[ \t]{2,}[0-9]"#,
             // Kubernetes event
             r#"|Warning[ \t]+Failed[ \t]+"#,
             r#"|\bE[0-9]{4}\b"#,
@@ -267,7 +269,9 @@ exit status 2
             "fail level=error",
             "ovsdb_log(log_fsync3)|WARN|fsync failed (Invalid argument)",
             "BGP: [KTE2S-GTBDA][EC 100663301] INTERFACE_ADDRESS_DEL: Cannot find IF",
-            "controller | controller-0 | FAILED | rc=2 >>"
+            "controller | controller-0 | FAILED | rc=2 >>",
+            "job.batch/validate-edpm    Failed     0/1           67m        67m",
+            "pod/cinder-backup-0  1/2     CrashLoopBackOff   17 (2m43s ago)   87m"
         ] {
             assert!(crate::is_error_line(line), "'{}' is not an error", line);
         };
