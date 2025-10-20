@@ -99,6 +99,9 @@ enum Commands {
         max_age: Option<usize>,
     },
 
+    #[clap(hide = true, about = "Filter a report")]
+    FilterReport { src: Vec<PathBuf>, dst: PathBuf },
+
     #[clap(about = "Evaluate datasets")]
     Test {
         #[clap(required = true)]
@@ -169,6 +172,14 @@ impl ReportKind {
             ReportKind::Capnp => report
                 .save(path)
                 .context("Failed to write the binary report"),
+        }
+    }
+
+    fn load(&self, path: &PathBuf) -> Result<Report> {
+        match self {
+            ReportKind::Json => Ok(serde_json::from_reader(std::fs::File::open(path)?)?),
+            ReportKind::Capnp => Ok(Report::load(path)?),
+            ReportKind::JsonOutput => anyhow::bail!("Couldn't read from stdin"),
         }
     }
 }
@@ -311,6 +322,8 @@ impl Cli {
             Commands::DownloadLogs { dest, url } => {
                 downloader::download(env, dest, Input::from_string(url))
             }
+
+            Commands::FilterReport { src, dst } => filter_report(self.report, src, dst),
 
             // Debug handlers
             Commands::HttpLs { url } => {
@@ -688,6 +701,20 @@ fn process_report(
         serve::serve(name, &index, &final_report)?;
     }
 
+    Ok(())
+}
+
+fn filter_report(report: Option<PathBuf>, src: Vec<PathBuf>, dst: PathBuf) -> Result<()> {
+    let output = report.ok_or_else(|| {
+        anyhow::anyhow!("filter-report requires a report, please add a `--report FILE` argument")
+    })?;
+    let baselines = src
+        .iter()
+        .map(|p| ReportKind::from_path(p)?.load(p))
+        .collect::<Result<Vec<Report>>>()?;
+    let target = ReportKind::from_path(&dst)?.load(&dst)?;
+    let filtered = logjuicer_model::filter::filter(&baselines, target);
+    ReportKind::from_path(&output)?.save(&output, &filtered)?;
     Ok(())
 }
 
