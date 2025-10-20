@@ -33,6 +33,7 @@ pub mod config;
 pub mod env;
 pub mod errors;
 pub mod files;
+pub mod filter;
 pub mod journal;
 pub mod process;
 pub mod prow;
