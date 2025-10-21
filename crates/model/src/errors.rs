@@ -25,7 +25,7 @@ struct History(VecDeque<Bytes>);
 
 impl History {
     fn new() -> History {
-        History(VecDeque::with_capacity(3))
+        History(VecDeque::with_capacity(crate::process::CTX_LENGTH))
     }
     fn push(&mut self, b: Bytes) {
         // TODO: use truncate_front(3) when stablizied

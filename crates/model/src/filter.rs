@@ -39,7 +39,7 @@ fn filter_anomalies(index: &FeaturesMatrix, anomalies: Vec<AnomalyContext>) -> V
     let distances = index.distance(&lines);
     let mut fresh = Vec::with_capacity(lines.len());
     for (pos, anomaly) in anomalies.into_iter().enumerate() {
-        if distances[pos] > 0.3 {
+        if distances[pos] > crate::process::THRESHOLD {
             fresh.push(anomaly)
         }
     }
