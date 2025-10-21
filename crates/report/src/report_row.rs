@@ -119,4 +119,5 @@ pub struct ReportRow {
     pub anomaly_count: i64,
     pub status: ReportStatus,
     pub bytes_size: FileSize,
+    pub errors: bool,
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "select created_at from models where content_id = ?",
+  "query": "select created_at from models where content_id = ? and errors = ?",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,11 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
       false
     ]
   },
-  "hash": "6199f8dd4e451bdc4e05d539cee964281d8c83647e17e8be0d54bfdaf1914377"
+  "hash": "ee9a37ea3c02747aa53c33041cdcd872ff3ea37bd021c9abccbd22a5e8d16600"
 }
