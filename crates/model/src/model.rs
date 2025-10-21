@@ -237,6 +237,7 @@ impl<IR: IndexReader> Index<IR> {
         env: &TargetEnv,
         builder: IB,
         sources: IndexSource<'a>,
+        errors: bool,
     ) -> Option<Index<IR>>
     where
         IB: IndexBuilder<Reader = IR>,
@@ -247,7 +248,12 @@ impl<IR: IndexReader> Index<IR> {
         let mut train_source = |source, reader| match source::LinesIterator::new(source, reader) {
             Ok(reader) => {
                 env.set_current(source);
-                if let Err(e) = trainer.add(env.config, reader) {
+                let result = if errors {
+                    trainer.add_errors(env.config, reader)
+                } else {
+                    trainer.add(env.config, reader)
+                };
+                if let Err(e) = result {
                     tracing::error!("{}: failed to load: {}", source, e)
                 }
             }
@@ -466,9 +472,10 @@ impl LineCounters {
 impl<IR: IndexReader + Send + Sync> Model<IR> {
     /// Create a Model from baselines.
     #[tracing::instrument(level = "debug", skip(env))]
-    pub fn train<IB: Default + IndexBuilder<Reader = IR>>(
+    pub fn do_train<IB: Default + IndexBuilder<Reader = IR>>(
         env: &TargetEnv,
         baselines: Vec<Content>,
+        errors: bool,
     ) -> Result<Model<IR>> {
         let created_at = SystemTime::now();
 
@@ -486,7 +493,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
                 ));
                 let builder = IB::default();
 
-                match Index::train(env, builder, IndexSource::Bundle(sources)) {
+                match Index::train(env, builder, IndexSource::Bundle(sources), errors) {
                     Some(index) => Some((index_name, index)),
                     None => {
                         tracing::error!("{}: empty index", index_name);
@@ -504,7 +511,8 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
                     let builder = IB::default();
                     let index_name = indexname_from_source(&source);
                     match reader.and_then(|reader| {
-                        Index::train(env, builder, IndexSource::Tarfile(source.clone(), reader))
+                        let src = IndexSource::Tarfile(source.clone(), reader);
+                        Index::train(env, builder, src, errors)
                             .ok_or_else(|| "empty index".to_string())
                     }) {
                         Ok(index) => {
@@ -527,6 +535,13 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
             baselines,
             indexes,
         })
+    }
+
+    pub fn train<IB: Default + IndexBuilder<Reader = IR>>(
+        env: &TargetEnv,
+        baselines: Vec<Content>,
+    ) -> Result<Model<IR>> {
+        Model::<IR>::do_train::<IB>(env, baselines, false)
     }
 
     /// Get the matching index for a given Source.
