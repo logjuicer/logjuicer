@@ -17,11 +17,11 @@ use logjuicer_iterator::LogLine;
 use logjuicer_report::{Anomaly, AnomalyContext, Epoch};
 
 // The minimum distance for a line to be considered anomalous
-const THRESHOLD: logjuicer_index::F = 0.3;
+pub(crate) const THRESHOLD: logjuicer_index::F = 0.3;
 // The size of the before/after context to include
-const CTX_DISTANCE: usize = 3;
-// The maximum size of the before context, when it touches the previous anomaly
-const CTX_MAX_DISTANCE: usize = 12;
+pub(crate) const CTX_LENGTH: usize = 3;
+// The size of the before context when it touches the previous anomaly
+const BETWEEN_CTX_LENGTH: usize = 12;
 // The matrix size to compute distances in batch
 const CHUNK_SIZE: usize = 512;
 
@@ -303,7 +303,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
                     // In that case, we add the log line to the after context.
                     let raw_str = logjuicer_iterator::clone_bytes_to_string(bytes).unwrap();
                     anomaly.after.push(raw_str);
-                    if anomaly.after.len() >= CTX_DISTANCE {
+                    if anomaly.after.len() >= CTX_LENGTH {
                         // The current anomaly is completed. TODO: try using std::mem::replace
                         self.anomalies.push_back(anomaly.clone());
                         self.current_anomaly = None;
@@ -371,7 +371,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
                 for ((bytes, _), _) in &self.buffer[last_context_pos..] {
                     let raw_str = logjuicer_iterator::clone_bytes_to_string(bytes).unwrap();
                     anomaly.after.push(raw_str);
-                    if anomaly.after.len() >= CTX_DISTANCE {
+                    if anomaly.after.len() >= CTX_LENGTH {
                         // The current anomaly is completed. TODO: try using std::mem::replace
                         self.anomalies.push_back(anomaly.clone());
                         self.current_anomaly = None;
@@ -388,10 +388,10 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
         self.targets_coord.clear();
 
         // Keep the buffer left over as potential prev context for the next anomaly.
-        let min_left_overs_pos = if self.buffer.len() < CTX_MAX_DISTANCE {
+        let min_left_overs_pos = if self.buffer.len() < BETWEEN_CTX_LENGTH {
             0
         } else {
-            self.buffer.len() - CTX_MAX_DISTANCE
+            self.buffer.len() - BETWEEN_CTX_LENGTH
         };
         let max_left_overs_pos = left_overs_pos.max(min_left_overs_pos);
         self.left_overs = self.buffer[max_left_overs_pos..]
@@ -413,11 +413,11 @@ fn collect_before(
     buffer: &[(LogLine, usize)],
     left_overs: &[Arc<str>],
 ) -> Vec<Arc<str>> {
-    // extend the CTX_DISTANCE when the last contex falls under the MAX_DISTANCE
-    let ctx_distance = if buffer_pos - last_context_pos < CTX_MAX_DISTANCE {
-        CTX_MAX_DISTANCE
+    // extend the CTX_LENGTH when the last contex falls under the MAX_DISTANCE
+    let ctx_distance = if buffer_pos - last_context_pos < BETWEEN_CTX_LENGTH {
+        BETWEEN_CTX_LENGTH
     } else {
-        CTX_DISTANCE
+        CTX_LENGTH
     };
     let min_pos = buffer_pos.saturating_sub(ctx_distance);
     // The before context starts either at the last context pos, or the min pos.
@@ -596,7 +596,7 @@ fn test_extended_context() {
             "in-between line",
             "in-between line",
             "in-between line",
-            // The extra context shall be included because it falls in the CTX_MAX_DISTANCE
+            // The extra context shall be included because it falls in the BETWEEN_CTX_LENGTH
             "extra context line",
             "in-between line",
             "in-between line",
