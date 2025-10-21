@@ -202,7 +202,7 @@ impl Db {
     pub async fn get_reports(&self) -> sqlx::Result<Vec<ReportRow>> {
         sqlx::query_as!(
         ReportRow,
-        "select id, created_at, updated_at, target, baseline, anomaly_count, status, bytes_size from reports order by id desc"
+        "select id, created_at, updated_at, target, baseline, anomaly_count, status, bytes_size, errors from reports order by id desc"
     )
         .fetch_all(&self.pool)
         .await
@@ -225,11 +225,13 @@ impl Db {
         &self,
         target: &str,
         baseline: &str,
+        errors: bool,
     ) -> sqlx::Result<Option<(ReportID, ReportStatus)>> {
         sqlx::query!(
-            "select id, status from reports where target = ? and baseline = ?",
+            "select id, status from reports where target = ? and baseline = ? and errors = ?",
             target,
-            baseline
+            baseline,
+            errors
         )
         .map(|row| (row.id.into(), row.status.into()))
         .fetch_optional(&self.pool)
@@ -261,14 +263,10 @@ impl Db {
         .map(|_| ())
     }
 
-    pub async fn update_report_baseline(
-        &self,
-        report_id: ReportID,
-        baseline: &str,
-    ) -> sqlx::Result<()> {
+    pub async fn update_report_errors(&self, report_id: ReportID) -> sqlx::Result<()> {
         sqlx::query!(
-            "update reports set baseline = ? where id = ?",
-            baseline,
+            "update reports set errors = ? where id = ?",
+            true,
             report_id.0,
         )
         .execute(&self.pool)
@@ -276,18 +274,24 @@ impl Db {
         .map(|_| ())
     }
 
-    pub async fn initialize_report(&self, target: &str, baseline: &str) -> sqlx::Result<ReportID> {
+    pub async fn initialize_report(
+        &self,
+        target: &str,
+        baseline: &str,
+        errors: bool,
+    ) -> sqlx::Result<ReportID> {
         let now_utc = Utc::now();
         let status = ReportStatus::Pending.as_str();
         let id = sqlx::query!(
-            "insert into reports (created_at, updated_at, target, baseline, anomaly_count, status)
-                      values (?, ?, ?, ?, ?, ?)",
+            "insert into reports (created_at, updated_at, target, baseline, anomaly_count, status, errors)
+                      values (?, ?, ?, ?, ?, ?, ?)",
             now_utc,
             now_utc,
             target,
             baseline,
             0,
-            status
+            status,
+            errors
         )
         .execute(&self.pool)
         .await?
@@ -307,10 +311,12 @@ impl Db {
     pub async fn lookup_model(
         &self,
         content_id: &ContentID,
+        errors: bool,
     ) -> sqlx::Result<Option<chrono::NaiveDateTime>> {
         sqlx::query!(
-            "select created_at from models where content_id = ?",
-            content_id.0
+            "select created_at from models where content_id = ? and errors = ?",
+            content_id.0,
+            errors
         )
         .map(|row| row.created_at)
         .fetch_optional(&self.pool)

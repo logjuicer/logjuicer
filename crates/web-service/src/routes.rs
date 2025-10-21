@@ -147,19 +147,11 @@ pub async fn report_new(
     State(workers): State<Workers>,
     Query(args): Query<NewReportQuery>,
 ) -> Result<Json<(ReportID, ReportStatus)>> {
-    let baseline = match args.errors {
-        Some(true) => match args.baseline {
-            None => Ok("errors"),
-            Some(_) => Err((
-                StatusCode::BAD_REQUEST,
-                "baseline and errors are mutually exclusive".into(),
-            )),
-        },
-        Some(false) | None => Ok(args.baseline.as_deref().unwrap_or("auto")),
-    }?;
+    let errors = args.errors.unwrap_or(false);
+    let baseline = args.baseline.as_deref().unwrap_or("auto");
     let report = workers
         .db
-        .lookup_report(&args.target, baseline)
+        .lookup_report(&args.target, baseline, errors)
         .await
         .map_err(handle_db_error)?;
     match report {
@@ -168,7 +160,7 @@ pub async fn report_new(
             tracing::info!(target = args.target, "Creating a new report");
             let report_id = workers
                 .db
-                .initialize_report(&args.target, baseline)
+                .initialize_report(&args.target, baseline, errors)
                 .await
                 .map_err(handle_db_error)?;
             workers.submit(report_id, ReportRequest::NewReport(args));
@@ -229,7 +221,7 @@ pub async fn similarity_new(
 ) -> Result<Json<(ReportID, ReportStatus)>> {
     let report = workers
         .db
-        .lookup_report("similarity", &args.reports)
+        .lookup_report("similarity", &args.reports, false)
         .await
         .map_err(handle_db_error)?;
     match report {
@@ -240,7 +232,7 @@ pub async fn similarity_new(
                 .map_err(|e| (StatusCode::SERVICE_UNAVAILABLE, e))?;
             let report_id = workers
                 .db
-                .initialize_report("similarity", &args.reports)
+                .initialize_report("similarity", &args.reports, false)
                 .await
                 .map_err(handle_db_error)?;
             workers.submit(report_id, ReportRequest::NewSimilarity(rids));

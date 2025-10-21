@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "update reports set errors = ? where id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "3930fb204d0c121c907f6b59711213216b7bb03ee521656e0169eb3a440e074d"
+}

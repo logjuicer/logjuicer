@@ -181,9 +181,7 @@ impl Workers {
                         .await
                         .unwrap();
                     if is_errors && !report_request_is_errors {
-                        db.update_report_baseline(report_id, "errors")
-                            .await
-                            .unwrap();
+                        db.update_report_errors(report_id).await.unwrap();
                     }
                 });
             })
@@ -449,7 +447,7 @@ fn model_lock(
         // Nobody is building it
         None => match penv
             .handle
-            .block_on(penv.db.lookup_model(content_id))
+            .block_on(penv.db.lookup_model(content_id, false))
             .map_err(|e| format!("db model lookup: {}", e))?
         {
             // The model was already built and the content did not change.
