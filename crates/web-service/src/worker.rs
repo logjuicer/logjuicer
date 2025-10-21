@@ -263,7 +263,7 @@ fn process_report_safe(
             process_similarity(penv, rids).map(ReportResult::NewSimilarity)
         }
         ReportRequest::NewReport(args) => match args.errors {
-            Some(true) => process_errors_report(penv, env, &args.target),
+            Some(true) => process_errors_report(penv, env, &args.target, args.baseline.as_deref()),
             Some(false) | None => process_report(
                 penv,
                 env,
@@ -302,21 +302,49 @@ fn process_errors_report(
     penv: &ProcessEnv,
     env: &EnvConfig,
     target: &str,
+    baseline: Option<&str>,
 ) -> Result<Report, String> {
     let monitor = &penv.monitor;
     monitor.emit(format!("Running `logjuicer errors {}`", target).into());
     let content = resolve_content(penv, env, target)?;
-    do_process_errors_report(penv, env, content)
+    do_process_errors_report(penv, env, content, Some(baseline))
 }
 
 fn do_process_errors_report(
     penv: &ProcessEnv,
     env: &EnvConfig,
     content: Content,
+    baseline: Option<Option<&str>>,
 ) -> Result<Report, String> {
+    let monitor = &penv.monitor;
+    let baselines = baseline.and_then(|baseline| match baseline {
+        Some(baseline) => {
+            let input = logjuicer_model::Input::Url(baseline.into());
+            match logjuicer_model::content_from_input(&env.gl, input) {
+                Ok(content) => Some(vec![content]),
+                Err(e) => {
+                    monitor.emit(format!("invalid baseline: {:?}", e).into());
+                    None
+                }
+            }
+        }
+        None => match logjuicer_model::content_discover_baselines(&content, &env.gl) {
+            Ok(xs) => Some(xs),
+            Err(e) => {
+                monitor.emit(format!("discovery failed: {:?}, performing errors report", e).into());
+                None
+            }
+        },
+    });
     let target_env = env.get_target_env_with_current(&content, Some(penv.monitor.current.clone()));
-    logjuicer_model::errors::errors_report(&target_env, content)
-        .map_err(|e| format!("report failed: {:?}", e))
+    if let Some(baselines) = baselines {
+        monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
+        let model: ModelF = process_models(penv, &target_env, baselines, true)?;
+        model.report_errors(&target_env, content)
+    } else {
+        logjuicer_model::errors::errors_report(&target_env, content)
+    }
+    .map_err(|e| format!("report failed: {:?}", e))
 }
 
 fn check_content(content: &Content) -> Result<(), String> {
@@ -366,7 +394,7 @@ fn process_report(
             Err(e) if auto_error => {
                 monitor
                     .emit(format!("discovery failed: {:?}, performing an errors report", e).into());
-                return do_process_errors_report(penv, env, content);
+                return do_process_errors_report(penv, env, content, None);
             }
             Err(e) => {
                 return Err(format!("discovery failed: {:?}", e));
@@ -382,7 +410,7 @@ fn process_report(
     }
 
     let target_env = env.get_target_env_with_current(&content, Some(monitor.current.clone()));
-    let model: ModelF = process_models(penv, &target_env, baselines)?;
+    let model: ModelF = process_models(penv, &target_env, baselines, false)?;
 
     monitor.emit("Starting analysis".into());
     let report = model
@@ -397,15 +425,16 @@ fn process_models(
     penv: &ProcessEnv,
     target_env: &TargetEnv,
     baselines: Vec<Content>,
+    errors: bool,
 ) -> Result<ModelF, String> {
     let baselines_iter = baselines
         .into_iter()
-        .map(|content| process_model(penv, target_env, content));
+        .map(|content| process_model(penv, target_env, content, errors));
     let extra_iter = target_env
         .config
         .extra_baselines
         .iter()
-        .map(|content| process_model(penv, target_env, content.clone()));
+        .map(|content| process_model(penv, target_env, content.clone(), errors));
     let mut models = baselines_iter
         .chain(extra_iter)
         .collect::<Result<Vec<ModelF>, String>>()?;
@@ -435,6 +464,7 @@ fn model_lock(
     penv: &ProcessEnv,
     content: &Content,
     content_id: &ContentID,
+    errors: bool,
 ) -> Result<ModelStatus, String> {
     let mut models_lock = penv.models_lock.write().unwrap();
     match models_lock.get(content_id) {
@@ -447,7 +477,7 @@ fn model_lock(
         // Nobody is building it
         None => match penv
             .handle
-            .block_on(penv.db.lookup_model(content_id, false))
+            .block_on(penv.db.lookup_model(content_id, errors))
             .map_err(|e| format!("db model lookup: {}", e))?
         {
             // The model was already built and the content did not change.
@@ -466,9 +496,10 @@ fn process_model(
     penv: &ProcessEnv,
     target_env: &TargetEnv,
     content: Content,
+    errors: bool,
 ) -> Result<ModelF, String> {
     let content_id = (&content).into();
-    match model_lock(penv, &content, &content_id)? {
+    match model_lock(penv, &content, &content_id, errors)? {
         ModelStatus::Existing => {
             penv.monitor.emit("Loading existing model".into());
             crate::models::load_model(&penv.storage_dir, &content_id)
@@ -490,7 +521,14 @@ fn process_model(
             crate::models::load_model(&penv.storage_dir, &content_id)
         }
         ModelStatus::ToBuild(model_monitor) => {
-            let result = do_process_model(model_monitor, penv, target_env, content, &content_id);
+            let result = do_process_model(
+                model_monitor,
+                penv,
+                target_env,
+                content,
+                &content_id,
+                errors,
+            );
             // Remove the monitor
             let _ = penv.models_lock.write().unwrap().remove(&content_id);
             result
@@ -504,15 +542,16 @@ fn do_process_model(
     target_env: &TargetEnv,
     content: Content,
     content_id: &ContentID,
+    errors: bool,
 ) -> Result<ModelF, String> {
     let emit = |msg: Arc<str>| {
         penv.monitor.emit(msg.clone());
         model_monitor.emit(msg);
     };
     emit("Building the model".into());
-    let model = logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::train::<
+    let model = logjuicer_model::Model::<logjuicer_model::FeaturesMatrix>::do_train::<
         logjuicer_model::FeaturesMatrixBuilder,
-    >(target_env, vec![content])
+    >(target_env, vec![content], errors)
     .map_err(|e| {
         let msg = format!("Training the model failed: {:?}", e);
         emit(msg.clone().into());
