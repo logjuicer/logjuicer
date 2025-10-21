@@ -82,6 +82,27 @@ where
         Ok(())
     }
 
+    #[tracing::instrument(level = "debug", name = "Trainer::add_errors", skip_all)]
+    pub fn add_errors<R: Read>(
+        &mut self,
+        config: &TargetConfig,
+        reader: LinesIterator<R>,
+    ) -> Result<()> {
+        let skip_lines = Arc::new(Mutex::new(None));
+        let mut errors = crate::errors::ErrorsProcessor::new(reader, false, skip_lines, config);
+        for anomaly in errors.by_ref() {
+            let tokens = logjuicer_tokenizer::process(&anomaly?.anomaly.line);
+
+            if self.skip_lines.insert(&tokens) {
+                self.builder.add(&tokens);
+            }
+        }
+        self.line_count += errors.line_count;
+        self.byte_count += errors.byte_count;
+        tracing::debug!(skip_lines = self.skip_lines.len(), "added one source");
+        Ok(())
+    }
+
     pub fn build(self) -> IB::Reader {
         self.builder.build()
     }
