@@ -6,6 +6,7 @@ next-version
 - model: add support for golang default timestamps.
 - model: parse timestamp from the surrounding context when necessary.
 - errors: handle kubernetes status errors.
+- api: errors report can now be filtered using baseline discovery.
 
 0.15.0
 ======
