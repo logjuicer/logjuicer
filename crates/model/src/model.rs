@@ -747,6 +747,44 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
             total_anomaly_count: counters.anomaly_count,
         })
     }
+
+    /// Create the final report.
+    #[tracing::instrument(level = "debug", skip(env, self))]
+    pub fn report_errors(&self, env: &TargetEnv, target: Content) -> Result<Report> {
+        // Generate a standard errors report.
+        let mut report = errors::errors_report(env, target)?;
+        // Then filter the errors using the model indexes
+        let mut filtered_lr = vec![];
+        let mut anomaly_count = 0;
+        for mut lr in report.log_reports {
+            match self.indexes.get(&lr.index_name) {
+                Some(index) => {
+                    let fresh_anomalies = filter::filter_anomalies(&index.index, lr.anomalies);
+                    if !fresh_anomalies.is_empty() {
+                        // Add the index report
+                        if !report.index_reports.contains_key(&lr.index_name) {
+                            report
+                                .index_reports
+                                .insert(lr.index_name.clone(), index.to_report());
+                        };
+                        // Replace the anomalies with the new set
+                        lr.anomalies = fresh_anomalies;
+                        anomaly_count += lr.anomalies.len();
+                        filtered_lr.push(lr);
+                    }
+                }
+                None => {
+                    anomaly_count += lr.anomalies.len();
+                    filtered_lr.push(lr);
+                }
+            }
+        }
+        // Update the report with the filtered results.
+        report.baselines = self.baselines.clone();
+        report.log_reports = filtered_lr;
+        report.total_anomaly_count = anomaly_count;
+        Ok(report)
+    }
 }
 
 impl<IR: IndexReader + Serialize + serde::de::DeserializeOwned> Model<IR> {
