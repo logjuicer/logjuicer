@@ -74,8 +74,6 @@ pub struct ErrorsProcessor<'a, R: Read> {
     history: History,
     /// The list of unique log lines, to avoid searching a line twice.
     skip_lines: Arc<Mutex<Option<KnownLines>>>,
-    /// Indicate if run-logjuicer needs to be checked
-    is_job_output: bool,
     /// Total lines count
     pub line_count: usize,
     /// Total bytes count
@@ -99,7 +97,6 @@ impl<R: Read> Iterator for ErrorsProcessor<'_, R> {
 impl<'a, R: Read> ErrorsProcessor<'a, R> {
     pub fn new(
         reader: LinesIterator<R>,
-        is_job_output: bool,
         skip_lines: Arc<Mutex<Option<KnownLines>>>,
         config: &'a TargetConfig,
     ) -> ErrorsProcessor<'a, R> {
@@ -109,7 +106,6 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
             current_anomaly: None,
             next_anomaly: None,
             history: History::new(),
-            is_job_output,
             skip_lines,
             config,
             line_count: 0,
@@ -129,11 +125,6 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
             let raw_str = std::str::from_utf8(&line.0[..])
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             let log_pos = line.1;
-
-            // Special check to break when we are processing ourself
-            if self.is_job_output && raw_str.contains("TASK [run-logjuicer") {
-                break;
-            }
 
             let is_error = match self.parser.parse(raw_str) {
                 logjuicer_errors::Result::NoError => false,
@@ -155,12 +146,9 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
             }
 
             if is_error {
-                // Maybe skip lines, ignoring the one with no information, like when ending with 'FAILED! =>'
-                if !raw_str.ends_with("FAILED! => ") {
-                    if let Some(ref mut skip_lines) = *self.skip_lines.lock().unwrap() {
-                        if !skip_lines.insert(&logjuicer_tokenizer::process(raw_str)) {
-                            continue;
-                        }
+                if let Some(ref mut skip_lines) = *self.skip_lines.lock().unwrap() {
+                    if !skip_lines.insert(&logjuicer_tokenizer::process(raw_str)) {
+                        continue;
                     }
                 }
                 // Parse timestamp from current line
@@ -239,7 +227,7 @@ fn test_errors_processor() {
     );
     let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
     let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
-    let processor = ErrorsProcessor::new(reader, false, skip_lines, config);
+    let processor = ErrorsProcessor::new(reader, skip_lines, config);
     let mut anomalies = Vec::new();
     for anomaly in processor {
         anomalies.push(anomaly.unwrap())
@@ -273,7 +261,7 @@ fn test_errors_timestamps() {
     );
     let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
     let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
-    let processor = ErrorsProcessor::new(reader, false, skip_lines, config);
+    let processor = ErrorsProcessor::new(reader, skip_lines, config);
     let mut anomalies = Vec::new();
     for anomaly in processor {
         anomalies.push(anomaly.unwrap())
@@ -298,18 +286,13 @@ pub fn get_errors_processor<'a, 'b>(
     reader: DecompressReader<'b>,
 ) -> Result<ErrorsProcessor<'a, crate::reader::DecompressReader<'b>>> {
     let reader = LinesIterator::new(source, reader)?;
-    let is_job_output = if let Some((_, file_name)) = source.as_str().rsplit_once('/') {
-        file_name.starts_with("job-output")
+    let skip_lines = if source.is_ansible() {
+        Arc::new(Mutex::new(None))
     } else {
-        false
+        skip_lines
     };
     env.set_current(source);
-    Ok(ErrorsProcessor::new(
-        reader,
-        is_job_output,
-        skip_lines,
-        env.config,
-    ))
+    Ok(ErrorsProcessor::new(reader, skip_lines, env.config))
 }
 
 /// Create the final report.

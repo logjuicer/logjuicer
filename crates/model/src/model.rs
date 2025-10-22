@@ -249,7 +249,7 @@ impl<IR: IndexReader> Index<IR> {
             Ok(reader) => {
                 env.set_current(source);
                 let result = if errors {
-                    trainer.add_errors(env.config, reader)
+                    trainer.add_errors(env.config, source, reader)
                 } else {
                     trainer.add(env.config, reader)
                 };
@@ -496,7 +496,9 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
                 match Index::train(env, builder, IndexSource::Bundle(sources), errors) {
                     Some(index) => Some((index_name, index)),
                     None => {
-                        tracing::error!("{}: empty index", index_name);
+                        if !errors {
+                            tracing::error!("{}: empty index", index_name);
+                        }
                         None
                     }
                 }
@@ -759,7 +761,8 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
         for mut lr in report.log_reports {
             match self.indexes.get(&lr.index_name) {
                 Some(index) => {
-                    let fresh_anomalies = filter::filter_anomalies(&index.index, lr.anomalies);
+                    let fresh_anomalies =
+                        filter::filter_anomalies(&index.index, &lr.source, lr.anomalies);
                     if !fresh_anomalies.is_empty() {
                         // Add the index report
                         if !report.index_reports.contains_key(&lr.index_name) {
