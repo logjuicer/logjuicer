@@ -14,7 +14,7 @@ use crate::timestamps::TS;
 use crate::unordered::KnownLines;
 use logjuicer_index::traits::*;
 use logjuicer_iterator::LogLine;
-use logjuicer_report::{Anomaly, AnomalyContext, Epoch};
+use logjuicer_report::{Anomaly, AnomalyContext, Epoch, Source};
 
 // The minimum distance for a line to be considered anomalous
 pub(crate) const THRESHOLD: logjuicer_index::F = 0.3;
@@ -86,13 +86,25 @@ where
     pub fn add_errors<R: Read>(
         &mut self,
         config: &TargetConfig,
+        source: &Source,
         reader: LinesIterator<R>,
     ) -> Result<()> {
-        let skip_lines = Arc::new(Mutex::new(None));
-        let mut errors = crate::errors::ErrorsProcessor::new(reader, false, skip_lines, config);
+        let mut add_before = false;
+        let skip_lines = Arc::new(Mutex::new(if source.is_ansible() {
+            add_before = true;
+            None
+        } else {
+            Some(KnownLines::new())
+        }));
+        let mut errors = crate::errors::ErrorsProcessor::new(reader, skip_lines, config);
         for anomaly in errors.by_ref() {
-            let tokens = logjuicer_tokenizer::process(&anomaly?.anomaly.line);
-
+            let anomaly = anomaly?;
+            if add_before {
+                for line in &anomaly.before {
+                    self.builder.add(&logjuicer_tokenizer::process(line))
+                }
+            }
+            let tokens = logjuicer_tokenizer::process(&anomaly.anomaly.line);
             if self.skip_lines.insert(&tokens) {
                 self.builder.add(&tokens);
             }

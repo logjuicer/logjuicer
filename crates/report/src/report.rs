@@ -479,6 +479,13 @@ impl Source {
     pub fn from_pathbuf(p: PathBuf) -> Source {
         Source::RawFile(SourceLoc::from_pathbuf(p))
     }
+    pub fn is_ansible(&self) -> bool {
+        if let Some((_, file_name)) = self.as_str().rsplit_once('/') {
+            file_name.starts_with("job-output") || file_name.contains("ansible")
+        } else {
+            false
+        }
+    }
 }
 
 impl SourceLoc {
