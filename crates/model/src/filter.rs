@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use logjuicer_index::{
-    traits::{IndexBuilder as _, IndexReader as _},
+    traits::{IndexBuilder as _, IndexReader},
     FeaturesMatrix, FeaturesMatrixBuilder,
 };
 use logjuicer_report::{AnomalyContext, IndexName, Report};
@@ -31,7 +31,10 @@ fn index_baselines(baselines: &[Report]) -> Baselines {
 }
 
 // Filter anomalies not found in the model
-fn filter_anomalies(index: &FeaturesMatrix, anomalies: Vec<AnomalyContext>) -> Vec<AnomalyContext> {
+pub fn filter_anomalies<IR: IndexReader>(
+    index: &IR,
+    anomalies: Vec<AnomalyContext>,
+) -> Vec<AnomalyContext> {
     let mut lines = Vec::with_capacity(anomalies.len());
     for anomaly in &anomalies {
         lines.push(logjuicer_tokenizer::process(&anomaly.anomaly.line));
