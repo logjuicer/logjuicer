@@ -281,9 +281,21 @@ fn get_zuul_api_url(url: &'_ Url) -> Option<Result<(ApiUrl, &'_ str)>> {
     })
 }
 
+fn check_build_url(build: zuul_build::Build) -> Result<zuul_build::Build> {
+    if build.log_url.is_none() || build.ref_url.is_none() {
+        Err(anyhow::anyhow!("input build has no log_url"))
+    } else {
+        Ok(build)
+    }
+}
+
 pub fn content_from_zuul_url(env: &Env, url: &Url) -> Option<Result<Content>> {
     get_zuul_api_url(url).map(|res| {
-        res.and_then(|(api, uid)| get_build(env, &api, uid).map(|build| new_content(api, build)))
+        res.and_then(|(api, uid)| {
+            get_build(env, &api, uid)
+                .and_then(check_build_url)
+                .map(|build| new_content(api, build))
+        })
     })
 }
 
