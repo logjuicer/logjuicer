@@ -2,6 +2,7 @@ next-version
 ============
 
 - iterator: handle xml files without line return.
+- errors: handle more failure message.
 
 0.15.1
 ======
