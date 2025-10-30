@@ -458,9 +458,6 @@ impl Source {
             Source::RawFile(b) => b.older_than(date),
         }
     }
-    pub fn is_json(&'_ self) -> bool {
-        self.get_relative().ends_with(".json")
-    }
     pub fn is_tarfile(&self) -> Option<Arc<SourceLoc>> {
         match self {
             Source::TarFile(b, _, _) => Some(b.clone()),

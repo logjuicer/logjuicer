@@ -13,7 +13,7 @@ use crate::source::LinesIterator;
 use crate::timestamps::TS;
 use crate::unordered::KnownLines;
 use logjuicer_index::traits::*;
-use logjuicer_iterator::LogLine;
+use logjuicer_iterator::{FileType, LogLine};
 use logjuicer_report::{Anomaly, AnomalyContext, Epoch, Source};
 
 // The minimum distance for a line to be considered anomalous
@@ -49,12 +49,12 @@ where
     /// Index a single reader
     pub fn single<R: Read>(
         builder: IB,
-        is_json: bool,
+        file_type: FileType,
         config: &TargetConfig,
         read: R,
     ) -> Result<IB::Reader> {
         let mut trainer = IndexTrainer::new(builder);
-        let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(read, is_json));
+        let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(read, file_type));
         trainer.add(config, reader)?;
         Ok(trainer.build())
     }
@@ -479,7 +479,7 @@ fn test_leftovers() {
     let index = logjuicer_index::index_mat(&[]);
     let mut skip_lines = Some(KnownLines::new());
     let reader = std::io::Cursor::new("");
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(reader, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(reader));
     let skip_lines = (&mut skip_lines, Arc::new(Mutex::new(None)));
     let mut cp = ChunkProcessor::new(reader, &index, false, skip_lines, config, None);
 
@@ -541,7 +541,7 @@ fn test_chunk_processor() {
     let baseline = std::io::Cursor::new(["001: regular log line", "in-between line"].join("\n"));
 
     let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default());
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(baseline, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(baseline));
     trainer.add(&TargetConfig::default(), reader).unwrap();
     let index = trainer.build();
 
@@ -558,7 +558,7 @@ fn test_chunk_processor() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
     let skip_lines = (&mut skip_lines, Arc::new(Mutex::new(None)));
     let processor = ChunkProcessor::new(reader, &index, false, skip_lines, config, None);
     for anomaly in processor {
@@ -618,7 +618,7 @@ fn test_extended_context() {
     );
 
     let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default());
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(baseline, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(baseline));
     trainer.add(config, reader).unwrap();
     let index = trainer.build();
 
@@ -641,7 +641,7 @@ fn test_extended_context() {
     );
     let mut anomalies = Vec::new();
     let mut skip_lines = Some(KnownLines::new());
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
     let skip_lines = (&mut skip_lines, Arc::new(Mutex::new(None)));
     let processor = ChunkProcessor::new(reader, &index, false, skip_lines, config, None);
     for anomaly in processor {
@@ -715,7 +715,7 @@ ignore_patterns:
     let config = cfg.get_target_config(&logjuicer_report::Content::sample("test"));
 
     let mut trainer = IndexTrainer::new(logjuicer_index::FeaturesMatrixBuilder::default());
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(baseline, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(baseline));
     trainer.add(config, reader).unwrap();
     let index = trainer.build();
     let data = std::io::Cursor::new(
@@ -728,7 +728,7 @@ ignore_patterns:
         .join("\n"),
     );
     let mut skip_lines = Some(KnownLines::new());
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
     let skip_lines = (&mut skip_lines, Arc::new(Mutex::new(None)));
     let processor = ChunkProcessor::new(reader, &index, false, skip_lines, config, None);
     let anomalies = processor.into_iter().collect::<Vec<_>>();

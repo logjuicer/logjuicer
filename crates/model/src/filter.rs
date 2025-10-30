@@ -85,7 +85,7 @@ nop
 "#,
     );
     let reader =
-        crate::source::LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
+        crate::source::LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
     let skip_lines = std::sync::Arc::new(std::sync::Mutex::new(None));
     let processor = crate::errors::ErrorsProcessor::new(reader, skip_lines, config);
     let anomalies = processor
@@ -138,9 +138,7 @@ nop
         .add_errors(
             config,
             &source,
-            crate::source::LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(
-                baseline, false,
-            )),
+            crate::source::LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(baseline)),
         )
         .expect("it indexs");
 

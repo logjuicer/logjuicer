@@ -1,6 +1,8 @@
 next-version
 ============
 
+- iterator: handle xml files without line return.
+
 0.15.1
 ======
 
