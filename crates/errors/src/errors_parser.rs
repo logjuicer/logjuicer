@@ -172,6 +172,11 @@ fn is_error_line(line: &str) -> bool {
             r#"|^FAIL: "#,
             r#"|^(ERROR|FAILED): "#,
             r#"|\.\.\. FAILED$"#,
+            // test_results.xml
+            r#"|^<(failure|error) message="#,
+            r#"|^E       "#,
+            // tobiko
+            r#"|%\] FAILED "#,
             // Go errors
             r#"|\] ERROR: "#,
             // Fluentbit
@@ -270,6 +275,7 @@ exit status 2
             "ovsdb_log(log_fsync3)|WARN|fsync failed (Invalid argument)",
             "BGP: [KTE2S-GTBDA][EC 100663301] INTERFACE_ADDRESS_DEL: Cannot find IF",
             "controller | controller-0 | FAILED | rc=2 >>",
+            "[gw0] [ 97%] FAILED tobiko/tests",
             "job.batch/validate-edpm    Failed     0/1           67m        67m",
             "pod/cinder-backup-0  1/2     CrashLoopBackOff   17 (2m43s ago)   87m"
         ] {
