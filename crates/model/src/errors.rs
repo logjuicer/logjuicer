@@ -226,7 +226,7 @@ fn test_errors_processor() {
 "#,
     );
     let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
     let processor = ErrorsProcessor::new(reader, skip_lines, config);
     let mut anomalies = Vec::new();
     for anomaly in processor {
@@ -260,7 +260,7 @@ fn test_errors_timestamps() {
 "#,
     );
     let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
-    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(data, false));
+    let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
     let processor = ErrorsProcessor::new(reader, skip_lines, config);
     let mut anomalies = Vec::new();
     for anomaly in processor {

@@ -3,6 +3,7 @@
 
 use anyhow::{Context, Result};
 use bytes::Bytes;
+use logjuicer_iterator::FileType;
 use std::{io::Read, sync::Arc};
 
 use crate::{env::Env, journal::JournalLines, reader::DecompressReader};
@@ -33,10 +34,14 @@ impl<'a> LinesIterator<DecompressReader<'a>> {
         let iter = if src.ends_with(".journal") || src.ends_with(".journal~") {
             LinesIterator::Journal(JournalLines::new(reader)?)
         } else {
-            LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(
-                reader,
-                source.is_json(),
-            ))
+            let file_type = if src.ends_with(".json") || src.ends_with(".json.gz") {
+                FileType::Json
+            } else if src.ends_with(".xml") || src.ends_with(".xml.gz") {
+                FileType::Xml
+            } else {
+                FileType::Text
+            };
+            LinesIterator::Bytes(logjuicer_iterator::BytesLines::new(reader, file_type))
         };
         Ok(iter)
     }

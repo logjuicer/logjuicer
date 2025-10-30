@@ -18,7 +18,7 @@
 //! let reader = std::io::Cursor::new("first\nsecond\\nextra");
 //!
 //! // Creates the iterator and unwrap error for assert_eq!.
-//! let mut lines_iter = BytesLines::new(reader, false).map(|l| l.unwrap());
+//! let mut lines_iter = BytesLines::new_text(reader).map(|l| l.unwrap());
 //! assert_eq!(lines_iter.next(), Some(("first".into(), 1)));
 //! assert_eq!(lines_iter.next(), Some(("second".into(), 2)));
 //! assert_eq!(lines_iter.next(), Some(("extra".into(), 2)));
@@ -45,6 +45,15 @@ enum Sep {
     SubLine,
     // A json seperator: '{', '}', ',', '[', ']'
     Json,
+    // A XML seperator: '><'
+    Xml,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum FileType {
+    Text,
+    Json,
+    Xml,
 }
 
 impl Sep {
@@ -54,6 +63,7 @@ impl Sep {
             Sep::NewLine => 1,
             Sep::SubLine => 2,
             Sep::Json => 1,
+            Sep::Xml => 0,
         }
     }
 }
@@ -110,8 +120,10 @@ pub struct BytesLines<R: Read> {
     chunk_size: usize,
     max_line_length: usize,
     split_json: Option<JsonState>,
+    split_xml: bool,
     prev_pos: usize,
     escaped: bool,
+    last_char: char,
 }
 
 struct JsonState {
@@ -139,14 +151,14 @@ impl<R: Read> BytesLines<R> {
     /// When split_json is enabled, every scalar separators are replaced by new lines:
     /// * `[1,2]` becomes `["1", "2"]`
     /// * `{a: b, c: {key:value}` becomes `["a: b", "c: ", "key: value"]`
-    pub fn new(reader: R, split_json: bool) -> BytesLines<R> {
+    pub fn new(reader: R, file_type: FileType) -> BytesLines<R> {
         // TODO: make these configurable
         let chunk_size = 8192;
         let max_line_length = 6000;
-        let split_json = if split_json {
-            Some(JsonState { in_string: false })
-        } else {
-            None
+        let (split_json, split_xml) = match file_type {
+            FileType::Json => (Some(JsonState { in_string: false }), false),
+            FileType::Xml => (None, true),
+            FileType::Text => (None, false),
         };
         BytesLines {
             reader,
@@ -158,7 +170,13 @@ impl<R: Read> BytesLines<R> {
             prev_pos: 0,
             escaped: false,
             split_json,
+            split_xml,
+            last_char: ' ',
         }
+    }
+
+    pub fn new_text(reader: R) -> BytesLines<R> {
+        BytesLines::new(reader, FileType::Text)
     }
 
     // Read a new chunk and call get_slice
@@ -246,12 +264,15 @@ impl<R: Read> BytesLines<R> {
                 None
             } else if c == '\n' || match_ansible_stdout(&slice[self.prev_pos + pos..]) {
                 Some(Sep::NewLine)
+            } else if c == '<' && self.split_xml && self.last_char == '>' {
+                Some(Sep::Xml)
             } else {
                 match self.split_json {
                     Some(ref mut json_state) => match_json_kv(c, json_state),
                     None => None,
                 }
             };
+            self.last_char = c;
             if let Some(sep) = sep {
                 // We found a separator.
                 self.update_line_counter(State::Scanning(sep));
@@ -332,7 +353,7 @@ pub fn clone_bytes_to_string(bytes: &Bytes) -> Option<std::sync::Arc<str>> {
 fn test_iterator() {
     let get_lines = |reader| -> Vec<LogLine> {
         let lines: Result<Vec<LogLine>> =
-            BytesLines::new(std::io::Cursor::new(reader), false).collect();
+            BytesLines::new_text(std::io::Cursor::new(reader)).collect();
         lines.unwrap()
     };
 
@@ -362,7 +383,7 @@ fn test_long_line() {
     input.push_str("first\n");
     // Add real log lines.
     input.push_str("second\nthird\n");
-    let lines: Vec<LogLine> = BytesLines::new(std::io::Cursor::new(input), false)
+    let lines: Vec<LogLine> = BytesLines::new_text(std::io::Cursor::new(input))
         .collect::<Result<Vec<_>>>()
         .unwrap();
     assert_eq!(lines, vec![("second".into(), 2), ("third".into(), 3)])
@@ -371,7 +392,7 @@ fn test_long_line() {
 #[test]
 fn test_ansible_stdout() {
     let input = r#"stdout": "Stopping systemd OpenStack\nERROR: oops", "stdout_lines": ["Stop...", "ERR..."],"#;
-    let lines: Vec<LogLine> = BytesLines::new(std::io::Cursor::new(input), false)
+    let lines: Vec<LogLine> = BytesLines::new_text(std::io::Cursor::new(input))
         .collect::<Result<Vec<_>>>()
         .unwrap();
     assert_eq!(
@@ -391,7 +412,7 @@ fn test_last_line() {
         input.push('a');
     }
     input.push_str("\ntest");
-    let lines: Vec<LogLine> = BytesLines::new(std::io::Cursor::new(input), false)
+    let lines: Vec<LogLine> = BytesLines::new_text(std::io::Cursor::new(input))
         .collect::<Result<Vec<_>>>()
         .unwrap();
     assert_eq!(lines.len(), 1)
@@ -401,7 +422,7 @@ fn test_last_line() {
 fn test_json_iterator() {
     let get_lines = |reader| -> Vec<LogLine> {
         let lines: Result<Vec<LogLine>> =
-            BytesLines::new(std::io::Cursor::new(reader), true).collect();
+            BytesLines::new(std::io::Cursor::new(reader), FileType::Json).collect();
         lines.unwrap()
     };
 
