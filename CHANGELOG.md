@@ -1,6 +1,9 @@
 next-version
 ============
 
+0.16.0
+======
+
 - errors: context size is now configurable through the api
 
 0.15.2
