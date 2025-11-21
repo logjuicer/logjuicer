@@ -134,7 +134,7 @@ Second good line
     let baseline = get_job_url(&baseline);
     let rid = workers
         .db
-        .initialize_report(&target, &baseline, false)
+        .initialize_report(&target, &baseline, false, 3)
         .await
         .unwrap();
     workers.submit(
@@ -154,7 +154,7 @@ Second good line
     let target2 = get_job_url(&target2);
     let rid2 = workers
         .db
-        .initialize_report(&target2, &baseline, false)
+        .initialize_report(&target2, &baseline, false, 3)
         .await
         .unwrap();
     workers.submit(rid2, ReportRequest::new_request(target, baseline));
@@ -249,7 +249,7 @@ Oops this is an error
     let baseline = get_job_url(&baseline);
     let rid = workers
         .db
-        .initialize_report(&target, &baseline, false)
+        .initialize_report(&target, &baseline, false, 3)
         .await
         .unwrap();
     workers.submit(rid, ReportRequest::new_request(target, baseline));

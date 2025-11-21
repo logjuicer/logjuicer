@@ -226,12 +226,14 @@ impl Db {
         target: &str,
         baseline: &str,
         errors: bool,
+        context: u32,
     ) -> sqlx::Result<Option<(ReportID, ReportStatus)>> {
         sqlx::query!(
-            "select id, status from reports where target = ? and baseline = ? and errors = ?",
+            "select id, status from reports where target = ? and baseline = ? and errors = ? and context >= ?",
             target,
             baseline,
-            errors
+            errors,
+            context,
         )
         .map(|row| (row.id.into(), row.status.into()))
         .fetch_optional(&self.pool)
@@ -279,19 +281,21 @@ impl Db {
         target: &str,
         baseline: &str,
         errors: bool,
+        context: u32,
     ) -> sqlx::Result<ReportID> {
         let now_utc = Utc::now();
         let status = ReportStatus::Pending.as_str();
         let id = sqlx::query!(
-            "insert into reports (created_at, updated_at, target, baseline, anomaly_count, status, errors)
-                      values (?, ?, ?, ?, ?, ?, ?)",
+            "insert into reports (created_at, updated_at, target, baseline, anomaly_count, status, errors, context)
+                      values (?, ?, ?, ?, ?, ?, ?, ?)",
             now_utc,
             now_utc,
             target,
             baseline,
             0,
             status,
-            errors
+            errors,
+            context,
         )
         .execute(&self.pool)
         .await?

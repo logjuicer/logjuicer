@@ -141,6 +141,7 @@ pub struct NewReportQuery {
     pub target: String,
     pub baseline: Option<String>,
     pub errors: Option<bool>,
+    pub context: Option<u32>,
 }
 
 pub async fn report_new(
@@ -148,10 +149,11 @@ pub async fn report_new(
     Query(args): Query<NewReportQuery>,
 ) -> Result<Json<(ReportID, ReportStatus)>> {
     let errors = args.errors.unwrap_or(false);
+    let context = args.context.unwrap_or(3);
     let baseline = args.baseline.as_deref().unwrap_or("auto");
     let report = workers
         .db
-        .lookup_report(&args.target, baseline, errors)
+        .lookup_report(&args.target, baseline, errors, context)
         .await
         .map_err(handle_db_error)?;
     match report {
@@ -160,7 +162,7 @@ pub async fn report_new(
             tracing::info!(target = args.target, "Creating a new report");
             let report_id = workers
                 .db
-                .initialize_report(&args.target, baseline, errors)
+                .initialize_report(&args.target, baseline, errors, context)
                 .await
                 .map_err(handle_db_error)?;
             workers.submit(report_id, ReportRequest::NewReport(args));
@@ -181,6 +183,7 @@ impl ReportRequest {
             target,
             baseline: Some(baseline),
             errors: None,
+            context: None,
         })
     }
     pub(crate) fn is_errors(&self) -> bool {
@@ -221,7 +224,7 @@ pub async fn similarity_new(
 ) -> Result<Json<(ReportID, ReportStatus)>> {
     let report = workers
         .db
-        .lookup_report("similarity", &args.reports, false)
+        .lookup_report("similarity", &args.reports, false, 3)
         .await
         .map_err(handle_db_error)?;
     match report {
@@ -232,7 +235,7 @@ pub async fn similarity_new(
                 .map_err(|e| (StatusCode::SERVICE_UNAVAILABLE, e))?;
             let report_id = workers
                 .db
-                .initialize_report("similarity", &args.reports, false)
+                .initialize_report("similarity", &args.reports, false, 3)
                 .await
                 .map_err(handle_db_error)?;
             workers.submit(report_id, ReportRequest::NewSimilarity(rids));

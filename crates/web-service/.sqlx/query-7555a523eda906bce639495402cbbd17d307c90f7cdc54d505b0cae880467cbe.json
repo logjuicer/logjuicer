@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "insert into reports (created_at, updated_at, target, baseline, anomaly_count, status, errors, context)\n                      values (?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "7555a523eda906bce639495402cbbd17d307c90f7cdc54d505b0cae880467cbe"
+}
