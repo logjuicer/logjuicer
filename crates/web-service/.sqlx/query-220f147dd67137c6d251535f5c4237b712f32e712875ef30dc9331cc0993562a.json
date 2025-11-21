@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "select id, status from reports where target = ? and baseline = ? and errors = ?",
+  "query": "select id, status from reports where target = ? and baseline = ? and errors = ? and context >= ?",
   "describe": {
     "columns": [
       {
@@ -15,12 +15,12 @@
       }
     ],
     "parameters": {
-      "Right": 3
+      "Right": 4
     },
     "nullable": [
       false,
       false
     ]
   },
-  "hash": "c82af2a257b8b2b6cc85d21f1ed9300a2c83a02d13777c24691969835a6934f1"
+  "hash": "220f147dd67137c6d251535f5c4237b712f32e712875ef30dc9331cc0993562a"
 }

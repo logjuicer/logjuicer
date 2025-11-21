@@ -56,6 +56,7 @@ pub struct TargetEnv<'a> {
     pub config: &'a TargetConfig,
     pub gl: &'a Env,
     pub current: Option<CurrentTarget>,
+    pub context_length: usize,
 }
 
 impl TargetEnv<'_> {
@@ -107,17 +108,19 @@ impl EnvConfig {
     pub fn get_target_env_with_current<'a>(
         &'a self,
         target: &Content,
+        context_length: usize,
         current: Option<CurrentTarget>,
     ) -> TargetEnv<'a> {
         TargetEnv {
             config: self.config.get_target_config(target),
             gl: &self.gl,
             current,
+            context_length,
         }
     }
 
     pub fn get_target_env<'a>(&'a self, target: &Content) -> TargetEnv<'a> {
-        self.get_target_env_with_current(target, None)
+        self.get_target_env_with_current(target, 3, None)
     }
 
     /// Helper function to debug

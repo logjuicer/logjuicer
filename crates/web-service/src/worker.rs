@@ -262,17 +262,27 @@ fn process_report_safe(
         ReportRequest::NewSimilarity(rids) => {
             process_similarity(penv, rids).map(ReportResult::NewSimilarity)
         }
-        ReportRequest::NewReport(args) => match args.errors {
-            Some(true) => process_errors_report(penv, env, &args.target, args.baseline.as_deref()),
-            Some(false) | None => process_report(
-                penv,
-                env,
-                &args.target,
-                args.baseline.as_deref(),
-                args.errors.is_none(),
-            ),
+        ReportRequest::NewReport(args) => {
+            let context_length = args.context.unwrap_or(3) as usize;
+            match args.errors {
+                Some(true) => process_errors_report(
+                    penv,
+                    env,
+                    context_length,
+                    &args.target,
+                    args.baseline.as_deref(),
+                ),
+                Some(false) | None => process_report(
+                    penv,
+                    env,
+                    context_length,
+                    &args.target,
+                    args.baseline.as_deref(),
+                    args.errors.is_none(),
+                ),
+            }
+            .map(ReportResult::NewReport)
         }
-        .map(ReportResult::NewReport),
     })) {
         Ok(res) => res,
         Err(err) => Err(format!(
@@ -301,18 +311,20 @@ fn process_similarity(
 fn process_errors_report(
     penv: &ProcessEnv,
     env: &EnvConfig,
+    context_length: usize,
     target: &str,
     baseline: Option<&str>,
 ) -> Result<Report, String> {
     let monitor = &penv.monitor;
     monitor.emit(format!("Running `logjuicer errors {}`", target).into());
     let content = resolve_content(penv, env, target)?;
-    do_process_errors_report(penv, env, content, Some(baseline))
+    do_process_errors_report(penv, env, context_length, content, Some(baseline))
 }
 
 fn do_process_errors_report(
     penv: &ProcessEnv,
     env: &EnvConfig,
+    context_length: usize,
     content: Content,
     baseline: Option<Option<&str>>,
 ) -> Result<Report, String> {
@@ -336,7 +348,11 @@ fn do_process_errors_report(
             }
         },
     });
-    let target_env = env.get_target_env_with_current(&content, Some(penv.monitor.current.clone()));
+    let target_env = env.get_target_env_with_current(
+        &content,
+        context_length,
+        Some(penv.monitor.current.clone()),
+    );
     if let Some(baselines) = baselines {
         monitor.emit(format!("Baseline found: {}", baselines.iter().format(", ")).into());
         let model: ModelF = process_models(penv, &target_env, baselines, true)?;
@@ -370,6 +386,7 @@ fn resolve_content(penv: &ProcessEnv, env: &EnvConfig, target: &str) -> Result<C
 fn process_report(
     penv: &ProcessEnv,
     env: &EnvConfig,
+    context_length: usize,
     target: &str,
     baseline: Option<&str>,
     auto_error: bool,
@@ -394,7 +411,7 @@ fn process_report(
             Err(e) if auto_error => {
                 monitor
                     .emit(format!("discovery failed: {:?}, performing an errors report", e).into());
-                return do_process_errors_report(penv, env, content, None);
+                return do_process_errors_report(penv, env, context_length, content, None);
             }
             Err(e) => {
                 return Err(format!("discovery failed: {:?}", e));
@@ -409,7 +426,8 @@ fn process_report(
         baselines.iter().try_for_each(check_content)?;
     }
 
-    let target_env = env.get_target_env_with_current(&content, Some(monitor.current.clone()));
+    let target_env =
+        env.get_target_env_with_current(&content, context_length, Some(monitor.current.clone()));
     let model: ModelF = process_models(penv, &target_env, baselines, false)?;
 
     monitor.emit("Starting analysis".into());

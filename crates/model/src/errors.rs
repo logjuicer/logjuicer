@@ -21,27 +21,33 @@ use crate::{config::TargetConfig, unordered::KnownLines};
 use logjuicer_report::{Anomaly, AnomalyContext, Content, Epoch, LogReport, Report, Source};
 
 /// A structure to hold the context
-struct History(VecDeque<Bytes>);
+struct History {
+    size: usize,
+    data: VecDeque<Bytes>,
+}
 
 impl History {
-    fn new() -> History {
-        History(VecDeque::with_capacity(crate::process::CTX_LENGTH))
+    fn new(size: usize) -> History {
+        History {
+            size,
+            data: VecDeque::with_capacity(size),
+        }
     }
     fn push(&mut self, b: Bytes) {
         // TODO: use truncate_front(3) when stablizied
-        while self.0.len() >= 3 {
-            self.0.pop_front();
+        while self.data.len() >= self.size {
+            self.data.pop_front();
         }
-        self.0.push_back(b);
+        self.data.push_back(b);
     }
     fn drain(&mut self) -> Vec<Arc<str>> {
-        self.0
+        self.data
             .drain(..)
             .map(|b| logjuicer_iterator::clone_bytes_to_string(&b).unwrap())
             .collect()
     }
     fn last_timestamp(&self) -> Option<crate::timestamps::TS> {
-        for bytes in &self.0 {
+        for bytes in &self.data {
             if let Ok(s) = std::str::from_utf8(&bytes[..]) {
                 if let Some(ts) = crate::timestamps::parse_timestamp(s) {
                     return Some(ts);
@@ -54,7 +60,7 @@ impl History {
 
 #[test]
 fn test_history() {
-    let mut h = History::new();
+    let mut h = History::new(3);
     for i in ["a", "b", "c", "d"] {
         h.push(i.into())
     }
@@ -97,6 +103,7 @@ impl<R: Read> Iterator for ErrorsProcessor<'_, R> {
 impl<'a, R: Read> ErrorsProcessor<'a, R> {
     pub fn new(
         reader: LinesIterator<R>,
+        context_length: usize,
         skip_lines: Arc<Mutex<Option<KnownLines>>>,
         config: &'a TargetConfig,
     ) -> ErrorsProcessor<'a, R> {
@@ -105,7 +112,7 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
             parser: logjuicer_errors::State::new(),
             current_anomaly: None,
             next_anomaly: None,
-            history: History::new(),
+            history: History::new(context_length),
             skip_lines,
             config,
             line_count: 0,
@@ -131,7 +138,7 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
                 logjuicer_errors::Result::Error => true,
                 logjuicer_errors::Result::NeedMore => {
                     // Accumulate the current line in the history
-                    self.history.0.push_back(line.0.clone());
+                    self.history.data.push_back(line.0.clone());
                     // If there was an on-going anomaly context, return it now
                     if self.current_anomaly.is_some() {
                         break;
@@ -227,7 +234,7 @@ fn test_errors_processor() {
     );
     let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
     let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
-    let processor = ErrorsProcessor::new(reader, skip_lines, config);
+    let processor = ErrorsProcessor::new(reader, 3, skip_lines, config);
     let mut anomalies = Vec::new();
     for anomaly in processor {
         anomalies.push(anomaly.unwrap())
@@ -261,7 +268,7 @@ fn test_errors_timestamps() {
     );
     let skip_lines = Arc::new(Mutex::new(Some(KnownLines::new())));
     let reader = LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
-    let processor = ErrorsProcessor::new(reader, skip_lines, config);
+    let processor = ErrorsProcessor::new(reader, 3, skip_lines, config);
     let mut anomalies = Vec::new();
     for anomaly in processor {
         anomalies.push(anomaly.unwrap())
@@ -292,7 +299,12 @@ pub fn get_errors_processor<'a, 'b>(
         skip_lines
     };
     env.set_current(source);
-    Ok(ErrorsProcessor::new(reader, skip_lines, env.config))
+    Ok(ErrorsProcessor::new(
+        reader,
+        env.context_length,
+        skip_lines,
+        env.config,
+    ))
 }
 
 /// Create the final report.

@@ -96,7 +96,7 @@ where
         } else {
             Some(KnownLines::new())
         }));
-        let mut errors = crate::errors::ErrorsProcessor::new(reader, skip_lines, config);
+        let mut errors = crate::errors::ErrorsProcessor::new(reader, 3, skip_lines, config);
         for anomaly in errors.by_ref() {
             let anomaly = anomaly?;
             if add_before {

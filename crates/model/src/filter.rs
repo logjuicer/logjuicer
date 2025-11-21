@@ -87,7 +87,7 @@ nop
     let reader =
         crate::source::LinesIterator::Bytes(logjuicer_iterator::BytesLines::new_text(data));
     let skip_lines = std::sync::Arc::new(std::sync::Mutex::new(None));
-    let processor = crate::errors::ErrorsProcessor::new(reader, skip_lines, config);
+    let processor = crate::errors::ErrorsProcessor::new(reader, 3, skip_lines, config);
     let anomalies = processor
         .into_iter()
         .collect::<Result<Vec<_>, _>>()

@@ -262,3 +262,47 @@ Oops this is an error
     // dbg!(&report);
     assert_eq!(report.total_anomaly_count, 0);
 }
+
+#[tokio::test]
+async fn test_api_context() {
+    let mut server = mockito::Server::new_async().await;
+    let env = EnvConfig::new();
+
+    // Create builds results
+    let target = register_build(
+        &mut server,
+        "job-target",
+        r#"
+First good line
+Second
+Third
+Fourth
+FAIL: this is an error
+Last good line
+"#,
+    );
+
+    let tempdir = tempfile::tempdir().unwrap();
+    let temppath = tempdir.path().to_str().unwrap();
+    let workers =
+        crate::worker::Workers::new(true, temppath.into(), DiskSizeLimit::default(), env).await;
+    let target = get_job_url(&target);
+    let rid = workers
+        .db
+        .initialize_report(&target, "auto", true, 3)
+        .await
+        .unwrap();
+    let req = ReportRequest::NewReport(crate::routes::NewReportQuery {
+        target,
+        baseline: None,
+        errors: Some(true),
+        context: Some(4),
+    });
+    workers.submit(rid, req);
+    let logs = workers.wait(rid).await;
+    dbg!(&logs);
+    let report = Report::load(&tempdir.path().join("1.gz")).unwrap();
+    dbg!(&report);
+    assert_eq!(report.total_anomaly_count, 1);
+    assert_eq!(report.log_reports[0].anomalies[0].before.len(), 4)
+}
