@@ -1,7 +1,7 @@
 next-version
 ============
 
-0.16.1
+0.17.0
 ======
 
 - env: add support for LOGJUICER_URL_REWRITE to enable direct query for internal services.
