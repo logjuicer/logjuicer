@@ -51,12 +51,21 @@ fn with_auth<A>(env: &Env, req: ureq::RequestBuilder<A>) -> ureq::RequestBuilder
 }
 
 pub fn head_url(env: &Env, url: &Url) -> Result<bool> {
-    let resp = with_auth(env, env.client.head(url.as_str())).call()?;
+    let mut rewrote = String::new();
+    let mut uri = url.as_str();
+    if env.rewrite_url(&mut rewrote, uri) {
+        uri = &rewrote;
+    }
+    let resp = with_auth(env, env.client.head(uri)).call()?;
     Ok(is_success(resp.status()))
 }
 
 pub fn get_url(env: &Env, url: &Url) -> Result<DecompressReader<'static>> {
-    let uri = url.as_str();
+    let mut rewrote = String::new();
+    let mut uri = url.as_str();
+    if env.rewrite_url(&mut rewrote, uri) {
+        uri = &rewrote;
+    }
     tracing::debug!(url = uri, "Requesting url");
     let resp = with_auth(env, env.client.get(uri)).call()?;
     let reader = RawReader::Remote(resp.into_body().into_reader());

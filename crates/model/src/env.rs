@@ -18,11 +18,23 @@ pub struct Env {
     pub client: ureq::Agent,
     pub output: OutputMode,
     pub auth: Option<(Arc<str>, Arc<str>)>,
+    pub rewrite: Vec<(Arc<str>, Arc<str>)>,
 }
 
 impl Env {
     pub fn new() -> Self {
         Env::new_with_settings(OutputMode::Debug)
+    }
+
+    pub fn rewrite_url(&self, result: &mut String, url: &str) -> bool {
+        for (src, dst) in &self.rewrite {
+            if url.starts_with(src.as_ref()) {
+                result.push_str(dst.as_ref());
+                result.push_str(&url[src.len()..]);
+                return true;
+            }
+        }
+        false
     }
 
     pub fn new_with_settings(output: OutputMode) -> Self {
@@ -34,10 +46,19 @@ impl Env {
             },
             Err(_) => None,
         };
+        let mut rewrite = Vec::new();
+        if let Ok(rules) = std::env::var("LOGJUICER_URL_REWRITE") {
+            for rule in rules.split(';') {
+                if let Some((source, destination)) = rule.split_once('|') {
+                    rewrite.push((Arc::from(source), Arc::from(destination)))
+                }
+            }
+        }
         Env {
             client: new_agent(),
             output,
             auth,
+            rewrite,
         }
     }
     /// Helper function to debug
