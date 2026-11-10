@@ -63,8 +63,7 @@ where
     pub fn add<R: Read>(&mut self, config: &TargetConfig, reader: LinesIterator<R>) -> Result<()> {
         for line in reader {
             let line = line?;
-            let raw_str = std::str::from_utf8(&line.0[..])
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            let raw_str = std::str::from_utf8(&line.0[..]).map_err(std::io::Error::other)?;
             self.line_count += 1;
             self.byte_count += line.0.len();
 
@@ -246,8 +245,7 @@ impl<'a, IR: IndexReader, R: Read> ChunkProcessor<'a, IR, R> {
     fn read_anomalies(&mut self) -> Result<()> {
         while let Some(line) = self.reader.next() {
             let line = line?;
-            let raw_str = std::str::from_utf8(&line.0[..])
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            let raw_str = std::str::from_utf8(&line.0[..]).map_err(std::io::Error::other)?;
             self.line_count += 1;
             self.byte_count += line.0.len();
             self.coord += 1;

@@ -607,7 +607,7 @@ impl<IR: IndexReader + Send + Sync> Model<IR> {
         let read_errors = Mutex::new(Vec::new());
         let counters = Arc::new(Mutex::new(LineCounters::new()));
         let gl_date = Mutex::new(None);
-        let (tarballs, mut groups) = group_sources(env, &[target.clone()])?;
+        let (tarballs, mut groups) = group_sources(env, std::slice::from_ref(&target))?;
         let gl_skip_lines = Arc::new(Mutex::new(env.new_skip_lines()));
         groups
             .drain()

@@ -42,7 +42,7 @@ use regex::Split;
 
 pub mod index_name;
 
-fn words(line: &str) -> Split {
+fn words(line: &str) -> Split<'_, '_> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"([ \t]|\\[nr])+").unwrap();
     }
@@ -236,7 +236,7 @@ fn is_uuid(word: &str) -> bool {
 /// 3 dash separator
 fn has_many_dash(word: &str) -> bool {
     lazy_static! {
-        static ref RE: Regex = Regex::new(concat!("^.+-.+-.+-.")).unwrap();
+        static ref RE: Regex = Regex::new("^.+-.+-.+-.").unwrap();
     }
     RE.is_match(word)
 }
@@ -320,7 +320,7 @@ fn test_is_hash() {
 
 fn is_refs(word: &str) -> bool {
     lazy_static! {
-        static ref RE: Regex = Regex::new(concat!(r"^\w{7}\.\.\w{7}$")).unwrap();
+        static ref RE: Regex = Regex::new(r"^\w{7}\.\.\w{7}$").unwrap();
     }
     word.starts_with("refs/") || word.starts_with("repos/") || RE.is_match(word)
 }

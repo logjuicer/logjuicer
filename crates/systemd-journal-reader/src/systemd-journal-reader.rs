@@ -40,7 +40,7 @@ struct Header {
 }
 
 fn slice2io(e: std::array::TryFromSliceError) -> io::Error {
-    std::io::Error::new(std::io::ErrorKind::Other, e)
+    std::io::Error::other(e)
 }
 
 impl Header {

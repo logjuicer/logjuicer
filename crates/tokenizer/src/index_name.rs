@@ -12,7 +12,7 @@ pub struct IndexName(pub std::sync::Arc<str>);
 
 impl std::fmt::Display for IndexName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.0)
+        write!(f, "{}", self.0)
     }
 }
 
