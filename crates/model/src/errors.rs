@@ -129,8 +129,7 @@ impl<'a, R: Read> ErrorsProcessor<'a, R> {
             let line = line?;
             self.line_count += 1;
             self.byte_count += line.0.len();
-            let raw_str = std::str::from_utf8(&line.0[..])
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            let raw_str = std::str::from_utf8(&line.0[..]).map_err(std::io::Error::other)?;
             let log_pos = line.1;
 
             let is_error = match self.parser.parse(raw_str) {

@@ -17,6 +17,7 @@ fn is_success(code: ureq::http::StatusCode) -> bool {
     (200..400).contains(&code.as_u16())
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum RawReader {
     Local(File),
     Remote(ureq::BodyReader<'static>),

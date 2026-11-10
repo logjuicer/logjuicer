@@ -47,7 +47,7 @@ impl Db {
     fn sub_sizes(&self, value: usize) {
         let _ = self
             .sizes
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |prev| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |prev| {
                 Some(prev.saturating_sub(value))
             });
     }

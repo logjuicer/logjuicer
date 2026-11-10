@@ -192,10 +192,7 @@ fn add_certs(
         if let Ok(ureq::tls::PemItem::Certificate(cert)) = pem {
             root_certs.push(cert)
         } else {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Invalid cert".to_string(),
-            ));
+            return Err(std::io::Error::other("Invalid cert".to_string()));
         }
     }
     Ok(())

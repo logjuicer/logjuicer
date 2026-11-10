@@ -190,7 +190,7 @@ struct ReportMode<'a> {
 }
 
 impl ReportMode<'_> {
-    fn from_cli(report: Option<&PathBuf>, open: bool) -> Result<ReportMode> {
+    fn from_cli(report: Option<&PathBuf>, open: bool) -> Result<ReportMode<'_>> {
         let file = match report {
             Some(path) => Some((path, ReportKind::from_path(path)?)),
             None => None,
@@ -559,11 +559,7 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
                                 }
                                 total_anomaly_count += 1;
                                 let context_size = 1 + anomaly.before.len();
-                                let starting_pos = if anomaly.anomaly.pos > context_size {
-                                    anomaly.anomaly.pos - context_size
-                                } else {
-                                    0
-                                };
+                                let starting_pos = anomaly.anomaly.pos.saturating_sub(context_size);
                                 if let Some(last_pos) = last_pos {
                                     if last_pos < starting_pos {
                                         println!("--");
@@ -576,7 +572,7 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
                                 last_pos = Some(anomaly.anomaly.pos + anomaly.after.len());
                             }
                             Err(err) => {
-                                println!("Could not read {}: {}", &source, err);
+                                println!("Could not read {}: {}", source, err);
                                 break;
                             }
                         }
@@ -585,7 +581,7 @@ fn process_errors_live(env: &TargetEnv, content: &Content) -> Result<()> {
                     total_byte_count += processor.byte_count;
                 }
                 Err(err) => {
-                    println!("Could not read {}: {}", &source, err);
+                    println!("Could not read {}: {}", source, err);
                 }
             }
         })
@@ -743,11 +739,7 @@ fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix
                     let mut print_anomaly = |anomaly: logjuicer_model::AnomalyContext| {
                         total_anomaly_count += 1;
                         let context_size = 1 + anomaly.before.len();
-                        let starting_pos = if anomaly.anomaly.pos > context_size {
-                            anomaly.anomaly.pos - context_size
-                        } else {
-                            0
-                        };
+                        let starting_pos = anomaly.anomaly.pos.saturating_sub(context_size);
                         if let Some(last_pos) = last_pos {
                             if last_pos < starting_pos {
                                 println!("--");
@@ -791,7 +783,7 @@ fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix
                                         print_anomaly(anomaly)
                                     }
                                     Err(err) => {
-                                        println!("Could not read {}: {}", &source, err);
+                                        println!("Could not read {}: {}", source, err);
                                         break;
                                     }
                                 }
@@ -800,7 +792,7 @@ fn process_live(env: &TargetEnv, content: &Content, model: &Model<FeaturesMatrix
                             total_byte_count += processor.byte_count;
                         }
                         Err(err) => {
-                            println!("Could not read {}: {}", &source, err);
+                            println!("Could not read {}: {}", source, err);
                         }
                     }
                 }
